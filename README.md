@@ -13,7 +13,7 @@ npm ci
 npm run dev
 ```
 
-Open [Bookmark Router](http://127.0.0.1:5173). The UI and local API run together, bound to loopback. `bookmarks.json` in the repository is the default working dataset. Set `BOOKMARKS_FILE` to an absolute path to use another file:
+Open [Bookmark Router](http://127.0.0.1:5173). The UI and local API run together, bound to loopback. `bookmarks.json` is the source dataset and remains unchanged. The app creates `bookmarks-working.json` from it on first run and saves review changes to that working copy. The working copy is ignored by Git. Set `BOOKMARKS_FILE` to an absolute path to use a different working file:
 
 ```sh
 BOOKMARKS_FILE=/absolute/path/bookmarks.json npm run dev

@@ -1,13 +1,28 @@
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { constants } from "node:fs";
+import { copyFile } from "node:fs/promises";
 import express from "express";
 import { Store } from "./store";
 import { createApi } from "./api";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const configuredFile = process.env.BOOKMARKS_FILE;
+const file = configuredFile
+  ? resolve(configuredFile)
+  : resolve(root, "../bookmarks-working.json");
+if (!configuredFile) {
+  try {
+    await copyFile(
+      resolve(root, "../bookmarks.json"),
+      file,
+      constants.COPYFILE_EXCL,
+    );
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  }
+}
 const store = new Store(
-  process.env.BOOKMARKS_FILE
-    ? resolve(process.env.BOOKMARKS_FILE)
-    : resolve(root, "../bookmarks.json"),
+  file,
   resolve(root, "backups"),
 );
 await store.read();
