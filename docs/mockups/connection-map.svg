@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960"><defs><pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r=".8" fill="#dedede"/></pattern><clipPath id="appclip"><rect x="14" y="90" width="1412" height="800" rx="5"/></clipPath></defs>
+<rect x="0" y="0" width="1440" height="960" rx="0" fill="#fff" stroke="none" stroke-width="1"/>
+<text x="24" y="35" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="600" fill="#242424" text-anchor="start"><tspan x="24" dy="0">B / Connection map</tspan></text>
+<text x="24" y="62" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#747474" text-anchor="start"><tspan x="24" dy="0">Use a relationship view to compare issue destinations and new proposals without duplicating bookmarks.</tspan></text>
+<text x="1415" y="34" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#747474" text-anchor="end"><tspan x="1415" dy="0">LOW FIDELITY / STRUCTURE ONLY</tspan></text>
+<rect x="14" y="90" width="1412" height="800" rx="5" fill="#f4f4f4" stroke="#242424" stroke-width="1.4"/>
+<g clip-path="url(#appclip)">
+<rect x="15" y="146" width="1410" height="744" rx="0" fill="url(#dots)" stroke="none" stroke-width="1"/>
+<rect x="15" y="91" width="1410" height="56" rx="0" fill="#ffffff" stroke="none" stroke-width="1"/>
+<line x1="14" y1="147" x2="1426" y2="147" stroke="#aeaeae" stroke-width="1"/>
+<text x="35" y="124" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600" fill="#242424" text-anchor="start"><tspan x="35" dy="0">Bookmark Router</tspan></text>
+<text x="220" y="124" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#747474" text-anchor="start"><tspan x="220" dy="0">148 bookmarks  /  29 proposed topics</tspan></text>
+<rect x="700" y="103" width="270" height="30" rx="4" fill="#ffffff" stroke="#d4d4d4" stroke-width="1"/>
+<text x="714" y="123" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#747474" text-anchor="start"><tspan x="714" dy="0">Search bookmarks or issue #</tspan></text>
+<text x="1035" y="123" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#4c4c4c" text-anchor="start"><tspan x="1035" dy="0">0 / 148 complete</tspan></text>
+<rect x="1186" y="103" width="114" height="30" rx="4" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="1243" y="123" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="1243" dy="0">Progress</tspan></text>
+<rect x="1310" y="103" width="96" height="30" rx="4" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="1358" y="123" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="1358" dy="0">Export</tspan></text>
+<rect x="15" y="147" width="111" height="743" rx="0" fill="#ededed" stroke="none" stroke-width="1"/>
+<line x1="126" y1="147" x2="126" y2="890" stroke="#aeaeae" stroke-width="1"/>
+<rect x="31" y="181" width="78" height="60" rx="4" fill="#ffffff" stroke="#242424" stroke-width="1.5"/>
+<path d="M63 192 l0 17 5-5 5 9 4-2-5-8 8-1z" fill="none" stroke="#4c4c4c" stroke-width="1.4"/>
+<text x="70" y="230" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="600" fill="#4c4c4c" text-anchor="middle"><tspan x="70" dy="0">Select</tspan></text>
+<rect x="31" y="262" width="78" height="60" rx="4" fill="none" stroke="#aeaeae" stroke-width="1"/>
+<text x="70" y="291" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="70" dy="0">+</tspan></text>
+<text x="70" y="311" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="70" dy="0">Pan</tspan></text>
+<rect x="31" y="343" width="78" height="60" rx="4" fill="none" stroke="#aeaeae" stroke-width="1"/>
+<line x1="58" y1="358" x2="84" y2="358" stroke="#aeaeae" stroke-width="1"/>
+<line x1="58" y1="364" x2="84" y2="364" stroke="#aeaeae" stroke-width="1"/>
+<line x1="58" y1="370" x2="84" y2="370" stroke="#aeaeae" stroke-width="1"/>
+<text x="70" y="392" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="70" dy="0">Filters</tspan></text>
+<rect x="31" y="424" width="78" height="60" rx="4" fill="none" stroke="#aeaeae" stroke-width="1"/>
+<rect x="58" y="436" width="12" height="12" rx="0" fill="none" stroke="#aeaeae" stroke-width="1"/>
+<rect x="74" y="443" width="12" height="12" rx="0" fill="none" stroke="#aeaeae" stroke-width="1"/>
+<text x="70" y="473" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="70" dy="0">Group by</tspan></text>
+<rect x="31" y="505" width="78" height="60" rx="4" fill="none" stroke="#aeaeae" stroke-width="1"/>
+<text x="70" y="534" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="70" dy="0">↔</tspan></text>
+<text x="70" y="554" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="70" dy="0">Layout</tspan></text>
+<rect x="31" y="586" width="78" height="60" rx="4" fill="none" stroke="#aeaeae" stroke-width="1"/>
+<text x="70" y="615" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="70" dy="0">⋯</tspan></text>
+<text x="70" y="635" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="70" dy="0">Actions</tspan></text>
+<text x="71" y="855" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#747474" text-anchor="middle"><tspan x="71" dy="0">? Help</tspan></text>
+<rect x="154" y="168" width="80" height="30" rx="4" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="194" y="188" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="194" dy="0">Topics</tspan></text>
+<rect x="244" y="168" width="90" height="30" rx="4" fill="#e7e7e7" stroke="#242424" stroke-width="1.5"/>
+<text x="289" y="188" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="600" fill="#4c4c4c" text-anchor="middle"><tspan x="289" dy="0">Connections</tspan></text>
+<rect x="356" y="172" width="286" height="23" rx="3" fill="#f1f1f1" stroke="#d4d4d4" stroke-width="1"/>
+<text x="365" y="188" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#747474" text-anchor="start"><tspan x="365" dy="0">Filter: has existing + proposed alternative</tspan></text>
+<text x="673" y="189" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#747474" text-anchor="start"><tspan x="673" dy="0">4 matches / 148 bookmarks</tspan></text>
+<rect x="428" y="223" width="315" height="237" rx="4" fill="#f9f9f9" stroke="#d4d4d4" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="442" y="245" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="600" fill="#747474" text-anchor="start"><tspan x="442" dy="0">VALIDATION · 2 MATCHES</tspan></text>
+<rect x="428" y="526" width="315" height="242" rx="4" fill="#f9f9f9" stroke="#d4d4d4" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="442" y="548" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="600" fill="#747474" text-anchor="start"><tspan x="442" dy="0">POSITIONING · 2 MATCHES</tspan></text>
+<text x="165" y="244" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#747474" text-anchor="start"><tspan x="165" dy="0">EXISTING ISSUES</tspan></text>
+<text x="804" y="244" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#747474" text-anchor="start"><tspan x="804" dy="0">NEW-ISSUE PROPOSALS</tspan></text>
+<path d="M397 325 C419 325,422 311,444 311" fill="none" stroke="#242424" stroke-width="2" stroke-dasharray="6 5"/>
+<circle cx="397" cy="325" r="3" fill="#ffffff" stroke="#242424" stroke-width="1"/>
+<circle cx="444" cy="311" r="3" fill="#ffffff" stroke="#242424" stroke-width="1"/>
+<path d="M397 346 C419 346,422 404,444 404" fill="none" stroke="#bcbcbc" stroke-width="1.3" stroke-dasharray="6 5"/>
+<circle cx="397" cy="346" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<circle cx="444" cy="404" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<path d="M723 311 C761 311,766 328,804 328" fill="none" stroke="#242424" stroke-width="2" stroke-dasharray="6 5"/>
+<circle cx="723" cy="311" r="3" fill="#ffffff" stroke="#242424" stroke-width="1"/>
+<circle cx="804" cy="328" r="3" fill="#ffffff" stroke="#242424" stroke-width="1"/>
+<path d="M723 404 C761 404,766 369,804 369" fill="none" stroke="#bcbcbc" stroke-width="1.3" stroke-dasharray="6 5"/>
+<circle cx="723" cy="404" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<circle cx="804" cy="369" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<path d="M397 635 C419 635,422 614,444 614" fill="none" stroke="#bcbcbc" stroke-width="1.3" stroke-dasharray="6 5"/>
+<circle cx="397" cy="635" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<circle cx="444" cy="614" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<path d="M397 657 C419 657,422 708,444 708" fill="none" stroke="#bcbcbc" stroke-width="1.3" stroke-dasharray="6 5"/>
+<circle cx="397" cy="657" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<circle cx="444" cy="708" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<path d="M723 614 C761 614,766 638,804 638" fill="none" stroke="#bcbcbc" stroke-width="1.3" stroke-dasharray="6 5"/>
+<circle cx="723" cy="614" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<circle cx="804" cy="638" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<path d="M723 708 C761 708,766 679,804 679" fill="none" stroke="#bcbcbc" stroke-width="1.3" stroke-dasharray="6 5"/>
+<circle cx="723" cy="708" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<circle cx="804" cy="679" r="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<rect x="164" y="280" width="232" height="115" rx="4" fill="#eeeeee" stroke="#8c8c8c" stroke-width="1.4"/>
+<text x="177" y="300" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#747474" text-anchor="start"><tspan x="177" dy="0">EXISTING ISSUE</tspan></text>
+<text x="177" y="323" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#242424" text-anchor="start"><tspan x="177" dy="0">#133 Lean Canvas</tspan></text>
+<text x="177" y="382" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="177" dy="0">2 suggestions · 0 selected</tspan></text>
+<rect x="804" y="280" width="288" height="145" rx="4" fill="#eeeeee" stroke="#8c8c8c" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="817" y="300" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#747474" text-anchor="start"><tspan x="817" dy="0">NEW PROPOSAL</tspan></text>
+<text x="817" y="323" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#242424" text-anchor="start"><tspan x="817" dy="0">Customer discovery and demand</tspan><tspan x="817" dy="18">validation</tspan></text>
+<text x="817" y="412" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="817" dy="0">6 seed sources · issue not created</tspan></text>
+<rect x="164" y="591" width="232" height="140" rx="4" fill="#eeeeee" stroke="#8c8c8c" stroke-width="1.4"/>
+<text x="177" y="611" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#747474" text-anchor="start"><tspan x="177" dy="0">EXISTING ISSUE</tspan></text>
+<text x="177" y="634" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#242424" text-anchor="start"><tspan x="177" dy="0">#136 Package-Driven</tspan><tspan x="177" dy="18">Product Development (PDD)</tspan></text>
+<text x="177" y="718" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="177" dy="0">2 suggestions shown · 0 selected</tspan></text>
+<rect x="804" y="591" width="288" height="145" rx="4" fill="#eeeeee" stroke="#8c8c8c" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="817" y="611" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="600" fill="#747474" text-anchor="start"><tspan x="817" dy="0">NEW PROPOSAL</tspan></text>
+<text x="817" y="634" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#242424" text-anchor="start"><tspan x="817" dy="0">Product positioning and</tspan><tspan x="817" dy="18">differentiation</tspan></text>
+<text x="817" y="723" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="817" dy="0">4 seed sources · issue not created</tspan></text>
+<rect x="444" y="269" width="279" height="83" rx="3" fill="#e7e7e7" stroke="#242424" stroke-width="2"/>
+<rect x="453" y="278" width="13" height="13" rx="1" fill="#e7e7e7" stroke="#242424" stroke-width="1"/>
+<line x1="456" y1="284" x2="459" y2="288" stroke="#242424" stroke-width="1.5"/>
+<line x1="459" y1="288" x2="464" y2="281" stroke="#242424" stroke-width="1.5"/>
+<text x="475" y="289" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#4c4c4c" text-anchor="start"><tspan x="475" dy="0"></tspan></text>
+<text x="473" y="289" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#242424" text-anchor="start"><tspan x="473" dy="0">App market and competitor</tspan><tspan x="473" dy="17">research</tspan></text>
+<text x="456" y="341" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="456" dy="0">substack.com · unreviewed</tspan></text>
+<rect x="444" y="362" width="279" height="83" rx="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="456" y="382" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#242424" text-anchor="start"><tspan x="456" dy="0">External validation for scratching</tspan><tspan x="456" dy="17">your own itch</tspan></text>
+<text x="456" y="434" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="456" dy="0">threads.net · unreviewed</tspan></text>
+<rect x="444" y="570" width="279" height="83" rx="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="456" y="590" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#242424" text-anchor="start"><tspan x="456" dy="0">Making a product idea easier to</tspan><tspan x="456" dy="17">explain</tspan></text>
+<text x="456" y="642" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="456" dy="0">x.com · unreviewed</tspan></text>
+<rect x="444" y="664" width="279" height="83" rx="3" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="456" y="684" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#242424" text-anchor="start"><tspan x="456" dy="0">Eightify’s memorable</tspan><tspan x="456" dy="17">differentiation</tspan></text>
+<text x="456" y="736" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="456" dy="0">twitter.com · unreviewed</tspan></text>
+<rect x="1122" y="172" width="282" height="694" rx="4" fill="#ffffff" stroke="#8a8a8a" stroke-width="1.2"/>
+<text x="1139" y="200" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" fill="#242424" text-anchor="start"><tspan x="1139" dy="0">Selected bookmark</tspan></text>
+<text x="1384" y="199" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="400" fill="#747474" text-anchor="start"><tspan x="1384" dy="0">×</tspan></text>
+<line x1="1122" y1="215" x2="1404" y2="215" stroke="#d4d4d4" stroke-width="1"/>
+<text x="1139" y="242" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="600" fill="#242424" text-anchor="start"><tspan x="1139" dy="0">App market and</tspan><tspan x="1139" dy="22">competitor research</tspan></text>
+<text x="1139" y="294" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="1139" dy="0">Unreviewed · source not opened here</tspan></text>
+<rect x="1139" y="312" width="248" height="36" rx="4" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="1263" y="336" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="1263" dy="0">Open source</tspan></text>
+<text x="1139" y="373" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="1139" dy="0">PROPOSED PRIMARY TOPIC</tspan></text>
+<text x="1139" y="396" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#4c4c4c" text-anchor="start"><tspan x="1139" dy="0">Customer discovery</tspan><tspan x="1139" dy="19">and demand validation</tspan></text>
+<rect x="1139" y="435" width="248" height="36" rx="4" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="1263" y="459" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="1263" dy="0">Approve topic</tspan></text>
+<text x="1139" y="498" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#747474" text-anchor="start"><tspan x="1139" dy="0">Disposition</tspan></text>
+<rect x="1139" y="507" width="248" height="36" rx="4" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="1149" y="530" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#4c4c4c" text-anchor="start"><tspan x="1149" dy="0">Undecided</tspan></text>
+<text x="1372" y="530" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#747474" text-anchor="start"><tspan x="1372" dy="0">v</tspan></text>
+<line x1="1139" y1="560" x2="1387" y2="560" stroke="#d4d4d4" stroke-width="1"/>
+<text x="1139" y="586" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="1139" dy="0">SUGGESTED HOMES</tspan></text>
+<text x="1139" y="612" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#4c4c4c" text-anchor="start"><tspan x="1139" dy="0">#133 Lean Canvas · open</tspan></text>
+<text x="1139" y="632" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#747474" text-anchor="start"><tspan x="1139" dy="0">Useful for canvas assumptions.</tspan></text>
+<rect x="1139" y="647" width="248" height="30" rx="4" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="1263" y="667" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="1263" dy="0">Select existing issue</tspan></text>
+<text x="1139" y="702" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#4c4c4c" text-anchor="start"><tspan x="1139" dy="0">Customer discovery and</tspan><tspan x="1139" dy="17">demand validation · proposal</tspan></text>
+<rect x="1139" y="746" width="248" height="30" rx="4" fill="#ffffff" stroke="#aeaeae" stroke-width="1"/>
+<text x="1263" y="766" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#4c4c4c" text-anchor="middle"><tspan x="1263" dy="0">Select proposed issue</tspan></text>
+<text x="1139" y="801" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#4c4c4c" text-anchor="start"><tspan x="1139" dy="0">Selected destinations: 0</tspan></text>
+<text x="1139" y="827" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="400" fill="#747474" text-anchor="start"><tspan x="1139" dy="0">Confirm placement later, per target.</tspan><tspan x="1139" dy="16">Topic approval does not complete it.</tspan></text>
+<line x1="169" y1="804" x2="209" y2="804" stroke="#242424" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="221" y="809" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#747474" text-anchor="start"><tspan x="221" dy="0">Suggested connection</tspan></text>
+<line x1="418" y1="804" x2="458" y2="804" stroke="#242424" stroke-width="1.5"/>
+<text x="470" y="809" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#747474" text-anchor="start"><tspan x="470" dy="0">Solid when chosen (none yet)</tspan></text>
+<text x="165" y="850" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#747474" text-anchor="start"><tspan x="165" dy="0">Selected card opens a side inspector. Connection lines are suggestions, not confirmed placements.</tspan></text>
+</g>
+<text x="24" y="927" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#4c4c4c" text-anchor="start"><tspan x="24" dy="0">Best for comparing alternative homes. One canonical bookmark card can connect to several destinations.</tspan></text>
+<text x="1414" y="927" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#747474" text-anchor="end"><tspan x="1414" dy="0">Preview only · original data unchanged</tspan></text>
+</svg>
