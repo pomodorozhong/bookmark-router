@@ -30,6 +30,7 @@ export function Inspector({
   pinned,
   pin,
   onDirty,
+  onTopicPreview,
 }: {
   bookmark: Bookmark;
   data: Dataset;
@@ -40,11 +41,18 @@ export function Inspector({
   pinned: boolean;
   pin: () => void;
   onDirty: (value: boolean) => void;
+  onTopicPreview: (
+    value: { id: string; classification: Bookmark["classification"] } | null,
+  ) => void;
 }) {
   const [draft, setDraft] = useState<Bookmark>(() => structuredClone(b)),
     [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
     [destination, setDestination] = useState("");
+  useEffect(() => {
+    onTopicPreview({ id: b.id, classification: draft.classification });
+  }, [draft.classification]);
+  useEffect(() => () => onTopicPreview(null), []);
   const [tagText, setTagText] = useState(b.tags.join(", "));
   useEffect(() => {
     if (!dirty) {

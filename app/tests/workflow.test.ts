@@ -1,3 +1,5 @@
+import { readZoomDetails, zoomDetailDefaults } from "../src/data/zoom-details";
+import { fitLabelledPoints } from "../src/data/viewport";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, writeFile, mkdtemp, readdir, rm } from "node:fs/promises";
@@ -12,12 +14,21 @@ import {
   referenceDrafts,
   today,
 } from "../src/data/selectors";
-import { deriveGraph, settle } from "../src/data/graph";
+import forceAtlas2 from "graphology-layout-forceatlas2";
+import {
+  createLayoutGraph,
+  CENTER_ID,
+  linkedNodeIds,
+  forceSettings,
+  separateOverlaps,
+  deriveGraph,
+  settle,
+} from "../src/data/graph";
 import { validateDataset } from "../server/validation";
 import { Store } from "../server/store";
 import { createApi } from "../server/api";
 const original = JSON.parse(
-  await readFile(new URL("../../bookmarks.json", import.meta.url), "utf8"),
+  await readFile(new URL("./fixtures/bookmarks.json", import.meta.url), "utf8"),
 ) as Dataset;
 const clone = () => structuredClone(original);
 const target = (
@@ -432,4 +443,238 @@ test("HTTP API enforces same origin/token and previews imports without writing",
     server.close();
     await rm(f.dir, { recursive: true, force: true });
   }
+});
+
+test("ForceAtlas2 drag moves connected neighbors while respecting fixed nodes", () => {
+  const nodes = ["dragged", "neighbor", "pinned"].map((id) => ({
+    id,
+    kind: "bookmark" as const,
+    label: id,
+    subtitle: "",
+    count: 0,
+    radius: 10,
+  }));
+  const graph = createLayoutGraph(
+    nodes,
+    [
+      {
+        id: "a",
+        source: "dragged",
+        target: "neighbor",
+        kind: "topic",
+        label: "",
+      },
+      {
+        id: "b",
+        source: "neighbor",
+        target: "pinned",
+        kind: "topic",
+        label: "",
+      },
+    ],
+    {
+      dragged: { x: 0, y: 0 },
+      neighbor: { x: 100, y: 0 },
+      pinned: { x: 200, y: 0, pinned: true },
+    },
+  );
+  assert.equal(graph.getNodeAttribute("neighbor", "fixed"), false);
+  graph.mergeNodeAttributes("dragged", { x: -100, y: 80, fixed: true });
+  forceAtlas2.assign(graph, { iterations: 80, settings: forceSettings });
+  assert.equal(graph.getNodeAttribute("dragged", "x"), -100);
+  assert.equal(graph.getNodeAttribute("dragged", "y"), 80);
+  assert.equal(graph.getNodeAttribute("pinned", "x"), 200);
+  assert.equal(graph.getNodeAttribute("pinned", "y"), 0);
+  assert.ok(
+    Math.hypot(
+      graph.getNodeAttribute("neighbor", "x") - 100,
+      graph.getNodeAttribute("neighbor", "y"),
+    ) > 1,
+  );
+});
+
+test("hidden center tethers orphan hubs and stays out of saved layouts and linked fits", () => {
+  const nodes = ["orphan", "connected", "bubble"].map((id) => ({
+    id,
+    kind: id === "bubble" ? ("bookmark" as const) : ("topic" as const),
+    label: id,
+    subtitle: "",
+    count: 0,
+    radius: 10,
+  }));
+  const edges = [
+    {
+      id: "link",
+      source: "bubble",
+      target: "connected",
+      kind: "topic" as const,
+      label: "",
+    },
+  ];
+  const graph = createLayoutGraph(nodes, edges, {
+    orphan: { x: 10000, y: 10000 },
+    connected: { x: 100, y: 0 },
+    bubble: { x: 150, y: 0 },
+  });
+  assert.equal(graph.getNodeAttribute(CENTER_ID, "hidden"), true);
+  assert.equal(graph.getEdgeAttribute("anchor:orphan", "hidden"), true);
+  assert.deepEqual(linkedNodeIds(graph, ["connected"]).sort(), [
+    "bubble",
+    "connected",
+  ]);
+  assert.deepEqual(linkedNodeIds(graph, ["orphan"]), ["orphan"]);
+  forceAtlas2.assign(graph, { iterations: 500, settings: forceSettings });
+  assert.equal(graph.getNodeAttribute(CENTER_ID, "x"), 0);
+  assert.equal(graph.getNodeAttribute(CENTER_ID, "y"), 0);
+  assert.ok(
+    Math.hypot(
+      graph.getNodeAttribute("orphan", "x"),
+      graph.getNodeAttribute("orphan", "y"),
+    ) < Math.hypot(10000, 10000),
+  );
+  assert.equal(CENTER_ID in settle(nodes, edges), false);
+});
+
+test("linked fit maximizes zoom while accounting for full label bounds", () => {
+  const points = [
+    {
+      x: 200,
+      y: 200,
+      radius: 16,
+      labelWidth: 180,
+      subtitleWidth: 120,
+      lines: 2,
+    },
+    {
+      x: 500,
+      y: 350,
+      radius: 6,
+      labelWidth: 200,
+      subtitleWidth: 240,
+      lines: 1,
+    },
+  ];
+  const result = fitLabelledPoints(points, 800, 600, 1, 1 / 3.2, 12.5);
+  const factor = 1 / result.ratio;
+  assert.ok(factor > 1);
+  // The horizontal footprint includes the two outer label halves.
+  assert.ok(300 * factor + 90 + 120 + 8 <= 752.000001);
+  assert.ok(300 * factor * 1.001 + 90 + 120 + 8 > 752);
+  const single = fitLabelledPoints([points[0]], 800, 600, 1, 1 / 3.2, 12.5);
+  assert.ok(Math.abs(single.ratio - 1 / 3.2) < 1e-9);
+  assert.ok(single.center.y > points[0].y);
+});
+
+test("zoom preferences preserve valid tuning and reject invalid fade ranges", () => {
+  const value = readZoomDetails({
+    bookmarkTitle: { start: 0.6, end: 1.1 },
+    bookmarkSubtitle: { start: 2, end: 2 },
+    hubType: { start: -1, end: 0.5 },
+    hubSubtitle: { start: 1, end: Infinity },
+  });
+  assert.deepEqual(value.bookmarkTitle, { start: 0.6, end: 1.1 });
+  assert.deepEqual(value.bookmarkSubtitle, zoomDetailDefaults.bookmarkSubtitle);
+  assert.deepEqual(value.hubType, zoomDetailDefaults.hubType);
+  assert.deepEqual(value.hubSubtitle, zoomDetailDefaults.hubSubtitle);
+  assert.deepEqual(readZoomDetails(null), zoomDetailDefaults);
+});
+
+test("maximum zoom persists and keeps fade ranges reachable", () => {
+  const raised = readZoomDetails({
+    maxZoom: 6,
+    bookmarkTitle: { start: 4, end: 5 },
+  });
+  assert.equal(raised.maxZoom, 6);
+  assert.deepEqual(raised.bookmarkTitle, { start: 4, end: 5 });
+  const lowered = readZoomDetails({ ...raised, maxZoom: 1 });
+  assert.equal(lowered.bookmarkTitle.end, 1);
+  assert.ok(lowered.bookmarkTitle.start < 1);
+  assert.equal(readZoomDetails({ maxZoom: Infinity }).maxZoom, 6.2);
+});
+
+test("reviewed primary topic replaces the original topic link in both graph lenses", () => {
+  const d = clone(),
+    b = d.bookmarks[0];
+  const originalTopic = b.classification.proposed_category_id;
+  const replacement = d.category_review.categories.find(
+    (c) => c.id !== originalTopic,
+  )!.id;
+  b.classification.approved_category_id = replacement;
+  b.classification.approved_secondary_category_ids = [];
+  b.classification.status = "revised";
+  for (const lens of ["proposed", "approved"] as const) {
+    const links = deriveGraph(d, lens).edges.filter(
+      (e) => e.source === `bookmark:${b.id}` && e.kind === "topic",
+    );
+    assert.deepEqual(
+      links.map((e) => e.target),
+      [`topic:${replacement}`],
+    );
+  }
+});
+
+test("zoom defaults match the tuning screenshot and retain hub title tuning", () => {
+  assert.equal(zoomDetailDefaults.maxZoom, 6.2);
+  assert.deepEqual(zoomDetailDefaults.bookmarkTitle, { start: 1, end: 2 });
+  assert.deepEqual(zoomDetailDefaults.bookmarkSubtitle, { start: 2, end: 3 });
+  assert.deepEqual(zoomDetailDefaults.bookmarkSymbol, { start: 5, end: 6 });
+  assert.deepEqual(zoomDetailDefaults.hubType, { start: 0.1, end: 0.2 });
+  assert.deepEqual(zoomDetailDefaults.hubSubtitle, { start: 3, end: 3.5 });
+  assert.deepEqual(
+    readZoomDetails({ hubTitle: { start: 1, end: 2 } }).hubTitle,
+    { start: 1, end: 2 },
+  );
+});
+
+test("same-kind bubbles and hubs repel apart with collision spacing", () => {
+  for (const kind of ["bookmark", "topic"] as const) {
+    const nodes = ["left", "right"].map((id) => ({
+      id,
+      kind,
+      label: id,
+      subtitle: "",
+      count: 0,
+      radius: kind === "bookmark" ? 21 : 46,
+    }));
+    const graph = createLayoutGraph(nodes, [], {
+      left: { x: -1, y: 0 },
+      right: { x: 1, y: 0 },
+    });
+    forceAtlas2.assign(graph, { iterations: 180, settings: forceSettings });
+    const before = graph.getNodeAttributes("left"),
+      after = graph.getNodeAttributes("right");
+    assert.ok(Math.hypot(before.x - after.x, before.y - after.y) > 2);
+    separateOverlaps(graph);
+    const left = graph.getNodeAttributes("left"),
+      right = graph.getNodeAttributes("right");
+    assert.ok(
+      Math.hypot(left.x - right.x, left.y - right.y) >= left.size + right.size,
+    );
+  }
+});
+
+test("collision correction respects fixed nodes and separates coincident nodes", () => {
+  const nodes = ["pinned", "a", "b"].map((id) => ({
+    id,
+    kind: "bookmark" as const,
+    label: id,
+    subtitle: "",
+    count: 0,
+    radius: 21,
+  }));
+  const graph = createLayoutGraph(nodes, [], {
+    pinned: { x: 0, y: 0, pinned: true },
+    a: { x: 0, y: 0 },
+    b: { x: 0, y: 0 },
+  });
+  separateOverlaps(graph, 30);
+  assert.equal(graph.getNodeAttribute("pinned", "x"), 0);
+  assert.equal(graph.getNodeAttribute("pinned", "y"), 0);
+  for (const a of nodes)
+    for (const b of nodes)
+      if (a.id !== b.id) {
+        const p = graph.getNodeAttributes(a.id),
+          q = graph.getNodeAttributes(b.id);
+        assert.ok(Math.hypot(p.x - q.x, p.y - q.y) >= p.size + q.size - 0.01);
+      }
 });

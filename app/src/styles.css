@@ -66,9 +66,14 @@
     @apply rounded-xl border p-4;
   }
   .graph-surface {
+    user-select: none;
+    -webkit-user-select: none;
     background-color: #f7f9fa;
     background-image: radial-gradient(#cad4db 0.6px, transparent 0.6px);
     background-size: 22px 22px;
+  }
+  .graph-surface .is-dragging {
+    cursor: grabbing;
   }
 }
 @media (max-width: 900px) {

@@ -1,22 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
-  BookOpen,
   ChevronDown,
   Filter,
-  GitBranch,
   Hand,
   LayoutGrid,
   List,
+  Move,
   MousePointer2,
   Network,
   Search,
   Settings2,
-  SlidersHorizontal,
-  Sparkles,
+  Eye,
+  ListTree,
   X,
 } from "lucide-react";
-import type { BookmarkPatch, Dataset, Issue, Proposal } from "./data/types";
+import type {
+  Bookmark,
+  BookmarkPatch,
+  Dataset,
+  Issue,
+  Proposal,
+} from "./data/types";
 import {
   domain,
   inQueue,
@@ -26,6 +31,14 @@ import {
   type Queue,
 } from "./data/selectors";
 import { Graph, type View } from "./components/Graph";
+import { HubList } from "./components/HubList";
+import { LayoutTuning } from "./components/LayoutTuning";
+import { ZoomTuning } from "./components/ZoomTuning";
+import {
+  zoomDetailDefaults,
+  readZoomDetails,
+  type ZoomDetails,
+} from "./data/zoom-details";
 import { Inspector } from "./components/Inspector";
 import {
   Drafts,
@@ -35,9 +48,21 @@ import {
   Progress,
   ProposalBoard,
 } from "./components/Boards";
-import { deriveGraph, type Position } from "./data/graph";
+import {
+  deriveGraph,
+  graphLayoutDefaults,
+  readGraphLayoutSettings,
+  type GraphLayoutSettings,
+  type Position,
+} from "./data/graph";
 type Envelope = { data: Dataset; hash: string; token?: string };
 type Preferences = {
+  hiddenHubs: string[];
+  revealedHubs: string[];
+  highlightedHubs: string[];
+  zoomDetails: ZoomDetails;
+  layoutSettings: GraphLayoutSettings;
+  hubPerimeterSeeded: boolean;
   positions: Record<string, Position>;
   view: View | null;
   selection: string[];
@@ -55,6 +80,12 @@ type Preferences = {
   favorite: boolean;
 };
 const defaults: Preferences = {
+  hiddenHubs: [],
+  revealedHubs: [],
+  highlightedHubs: [],
+  zoomDetails: zoomDetailDefaults,
+  layoutSettings: graphLayoutDefaults,
+  hubPerimeterSeeded: false,
   positions: {},
   view: null,
   selection: [],
@@ -86,6 +117,7 @@ function readPrefs(id: string): Preferences {
           Number.isFinite((p as Position).y),
       ),
     );
+    const zoomDetails = readZoomDetails(stored.zoomDetails);
     const v = stored.view;
     const view =
       v &&
@@ -93,11 +125,23 @@ function readPrefs(id: string): Preferences {
       Number.isFinite(v.y) &&
       Number.isFinite(v.scale) &&
       v.scale >= 0.08 &&
-      v.scale <= 3.2
+      v.scale <= zoomDetails.maxZoom
         ? v
         : null;
     return {
       ...defaults,
+      hiddenHubs: Array.isArray(stored.hiddenHubs)
+        ? stored.hiddenHubs.filter((id: unknown) => typeof id === "string")
+        : [],
+      revealedHubs: Array.isArray(stored.revealedHubs)
+        ? stored.revealedHubs.filter((id: unknown) => typeof id === "string")
+        : [],
+      highlightedHubs: Array.isArray(stored.highlightedHubs)
+        ? stored.highlightedHubs.filter((id: unknown) => typeof id === "string")
+        : [],
+      zoomDetails,
+      layoutSettings: readGraphLayoutSettings(stored.layoutSettings),
+      hubPerimeterSeeded: stored.hubPerimeterSeeded === true,
       positions: positions as Record<string, Position>,
       view,
       selection: Array.isArray(stored.selection)
@@ -129,12 +173,33 @@ export default function App() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [loading, setLoading] = useState(true);
+  const [topicPreview, setTopicPreview] = useState<{
+    id: string;
+    classification: Bookmark["classification"];
+  } | null>(null);
+  const graphData = useMemo(
+    () =>
+      data && topicPreview
+        ? {
+            ...data,
+            bookmarks: data.bookmarks.map((b) =>
+              b.id === topicPreview.id
+                ? { ...b, classification: topicPreview.classification }
+                : b,
+            ),
+          }
+        : data,
+    [data, topicPreview],
+  );
   const [search, setSearch] = useState(""),
     [mode, setMode] = useState<"select" | "pan">("select"),
     [board, setBoard] = useState<
       "progress" | "issues" | "proposals" | "drafts" | "settings" | null
     >(null),
-    [actions, setActions] = useState(false);
+    [actions, setActions] = useState(false),
+    [zoomTuning, setZoomTuning] = useState(false),
+    [layoutTuning, setLayoutTuning] = useState(false),
+    [hubList, setHubList] = useState(false);
   const [original, setOriginal] = useState(""),
     [source, setSource] = useState(""),
     [disposition, setDisposition] = useState(""),
@@ -306,6 +371,13 @@ export default function App() {
     disposition,
     favorite,
   ]);
+  const previousFilterSignature = useRef(filterSignature);
+  const [filterRevision, setFilterRevision] = useState(0);
+  useEffect(() => {
+    if (previousFilterSignature.current === filterSignature) return;
+    previousFilterSignature.current = filterSignature;
+    setFilterRevision((revision) => revision + 1);
+  }, [filterSignature]);
   useEffect(() => {
     snapshot.current = matching.map((b) => b.id);
   }, [filterSignature, !!data]);
@@ -314,7 +386,7 @@ export default function App() {
       dirty.current &&
       !window.confirm("Discard unsaved inspector changes and change selection?")
     )
-      return;
+      return false;
     dirty.current = false;
     preference({
       selection: multi
@@ -322,6 +394,18 @@ export default function App() {
           ? prefs.selection.filter((n) => n !== id)
           : [...prefs.selection, id]
         : [id],
+    });
+    return true;
+  }
+  function toggleHubSelection(id: string) {
+    if (prefs.selection.includes(id)) {
+      select(id, true);
+      return;
+    }
+    if (!select(id)) return;
+    preference({
+      hiddenHubs: prefs.hiddenHubs.filter((hubId) => hubId !== id),
+      revealedHubs: [...new Set([...prefs.revealedHubs, id])],
     });
   }
   function navigate(direction: number) {
@@ -358,6 +442,46 @@ export default function App() {
       returnContext.current = null;
     } else preference({ focus: null });
   }
+  useEffect(() => {
+    const escape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented || board) return;
+      if (hubList) {
+        setHubList(false);
+        return;
+      }
+      if (zoomTuning) {
+        setZoomTuning(false);
+        return;
+      }
+      if (layoutTuning) {
+        setLayoutTuning(false);
+        return;
+      }
+      if (!prefs.selection.length) return;
+      if (
+        dirty.current &&
+        !window.confirm("Discard unsaved inspector changes?")
+      )
+        return;
+      dirty.current = false;
+      preference({ selection: [] });
+    };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, [prefs.selection, hubList, zoomTuning, layoutTuning, board]);
+  const shownHubs = new Set(
+    [
+      ...graph.edges
+        .filter(
+          (e) =>
+            matching.some((b) => e.source === `bookmark:${b.id}`) ||
+            prefs.selection.includes(e.source),
+        )
+        .map((e) => e.target),
+      ...prefs.selection,
+      ...prefs.revealedHubs,
+    ].filter((id) => !prefs.hiddenHubs.includes(id)),
+  );
   const selected = data?.bookmarks.find(
     (b) =>
       prefs.selection.length === 1 && `bookmark:${b.id}` === prefs.selection[0],
@@ -526,31 +650,24 @@ export default function App() {
               label: "Toggle filters",
               icon: Filter,
               active: prefs.filters,
-              click: () => preference({ filters: !prefs.filters }),
+              click: () => {
+                const open = !prefs.filters;
+                preference({ filters: open });
+                if (open) setHubList(false);
+              },
             },
             {
-              id: "lens",
-              label: "Switch topic lens",
-              icon: SlidersHorizontal,
-              active: prefs.lens === "approved",
-              click: () =>
-                preference({
-                  lens: prefs.lens === "proposed" ? "approved" : "proposed",
-                }),
-            },
-            {
-              id: "issues",
-              label: "Existing issue board",
-              icon: BookOpen,
-              active: false,
-              click: () => setBoard("issues"),
-            },
-            {
-              id: "proposals",
-              label: "New-issue proposals",
-              icon: Sparkles,
-              active: false,
-              click: () => setBoard("proposals"),
+              id: "hubs",
+              label: "Hub list",
+              icon: ListTree,
+              active: hubList,
+              click: () => {
+                const open = !hubList;
+                setHubList(open);
+                if (open) preference({ filters: false });
+                setZoomTuning(false);
+                setLayoutTuning(false);
+              },
             },
           ].map((t) => (
             <button
@@ -566,14 +683,42 @@ export default function App() {
               <t.icon size={18} />
             </button>
           ))}
-          <button
-            className="mb-4 mt-auto text-slate-400"
-            title="Settings"
-            aria-label="Settings"
-            onClick={() => setBoard("settings")}
-          >
-            <Settings2 size={18} />
-          </button>
+          <div className="mt-auto mb-4 flex flex-col items-center gap-3">
+            <button
+              className={`${zoomTuning ? "!bg-emerald-50 text-emerald-800" : "text-slate-400"}`}
+              title="Zoom detail tuning"
+              aria-label="Zoom detail tuning"
+              aria-pressed={zoomTuning}
+              onClick={() => {
+                setZoomTuning((open) => !open);
+                setHubList(false);
+                setLayoutTuning(false);
+              }}
+            >
+              <Eye size={18} />
+            </button>
+            <button
+              className={`${layoutTuning ? "!bg-emerald-50 text-emerald-800" : "text-slate-400"}`}
+              title="Graph layout tuning"
+              aria-label="Graph layout tuning"
+              aria-pressed={layoutTuning}
+              onClick={() => {
+                setLayoutTuning((open) => !open);
+                setHubList(false);
+                setZoomTuning(false);
+              }}
+            >
+              <Move size={18} />
+            </button>
+            <button
+              className="text-slate-400"
+              title="Settings"
+              aria-label="Settings"
+              onClick={() => setBoard("settings")}
+            >
+              <Settings2 size={18} />
+            </button>
+          </div>
         </nav>
         {prefs.filters && (
           <aside
@@ -603,7 +748,11 @@ export default function App() {
                 <button
                   key={q.id}
                   className={`w-full justify-between !px-3 !py-2.5 !text-xs ${prefs.queue === q.id ? "!bg-emerald-50 font-medium text-emerald-800" : "text-slate-500"}`}
-                  onClick={() => preference({ queue: q.id })}
+                  onClick={() => {
+                    if (prefs.queue === q.id)
+                      setFilterRevision((revision) => revision + 1);
+                    else preference({ queue: q.id });
+                  }}
                 >
                   <span>{q.label}</span>
                   <span className="text-[10px] tabular-nums opacity-60">
@@ -730,6 +879,47 @@ export default function App() {
             </button>
           </aside>
         )}
+        {hubList && (
+          <HubList
+            hubs={graph.nodes.filter((n) => n.kind !== "bookmark")}
+            shown={shownHubs}
+            highlighted={prefs.highlightedHubs}
+            selected={prefs.selection}
+            toggleSelection={toggleHubSelection}
+            toggleVisible={(id) => {
+              const hide = shownHubs.has(id);
+              preference({
+                hiddenHubs: hide
+                  ? [...prefs.hiddenHubs, id]
+                  : prefs.hiddenHubs.filter((n) => n !== id),
+                revealedHubs: hide
+                  ? prefs.revealedHubs.filter((n) => n !== id)
+                  : [...new Set([...prefs.revealedHubs, id])],
+                highlightedHubs: hide
+                  ? prefs.highlightedHubs.filter((n) => n !== id)
+                  : prefs.highlightedHubs,
+                selection: hide
+                  ? prefs.selection.filter((n) => n !== id)
+                  : prefs.selection,
+              });
+            }}
+            toggleHighlight={(id) => {
+              const remove = prefs.highlightedHubs.includes(id);
+              preference({
+                highlightedHubs: remove
+                  ? prefs.highlightedHubs.filter((n) => n !== id)
+                  : [...prefs.highlightedHubs, id],
+                ...(!remove
+                  ? {
+                      hiddenHubs: prefs.hiddenHubs.filter((n) => n !== id),
+                      revealedHubs: [...new Set([...prefs.revealedHubs, id])],
+                    }
+                  : {}),
+              });
+            }}
+            close={() => setHubList(false)}
+          />
+        )}
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="flex min-h-[87px] shrink-0 items-center justify-between gap-3 border-b border-slate-200/70 px-5 py-4 sm:px-7">
             <div>
@@ -752,18 +942,6 @@ export default function App() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                className={`secondary ${!prefs.allEdges ? "!bg-slate-100" : ""}`}
-                aria-label="Toggle all connections"
-                aria-pressed={prefs.allEdges}
-                title="Show all connections or only selected relationships"
-                onClick={() => preference({ allEdges: !prefs.allEdges })}
-              >
-                <GitBranch size={14} />
-                <span className="hidden xl:inline">
-                  {prefs.allEdges ? "All connections" : "Selection links"}
-                </span>
-              </button>
               <div className="flex rounded-lg border border-slate-200 bg-white p-1">
                 <button
                   aria-label="Graph view"
@@ -837,16 +1015,31 @@ export default function App() {
             </div>
           ) : (
             <Graph
-              data={data}
+              data={graphData!}
+              zoomDetails={prefs.zoomDetails}
+              hiddenHubs={prefs.hiddenHubs}
+              revealedHubs={prefs.revealedHubs}
+              highlightedHubs={prefs.highlightedHubs}
               lens={prefs.lens}
+              filterRevision={filterRevision}
               visible={new Set(matching.map((b) => b.id))}
               selected={prefs.selection}
               focus={prefs.focus}
               mode={mode}
               allEdges={prefs.allEdges}
+              onToggleAllEdges={() =>
+                preference({ allEdges: !prefs.allEdges })
+              }
+              layoutSettings={prefs.layoutSettings}
+              hubPerimeterSeeded={prefs.hubPerimeterSeeded}
               positions={prefs.positions}
               view={prefs.view}
-              onPositions={(positions) => preference({ positions })}
+              onPositions={(positions, hubPerimeterSeeded) =>
+                preference({
+                  positions,
+                  ...(hubPerimeterSeeded ? { hubPerimeterSeeded: true } : {}),
+                })
+              }
               onView={(view) => preference({ view })}
               onSelect={select}
               onEdge={setNotice}
@@ -868,6 +1061,7 @@ export default function App() {
           <Inspector
             key={selected.id}
             bookmark={selected}
+            onTopicPreview={setTopicPreview}
             data={data}
             save={save}
             undo={async (id) =>
@@ -988,6 +1182,21 @@ export default function App() {
           </aside>
         )}
       </div>
+      {zoomTuning && (
+        <ZoomTuning
+          value={prefs.zoomDetails}
+          zoom={prefs.view?.scale ?? 1}
+          onChange={(zoomDetails) => preference({ zoomDetails })}
+          close={() => setZoomTuning(false)}
+        />
+      )}
+      {layoutTuning && (
+        <LayoutTuning
+          value={prefs.layoutSettings}
+          onApply={(layoutSettings) => preference({ layoutSettings })}
+          close={() => setLayoutTuning(false)}
+        />
+      )}
       {board && (
         <Modal
           title={
@@ -1101,8 +1310,8 @@ export default function App() {
               <section>
                 <h3 className="font-semibold">Canvas preferences</h3>
                 <p className="mt-2 text-sm text-slate-500">
-                  Positions, pins, zoom, and filters are saved in this browser,
-                  separately from bookmark decisions.
+                  Positions, pins, layout physics, zoom, and filters are saved
+                  in this browser, separately from bookmark decisions.
                 </p>
                 <button
                   className="secondary mt-4"
