@@ -335,7 +335,7 @@ export function Graph(p: Props) {
                 pt.y * v.scale + v.y + radius * v.scale + 10,
                 180,
                 lines.length * 16 + (hub || detailed ? 20 : 0),
-                selected,
+                selected || hub,
               );
             return (
               <g
