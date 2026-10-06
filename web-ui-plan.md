@@ -2,6 +2,16 @@
 
 The first version is a local web app with a freeform connection map for reviewing saved bookmarks, approving their categories, comparing issue destinations, and recording confirmed placements. The working JSON remains the portable source of truth.
 
+## Implemented local UI
+
+The approved force-directed workspace is implemented in `app/` with React, TypeScript, Vite, Tailwind, a React-rendered SVG graph, and D3's force simulation. The local Express API validates and persists the working JSON. See [run commands and workflow](README.md).
+
+The implementation includes bookmark bubbles and topic/issue/proposal hubs, semantic zoom, settled layouts, dragging/pinning, fit and overview controls, filters/search, a compact list, multi-selection topic approval, the bookmark inspector, per-target placement confirmation, issue/proposal boards, proposal editing and registration, grouped Markdown previews, progress, validated import/export, and bookmark undo with audit history. View preferences remain separate from dataset decisions; stale revisions and external edits reject saves while drafts stay in the inspector.
+
+Verification covers 12 automated data, graph, storage, and API tests plus an isolated browser workflow: approve a topic, select two targets, copy a draft, confirm one, reload with progress still pending, confirm the second, and drag/pin/reload without a dataset revision change. A proposal attachment remains pending before registration. Compact navigation was checked at a 390px viewport. Browser save tests used a separate dataset copy; the supplied working dataset remains at revision 1 and 0/148 complete.
+
+GitHub placement remains manual. Library choices are now SVG + D3 force; force strengths, zoom thresholds, and visual sizing can still be tuned within the approved design. The phases below remain the design and acceptance reference.
+
 ## Files and starting state
 
 - `bookmarks.json` contains all 148 original CSV records, editable display fields, proposed category corrections, 38 earlier existing-issue reference suggestions, six new-issue proposals with 25 seed links, and two duplicate/mirror groups.

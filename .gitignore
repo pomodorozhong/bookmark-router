@@ -1,0 +1,6 @@
+app/node_modules/
+app/dist/
+app/backups/
+app/.runtime/
+*.tsbuildinfo
+__pycache__/
