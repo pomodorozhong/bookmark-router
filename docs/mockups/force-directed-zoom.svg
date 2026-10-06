@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960">
+<rect width="1440" height="960" fill="white"/>
+<text x="24" y="48" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#333333">C / Semantic zoom: the same bookmark at three scales</text>
+<text x="24" y="81" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#666666">Zoom changes displayed detail. Identity, relationships and processing state stay the same.</text>
+<rect x="24" y="124" width="448" height="650" fill="#f5f5f5" stroke="#b8b8b8" stroke-width="1"/>
+<text x="44" y="168" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#333333">Overview</text>
+<rect x="496" y="124" width="448" height="650" fill="#f5f5f5" stroke="#b8b8b8" stroke-width="1"/>
+<text x="516" y="168" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#333333">Middle zoom</text>
+<rect x="968" y="124" width="448" height="650" fill="#f5f5f5" stroke="#b8b8b8" stroke-width="1"/>
+<text x="988" y="168" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#333333">Close zoom</text>
+<circle cx="256.0" cy="446.0" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="249.7690406038338" cy="439.5057606293479" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="243.53808120766757" cy="433.0115212586958" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="237.30712181150136" cy="426.51728188804367" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="231.07616241533515" cy="420.02304251739156" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="224.84520301916893" cy="413.52880314673945" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="218.6142436230027" cy="407.03456377608734" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="212.38328422683648" cy="400.54032440543523" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="206.15232483067027" cy="394.0460850347831" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="199.92136543450405" cy="387.551845664131" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="193.69040603833784" cy="381.0576062934789" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="187.4594466421716" cy="374.56336692282673" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="181.2284872460054" cy="368.0691275521747" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="174.99752784983917" cy="361.5748881815225" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="168.76656845367296" cy="355.08064881087046" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="162.53560905750675" cy="348.5864094402183" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="156.30464966134053" cy="342.0921700695662" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="150.07369026517432" cy="335.59793069891407" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="143.8427308690081" cy="329.10369132826196" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="137.6117714728419" cy="322.60945195760985" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="131.38081207667568" cy="316.11521258695774" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="125.14985268050947" cy="309.62097321630563" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<line x1="256" y1="446" x2="369" y2="307" stroke="#999999" stroke-width="2" stroke-dasharray="5 5"/>
+<line x1="256" y1="446" x2="310" y2="646" stroke="#999999" stroke-width="2" stroke-dasharray="5 5"/>
+<circle cx="114" cy="298" r="25" fill="#dedede" stroke="#555555" stroke-width="2"/>
+<circle cx="369" cy="307" r="25" fill="#dedede" stroke="#555555" stroke-width="2"/>
+<circle cx="310" cy="646" r="25" fill="#dedede" stroke="#555555" stroke-width="2"/>
+<text x="49" y="239" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">TOPIC</text>
+<text x="49" y="257" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">Customer discovery</text>
+<text x="286" y="239" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">EXISTING ISSUE</text>
+<text x="286" y="257" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">#133 Lean Canvas</text>
+<text x="204" y="705" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">PROPOSAL</text>
+<text x="204" y="723" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">Demand validation</text>
+<circle cx="256" cy="446" r="15" fill="#ffffff" stroke="#333333" stroke-width="2"/>
+<circle cx="256" cy="446" r="10" fill="#e0e0e0" stroke="#555555" stroke-width="1"/>
+<circle cx="728.0" cy="446.0" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="721.7690406038338" cy="439.5057606293479" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="715.5380812076676" cy="433.0115212586958" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="709.3071218115014" cy="426.51728188804367" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="703.0761624153351" cy="420.02304251739156" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="696.8452030191689" cy="413.52880314673945" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="690.6142436230027" cy="407.03456377608734" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="684.3832842268365" cy="400.54032440543523" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="678.1523248306703" cy="394.0460850347831" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="671.9213654345041" cy="387.551845664131" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="665.6904060383379" cy="381.0576062934789" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="659.4594466421717" cy="374.56336692282673" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="653.2284872460054" cy="368.0691275521747" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="646.9975278498392" cy="361.5748881815225" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="640.766568453673" cy="355.08064881087046" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="634.5356090575068" cy="348.5864094402183" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="628.3046496613406" cy="342.0921700695662" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="622.0736902651744" cy="335.59793069891407" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="615.8427308690082" cy="329.10369132826196" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="609.6117714728418" cy="322.60945195760985" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="603.3808120766757" cy="316.11521258695774" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="597.1498526805094" cy="309.62097321630563" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<line x1="728" y1="446" x2="841" y2="307" stroke="#999999" stroke-width="2" stroke-dasharray="5 5"/>
+<line x1="728" y1="446" x2="782" y2="646" stroke="#999999" stroke-width="2" stroke-dasharray="5 5"/>
+<circle cx="586" cy="298" r="25" fill="#dedede" stroke="#555555" stroke-width="2"/>
+<circle cx="841" cy="307" r="25" fill="#dedede" stroke="#555555" stroke-width="2"/>
+<circle cx="782" cy="646" r="25" fill="#dedede" stroke="#555555" stroke-width="2"/>
+<text x="521" y="239" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">TOPIC</text>
+<text x="521" y="257" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">Customer discovery</text>
+<text x="758" y="239" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">EXISTING ISSUE</text>
+<text x="758" y="257" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">#133 Lean Canvas</text>
+<text x="676" y="705" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">PROPOSAL</text>
+<text x="676" y="723" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">Demand validation</text>
+<circle cx="728" cy="446" r="39" fill="#ffffff" stroke="#333333" stroke-width="2"/>
+<circle cx="728" cy="446" r="34" fill="#e0e0e0" stroke="#555555" stroke-width="1"/>
+<circle cx="1200.0" cy="446.0" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1193.7690406038337" cy="439.5057606293479" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1187.5380812076676" cy="433.0115212586958" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1181.3071218115012" cy="426.51728188804367" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1175.0761624153351" cy="420.02304251739156" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1168.8452030191688" cy="413.52880314673945" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1162.6142436230027" cy="407.03456377608734" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1156.3832842268364" cy="400.54032440543523" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1150.1523248306703" cy="394.0460850347831" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1143.921365434504" cy="387.551845664131" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1137.6904060383379" cy="381.0576062934789" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1131.4594466421715" cy="374.56336692282673" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1125.2284872460054" cy="368.0691275521747" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1118.9975278498391" cy="361.5748881815225" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1112.766568453673" cy="355.08064881087046" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1106.5356090575067" cy="348.5864094402183" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1100.3046496613406" cy="342.0921700695662" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1094.0736902651743" cy="335.59793069891407" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1087.8427308690082" cy="329.10369132826196" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1081.6117714728418" cy="322.60945195760985" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1075.3808120766757" cy="316.11521258695774" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<circle cx="1069.1498526805094" cy="309.62097321630563" r="1" fill="#999999" stroke="#999999" stroke-width="1"/>
+<line x1="1200" y1="446" x2="1313" y2="307" stroke="#999999" stroke-width="2" stroke-dasharray="5 5"/>
+<line x1="1200" y1="446" x2="1254" y2="646" stroke="#999999" stroke-width="2" stroke-dasharray="5 5"/>
+<circle cx="1058" cy="298" r="25" fill="#dedede" stroke="#555555" stroke-width="2"/>
+<circle cx="1313" cy="307" r="25" fill="#dedede" stroke="#555555" stroke-width="2"/>
+<circle cx="1254" cy="646" r="25" fill="#dedede" stroke="#555555" stroke-width="2"/>
+<text x="993" y="239" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">TOPIC</text>
+<text x="993" y="257" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">Customer discovery</text>
+<text x="1230" y="239" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">EXISTING ISSUE</text>
+<text x="1230" y="257" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">#133 Lean Canvas</text>
+<text x="1148" y="705" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">PROPOSAL</text>
+<text x="1148" y="723" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">Demand validation</text>
+<circle cx="1200" cy="446" r="75" fill="#ffffff" stroke="#333333" stroke-width="2"/>
+<circle cx="1200" cy="446" r="70" fill="#e0e0e0" stroke="#555555" stroke-width="1"/>
+<text x="45" y="200" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Small bubbles; hub names stay readable.</text>
+<text x="521" y="200" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Short bookmark titles appear.</text>
+<text x="993" y="200" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Title, domain and review state appear.</text>
+<text x="100" y="490" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">App market research</text>
+<text x="58" y="523" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#333333">Selected label remains visible</text>
+<text x="58" y="542" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#333333">even when other titles are hidden.</text>
+<text x="585" y="512" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">App market research</text>
+<text x="1150" y="411" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">App market</text>
+<text x="1150" y="431" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">&amp; competitor</text>
+<text x="1150" y="451" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">research</text>
+<text x="1150" y="480" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">substack.com</text>
+<text x="1150" y="498" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Unreviewed</text>
+<text x="24" y="826" font-family="Arial, sans-serif" font-size="17" font-weight="700" fill="#333333">At every scale: click or keyboard-select the bubble to open its full inspector.</text>
+<text x="24" y="866" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#333333">Bubble geometry stays stable as detail changes. Zoom never chooses a topic or destination.</text>
+<text x="24" y="914" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#666666">Illustrative scales / exact thresholds, label collision handling and bubble sizes remain open for review.</text>
+</svg>

@@ -1,0 +1,256 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960">
+<rect width="1440" height="960" fill="white"/>
+<text x="24" y="44" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#333333">C / Force-directed bookmark graph</text>
+<text x="24" y="72" font-family="Arial, sans-serif" font-size="15" font-weight="400" fill="#666666">One bookmark bubble can belong to several hubs. Zoom controls how much detail appears.</text>
+<text x="1165" y="36" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#777777">LOW FIDELITY / REVIEW ONLY</text>
+<rect x="14" y="90" width="1412" height="800" fill="#f5f5f5" stroke="#444444" stroke-width="1"/>
+<rect x="14" y="90" width="1412" height="56" fill="#ffffff" stroke="#b8b8b8" stroke-width="1"/>
+<text x="34" y="127" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#333333">Bookmark Router</text>
+<text x="231" y="125" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#666666">148 bookmarks / 29 topics</text>
+<rect x="615" y="102" width="355" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="625" y="122" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Search bookmarks, notes or issue #</text>
+<text x="992" y="125" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">0 / 148 complete</text>
+<rect x="1128" y="102" width="116" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="1138" y="122" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Progress</text>
+<rect x="1256" y="102" width="148" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="1266" y="122" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Actions / boards</text>
+<rect x="14" y="146" width="66" height="744" fill="#eeeeee" stroke="#b8b8b8" stroke-width="1"/>
+<rect x="22" y="168" width="50" height="32" fill="#e4e4e4" stroke="#333333" stroke-width="1"/>
+<text x="32" y="188" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">Select</text>
+<rect x="22" y="222" width="50" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="32" y="242" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Pan</text>
+<rect x="22" y="276" width="50" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="32" y="296" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Filters</text>
+<rect x="22" y="330" width="50" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="32" y="350" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Group</text>
+<rect x="22" y="384" width="50" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="32" y="404" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Layout</text>
+<rect x="22" y="438" width="50" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="32" y="458" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Actions</text>
+<text x="24" y="866" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#333333">Help</text>
+<text x="24" y="931" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#333333">Static layout study / hub positions, force strength and zoom thresholds are provisional.</text>
+<rect x="22" y="330" width="50" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="32" y="350" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Lens</text>
+<rect x="98" y="165" width="238" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="108" y="185" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Topic lens: proposed</text>
+<rect x="348" y="165" width="230" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="358" y="185" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Filter: paired alternatives / 4</text>
+<rect x="590" y="165" width="198" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="600" y="185" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Links: selected neighborhood</text>
+<circle cx="505.0" cy="450.0" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="497.12151652424313" cy="445.64919569249247" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="489.24303304848627" cy="441.29839138498494" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="481.3645495727294" cy="436.9475870774774" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="473.48606609697254" cy="432.59678276996993" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="465.60758262121567" cy="428.2459784624624" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="457.7290991454588" cy="423.8951741549549" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="449.85061566970194" cy="419.54436984744734" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="441.9721321939451" cy="415.1935655399398" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="434.0936487181882" cy="410.8427612324323" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="426.21516524243134" cy="406.49195692492475" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="418.3366817666745" cy="402.1411526174172" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="410.4581982909176" cy="397.79034830990975" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="402.57971481516074" cy="393.4395440024022" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="394.7012313394039" cy="389.0887396948947" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="386.822747863647" cy="384.73793538738715" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="378.94426438789014" cy="380.3871310798796" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="371.0657809121333" cy="376.0363267723721" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="363.1872974363764" cy="371.68552246486456" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="355.30881396061955" cy="367.3347181573571" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="347.4303304848627" cy="362.98391384984956" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="339.5518470091058" cy="358.633109542342" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="331.67336353334895" cy="354.2823052348345" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="323.7948800575921" cy="349.93150092732697" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<circle cx="315.9163965818352" cy="345.5806966198195" r="1" fill="#444444" stroke="#444444" stroke-width="1"/>
+<line x1="505" y1="450" x2="735" y2="338" stroke="#444444" stroke-width="2" stroke-dasharray="5 5"/>
+<line x1="505" y1="450" x2="670" y2="642" stroke="#444444" stroke-width="2" stroke-dasharray="5 5"/>
+<circle cx="491.0" cy="580.0" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="485.48270853545125" cy="572.8894799841912" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="479.9654170709025" cy="565.7789599683824" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="474.44812560635376" cy="558.6684399525736" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="468.93083414180506" cy="551.5579199367647" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="463.4135426772563" cy="544.447399920956" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="457.89625121270757" cy="537.3368799051472" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="452.3789597481588" cy="530.2263598893384" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="446.8616682836101" cy="523.1158398735296" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="441.3443768190613" cy="516.0053198577208" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="435.82708535451263" cy="508.89479984191195" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="430.3097938899639" cy="501.78427982610316" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="424.79250242541514" cy="494.67375981029437" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="419.2752109608664" cy="487.5632397944855" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="413.75791949631764" cy="480.45271977867674" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="408.2406280317689" cy="473.34219976286795" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="402.72333656722014" cy="466.23167974705916" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="397.2060451026714" cy="459.1211597312504" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="391.68875363812265" cy="452.0106397154415" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="386.17146217357396" cy="444.9001196996327" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="380.6541707090252" cy="437.7895996838239" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="375.13687924447646" cy="430.6790796680151" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="369.6195877799277" cy="423.5685596522063" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="364.102296315379" cy="416.45803963639753" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="358.5850048508303" cy="409.34751962058874" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="353.0677133862815" cy="402.2369996047799" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="347.5504219217328" cy="395.12647958897105" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="342.03313045718403" cy="388.01595957316226" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="336.5158389926353" cy="380.9054395573535" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="330.99854752808653" cy="373.7949195415447" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="325.4812560635378" cy="366.6843995257359" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="319.96396459898904" cy="359.5738795099271" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<circle cx="314.4466731344403" cy="352.46335949411827" r="1" fill="#c8c8c8" stroke="#c8c8c8" stroke-width="1"/>
+<line x1="491" y1="580" x2="735" y2="338" stroke="#c8c8c8" stroke-width="2" stroke-dasharray="5 5"/>
+<line x1="491" y1="580" x2="670" y2="642" stroke="#c8c8c8" stroke-width="2" stroke-dasharray="5 5"/>
+<circle cx="545.0" cy="718.0" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="536.0161161836617" cy="717.4616399211183" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="527.0322323673232" cy="716.9232798422366" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="518.0483485509849" cy="716.3849197633549" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="509.0644647346465" cy="715.8465596844732" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="500.08058091830816" cy="715.3081996055915" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="491.09669710196977" cy="714.7698395267098" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="482.1128132856314" cy="714.2314794478281" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="473.12892946929304" cy="713.6931193689464" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="464.14504565295465" cy="713.1547592900647" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="455.1611618366163" cy="712.616399211183" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="446.1772780202779" cy="712.0780391323013" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="437.19339420393953" cy="711.5396790534196" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="428.2095103876012" cy="711.0013189745379" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="419.2256265712628" cy="710.4629588956562" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="410.2417427549244" cy="709.9245988167745" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="401.2578589385861" cy="709.3862387378928" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="392.2739751222477" cy="708.8478786590111" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="383.2900913059093" cy="708.3095185801294" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="374.30620748957097" cy="707.7711585012477" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="365.3223236732326" cy="707.232798422366" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="356.3384398568942" cy="706.6944383434843" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="347.35455604055585" cy="706.1560782646026" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="338.37067222421746" cy="705.617718185721" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="329.38678840787907" cy="705.0793581068392" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="320.40290459154073" cy="704.5409980279575" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="311.41902077520234" cy="704.0026379490758" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="302.43513695886395" cy="703.4642778701941" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="293.4512531425256" cy="702.9259177913124" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<line x1="545" y1="718" x2="861" y2="536" stroke="#cccccc" stroke-width="2" stroke-dasharray="5 5"/>
+<line x1="545" y1="718" x2="853" y2="742" stroke="#cccccc" stroke-width="2" stroke-dasharray="5 5"/>
+<circle cx="633.0" cy="781.0" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="624.214899125853" cy="779.0450057209645" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="615.429798251706" cy="777.0900114419289" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="606.644697377559" cy="775.1350171628934" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="597.859596503412" cy="773.1800228838579" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="589.074495629265" cy="771.2250286048223" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="580.289394755118" cy="769.2700343257868" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="571.504293880971" cy="767.3150400467513" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="562.7191930068241" cy="765.3600457677157" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="553.934092132677" cy="763.4050514886802" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="545.14899125853" cy="761.4500572096447" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="536.363890384383" cy="759.4950629306092" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="527.578789510236" cy="757.5400686515736" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="518.7936886360891" cy="755.5850743725381" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="510.008587761942" cy="753.6300800935026" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="501.22348688779505" cy="751.675085814467" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="492.438386013648" cy="749.7200915354315" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="483.653285139501" cy="747.765097256396" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="474.86818426535405" cy="745.8101029773604" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="466.0830833912071" cy="743.8551086983249" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="457.29798251706006" cy="741.9001144192894" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="448.51288164291304" cy="739.9451201402538" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="439.727780768766" cy="737.9901258612183" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="430.94267989461906" cy="736.0351315821829" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="422.1575790204721" cy="734.0801373031474" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="413.3724781463251" cy="732.1251430241118" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="404.58737727217806" cy="730.1701487450763" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="395.80227639803104" cy="728.2151544660408" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="387.017175523884" cy="726.2601601870052" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="378.23207464973706" cy="724.3051659079697" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="369.4469737755901" cy="722.3501716289342" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="360.6618729014431" cy="720.3951773498986" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="351.8767720272961" cy="718.4401830708631" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="343.09167115314904" cy="716.4851887918276" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="334.3065702790021" cy="714.530194512792" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="325.52146940485505" cy="712.5752002337565" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="316.7363685307081" cy="710.620205954721" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="307.9512676565611" cy="708.6652116756854" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="299.1661667824141" cy="706.7102173966499" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<circle cx="290.3810659082671" cy="704.7552231176144" r="1" fill="#cccccc" stroke="#cccccc" stroke-width="1"/>
+<line x1="633" y1="781" x2="861" y2="536" stroke="#cccccc" stroke-width="2" stroke-dasharray="5 5"/>
+<line x1="633" y1="781" x2="853" y2="742" stroke="#cccccc" stroke-width="2" stroke-dasharray="5 5"/>
+<circle cx="304" cy="339" r="75" fill="#e7e7e7" stroke="#555555" stroke-width="2"/>
+<text x="244" y="329" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">Customer</text>
+<text x="244" y="349" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">discovery</text>
+<text x="244" y="435" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#333333">TOPIC / PROPOSED</text>
+<circle cx="735" cy="338" r="74" fill="#e7e7e7" stroke="#555555" stroke-width="2"/>
+<text x="676" y="328" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">#133</text>
+<text x="676" y="348" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">Lean Canvas</text>
+<text x="676" y="433" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#333333">EXISTING ISSUE / OPEN</text>
+<circle cx="670" cy="642" r="84" fill="#e7e7e7" stroke="#555555" stroke-width="2"/>
+<text x="601" y="632" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">Customer discovery</text>
+<text x="601" y="652" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">and demand</text>
+<text x="601" y="672" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">validation</text>
+<text x="601" y="747" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#333333">PROPOSAL / NOT CREATED</text>
+<circle cx="278" cy="702" r="65" fill="#e7e7e7" stroke="#555555" stroke-width="2"/>
+<text x="228" y="692" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">Product</text>
+<text x="228" y="712" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">positioning</text>
+<text x="228" y="788" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#333333">TOPIC / PROPOSED</text>
+<circle cx="861" cy="536" r="67" fill="#e7e7e7" stroke="#555555" stroke-width="2"/>
+<text x="809" y="526" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">#136</text>
+<text x="809" y="546" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">PDD</text>
+<text x="809" y="624" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#333333">EXISTING ISSUE / OPEN</text>
+<circle cx="853" cy="742" r="69" fill="#e7e7e7" stroke="#555555" stroke-width="2"/>
+<text x="799" y="732" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">Positioning &amp;</text>
+<text x="799" y="752" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#333333">differentiation</text>
+<text x="799" y="832" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#333333">PROPOSAL / NOT CREATED</text>
+<circle cx="505" cy="450" r="48" fill="#ffffff" stroke="#333333" stroke-width="3"/>
+<circle cx="505" cy="450" r="42" fill="#dcdcdc" stroke="#333333" stroke-width="1"/>
+<text x="478" y="444" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">App market</text>
+<text x="478" y="462" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">research</text>
+<rect x="403" y="380" width="198" height="30" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="413" y="400" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#333333">Selected / unreviewed</text>
+<circle cx="491" cy="580" r="31" fill="#ffffff" stroke="#777777" stroke-width="1"/>
+<text x="458" y="629" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">External validation</text>
+<circle cx="545" cy="718" r="30" fill="#ffffff" stroke="#777777" stroke-width="1"/>
+<text x="407" y="769" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Making an idea easier to explain</text>
+<circle cx="633" cy="781" r="24" fill="#ffffff" stroke="#777777" stroke-width="1"/>
+<text x="563" y="829" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Eightify differentiation</text>
+<text x="116" y="241" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#666666">4 matching bookmark bubbles / 148 total</text>
+<text x="116" y="499" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#333333">Selected bubble links to:</text>
+<text x="116" y="518" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#333333">1 topic + 1 existing issue</text>
+<text x="116" y="537" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#333333">+ 1 new proposal</text>
+<text x="116" y="588" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#666666">Position alone changes</text>
+<text x="116" y="606" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#666666">no membership or decision.</text>
+<circle cx="109.0" cy="858.0" r="1" fill="#555555" stroke="#555555" stroke-width="1"/>
+<circle cx="118.0" cy="858.0" r="1" fill="#555555" stroke="#555555" stroke-width="1"/>
+<circle cx="127.0" cy="858.0" r="1" fill="#555555" stroke="#555555" stroke-width="1"/>
+<circle cx="136.0" cy="858.0" r="1" fill="#555555" stroke="#555555" stroke-width="1"/>
+<text x="162" y="861" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#333333">Topic</text>
+<line x1="234" y1="858" x2="276" y2="858" stroke="#555555" stroke-width="2" stroke-dasharray="5 5"/>
+<text x="287" y="861" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#333333">Suggested home</text>
+<line x1="411" y1="858" x2="453" y2="858" stroke="#555555" stroke-width="2"/>
+<text x="464" y="861" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#333333">Selected target (none yet)</text>
+<rect x="704" y="838" width="226" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="714" y="858" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">-   Zoom 80%   +   Fit</text>
+<rect x="966" y="164" width="442" height="702" fill="#ffffff" stroke="#b8b8b8" stroke-width="1"/>
+<text x="984" y="198" font-family="Arial, sans-serif" font-size="16" font-weight="700" fill="#333333">Selected bookmark / saved</text>
+<text x="984" y="247" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#333333">App market and</text>
+<text x="984" y="274" font-family="Arial, sans-serif" font-size="21" font-weight="700" fill="#333333">competitor research</text>
+<rect x="984" y="289" width="406" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="994" y="309" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Open source</text>
+<text x="984" y="353" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#333333">TOPIC RELATIONSHIP / PROPOSED</text>
+<text x="984" y="382" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#333333">Customer discovery and demand validation</text>
+<rect x="984" y="403" width="406" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="994" y="423" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Approve or revise topic</text>
+<text x="984" y="464" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#333333">DESTINATION RELATIONSHIPS / SUGGESTED</text>
+<text x="984" y="494" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#333333">Existing: #133 Lean Canvas / open</text>
+<text x="984" y="514" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#333333">Proposal: Customer discovery and</text>
+<text x="984" y="534" font-family="Arial, sans-serif" font-size="14" font-weight="400" fill="#333333">demand validation / not created</text>
+<rect x="984" y="554" width="406" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="994" y="574" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Compare rationale / select targets</text>
+<rect x="984" y="603" width="406" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="994" y="623" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Disposition: undecided</text>
+<text x="984" y="672" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#333333">Chosen targets: 0</text>
+<text x="984" y="691" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#333333">Completion: pending</text>
+<text x="984" y="710" font-family="Arial, sans-serif" font-size="13" font-weight="400" fill="#333333">Topic and destination links are separate.</text>
+<rect x="984" y="737" width="406" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="994" y="757" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Original notes / observations / history</text>
+<rect x="984" y="809" width="195" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="994" y="829" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Previous</text>
+<rect x="1191" y="809" width="199" height="32" fill="#ffffff" stroke="#aaaaaa" stroke-width="1"/>
+<text x="1201" y="829" font-family="Arial, sans-serif" font-size="12" font-weight="400" fill="#333333">Next</text>
+</svg>
