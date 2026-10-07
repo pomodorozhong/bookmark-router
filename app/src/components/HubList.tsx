@@ -25,6 +25,10 @@ export function HubList({
   onProgress,
   kinds,
   onKinds,
+  search,
+  onSearch,
+  visibility,
+  onVisibility,
 }: {
   hubs: Node[];
   shown: Set<string>;
@@ -38,10 +42,12 @@ export function HubList({
   onProgress: (value: ProgressFilter) => void;
   kinds: HubType[];
   onKinds: (value: HubType[]) => void;
+  search: string;
+  onSearch: (value: string) => void;
+  visibility: string;
+  onVisibility: (value: string) => void;
 }) {
-  const [search, setSearch] = useState(""),
-    [group, setGroup] = useState("type"),
-    [visibility, setVisibility] = useState("all");
+  const [group, setGroup] = useState("type");
   const filtered = hubs
     .filter(
       (n) =>
@@ -90,7 +96,7 @@ export function HubList({
           aria-label="Filter hubs"
           placeholder="Search hub titles…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => onSearch(e.target.value)}
         />
       </label>
       <ProgressFilters
@@ -140,7 +146,7 @@ export function HubList({
           <select
             aria-label="Hub visibility filter"
             value={visibility}
-            onChange={(e) => setVisibility(e.target.value)}
+            onChange={(e) => onVisibility(e.target.value)}
           >
             <option value="all">All hubs</option>
             <option value="shown">Shown</option>

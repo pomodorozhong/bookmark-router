@@ -224,6 +224,8 @@ export default function App() {
     [zoomTuning, setZoomTuning] = useState(false),
     [layoutTuning, setLayoutTuning] = useState(false),
     [hubList, setHubList] = useState(false),
+    [hubSearch, setHubSearch] = useState(""),
+    [hubVisibility, setHubVisibility] = useState("all"),
     [savingHubProgress, setSavingHubProgress] = useState(false);
   const [original, setOriginal] = useState(""),
     [source, setSource] = useState(""),
@@ -401,6 +403,8 @@ export default function App() {
     ],
   );
   const filterSignature = JSON.stringify([
+    hubSearch,
+    hubVisibility,
     prefs.hubTypes,
     prefs.bubbleProgress,
     prefs.hubProgress,
@@ -528,6 +532,16 @@ export default function App() {
     readProgressFilter(prefs.queue === "completed" ? "done" : prefs.queue),
     prefs.hubTypes,
   );
+  const fitHubIds = hubList
+    ? graph.nodes
+        .filter(
+          (n) =>
+            shownHubs.has(n.id) &&
+            hubVisibility !== "hidden" &&
+            n.label.toLowerCase().includes(hubSearch.trim().toLowerCase()),
+        )
+        .map((n) => n.id)
+    : null;
   const selected = data?.bookmarks.find(
     (b) =>
       prefs.selection.length === 1 && `bookmark:${b.id}` === prefs.selection[0],
@@ -561,6 +575,8 @@ export default function App() {
     setSource("");
     setDisposition("");
     setFavorite(false);
+    setHubSearch("");
+    setHubVisibility("all");
   };
   if (!data)
     return (
@@ -977,6 +993,10 @@ export default function App() {
         )}
         {hubList && (
           <HubList
+            search={hubSearch}
+            onSearch={setHubSearch}
+            visibility={hubVisibility}
+            onVisibility={setHubVisibility}
             hubs={graph.nodes.filter((n) => n.kind !== "bookmark")}
             shown={shownHubs}
             progress={prefs.hubProgress}
@@ -1128,6 +1148,7 @@ export default function App() {
               highlightedHubs={prefs.highlightedHubs}
               lens={prefs.lens}
               filterRevision={filterRevision}
+              fitHubIds={fitHubIds}
               visible={new Set(matching.map((b) => b.id))}
               selected={prefs.selection}
               focus={prefs.focus}

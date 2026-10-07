@@ -17,6 +17,12 @@ export function fitLabelledPoints(
   minRatio: number,
   maxRatio: number,
 ) {
+  // Labels stay in screen pixels. With an inspector and filter drawer open,
+  // some are wider than the canvas at every zoom. Fit node geometry in that
+  // case instead of collapsing to the minimum zoom for an impossible fit.
+  const fitTextWidth = points.every(
+    (p) => Math.max(p.labelWidth, p.subtitleWidth) + 8 <= width - 48,
+  );
   const bounds = (factor: number) => {
     const boxes = points.map((p) => {
       const x = (p.x - width / 2) * factor;
@@ -24,8 +30,8 @@ export function fitLabelledPoints(
       const radius = p.radius * Math.sqrt(factor);
       const halfWidth = Math.max(
         radius + 7,
-        p.labelWidth / 2 + 4,
-        p.subtitleWidth / 2 + 4,
+        fitTextWidth ? p.labelWidth / 2 + 4 : 0,
+        fitTextWidth ? p.subtitleWidth / 2 + 4 : 0,
       );
       return {
         left: x - halfWidth,

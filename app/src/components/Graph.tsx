@@ -51,6 +51,7 @@ type Props = {
   data: Dataset;
   lens: "proposed" | "approved";
   filterRevision: number;
+  fitHubIds: string[] | null;
   visible: Set<string>;
   selected: string[];
   focus: string | null;
@@ -837,6 +838,10 @@ export function Graph(p: Props) {
   const fitVisibleItems = () => {
     const r = runtime.current;
     if (!r) return;
+    if (props.current.fitHubIds !== null) {
+      fitNodeIds(linkedNodeIds(r.graph, props.current.fitHubIds));
+      return;
+    }
     const ids = new Set<string>();
     for (const bookmarkId of props.current.visible) {
       const id = `bookmark:${bookmarkId}`;
