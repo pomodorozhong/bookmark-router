@@ -473,7 +473,7 @@ export function settle(
     forceAtlas2.assign(graph, {
       iterations: settings.iterations,
       settings: forceSettingsFor(settings),
-      weighted: settings.edgeWeightsEnabled,
+      getEdgeWeight: settings.edgeWeightsEnabled ? "weight" : null,
     });
   separateOverlaps(graph, settings.overlapPasses, settings.overlapGap);
   return Object.fromEntries(

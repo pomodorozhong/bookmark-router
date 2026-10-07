@@ -325,7 +325,7 @@ export function Graph(p: Props) {
       separateOverlaps(graph, settings.overlapPasses, settings.overlapGap);
       r.worker = new FA2Layout(graph, {
         settings: forceSettingsFor(settings),
-        weighted: settings.edgeWeightsEnabled,
+        getEdgeWeight: settings.edgeWeightsEnabled ? "weight" : null,
         // The worker's returned positions must never overwrite a newer drag
         // position. The supervisor also feeds these coordinates back to it.
         outputReducer: (id, a) => ({ ...a, ...r.fixed.get(id) }),

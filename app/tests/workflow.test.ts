@@ -644,7 +644,7 @@ test("same-kind bubbles and hubs repel apart with collision spacing", () => {
     const before = graph.getNodeAttributes("left"),
       after = graph.getNodeAttributes("right");
     assert.ok(Math.hypot(before.x - after.x, before.y - after.y) > 2);
-    separateOverlaps(graph);
+    separateOverlaps(graph, 1);
     const left = graph.getNodeAttributes("left"),
       right = graph.getNodeAttributes("right");
     assert.ok(
