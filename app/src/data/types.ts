@@ -1,3 +1,4 @@
+export type ProgressStatus = "pending" | "in_progress" | "done" | "dropped";
 export type Placement = "pending" | "added" | "already_present";
 export type Target = (
   | { kind: "existing_issue"; issue_number: number }
@@ -108,6 +109,7 @@ export type Bookmark = {
   }[];
 };
 export type Dataset = {
+  node_progress?: Record<string, ProgressStatus>;
   schema_version: string;
   dataset_id: string;
   metadata: {
@@ -142,6 +144,7 @@ export type Dataset = {
 export type BookmarkPatch = Partial<
   Pick<Bookmark, "display_title" | "url" | "tags" | "favorite">
 > & {
+  progress?: ProgressStatus;
   classification?: Partial<Bookmark["classification"]>;
   processing?: Partial<Bookmark["processing"]>;
   duplicate_review?: Partial<Bookmark["duplicate_review"]>;

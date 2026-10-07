@@ -32,6 +32,16 @@ import {
 } from "./data/selectors";
 import { Graph, type View } from "./components/Graph";
 import { HubList } from "./components/HubList";
+import { ProgressSelect } from "./components/ProgressSelect";
+import { ProgressFilters } from "./components/ProgressFilters";
+import {
+  matchesProgress,
+  nodeProgress,
+  progressLabels,
+  readProgressFilter,
+  progressStatuses,
+  type ProgressFilter,
+} from "./data/progress";
 import { LayoutTuning } from "./components/LayoutTuning";
 import { ZoomTuning } from "./components/ZoomTuning";
 import {
@@ -50,6 +60,7 @@ import {
 } from "./components/Boards";
 import {
   deriveGraph,
+  graphVisibility,
   graphLayoutDefaults,
   readGraphLayoutSettings,
   type GraphLayoutSettings,
@@ -57,6 +68,8 @@ import {
 } from "./data/graph";
 type Envelope = { data: Dataset; hash: string; token?: string };
 type Preferences = {
+  bubbleProgress: ProgressFilter;
+  hubProgress: ProgressFilter;
   hiddenHubs: string[];
   revealedHubs: string[];
   highlightedHubs: string[];
@@ -80,6 +93,8 @@ type Preferences = {
   favorite: boolean;
 };
 const defaults: Preferences = {
+  bubbleProgress: [...progressStatuses],
+  hubProgress: [...progressStatuses],
   hiddenHubs: [],
   revealedHubs: [],
   highlightedHubs: [],
@@ -130,6 +145,8 @@ function readPrefs(id: string): Preferences {
         : null;
     return {
       ...defaults,
+      bubbleProgress: readProgressFilter(stored.bubbleProgress),
+      hubProgress: readProgressFilter(stored.hubProgress),
       hiddenHubs: Array.isArray(stored.hiddenHubs)
         ? stored.hiddenHubs.filter((id: unknown) => typeof id === "string")
         : [],
@@ -199,7 +216,8 @@ export default function App() {
     [actions, setActions] = useState(false),
     [zoomTuning, setZoomTuning] = useState(false),
     [layoutTuning, setLayoutTuning] = useState(false),
-    [hubList, setHubList] = useState(false);
+    [hubList, setHubList] = useState(false),
+    [savingHubProgress, setSavingHubProgress] = useState(false);
   const [original, setOriginal] = useState(""),
     [source, setSource] = useState(""),
     [disposition, setDisposition] = useState(""),
@@ -316,12 +334,20 @@ export default function App() {
   const registerIssue = async (issue: Issue) =>
     !!(await request("/api/catalog/issues", { issue }));
   const graph = useMemo(
-    () => (data ? deriveGraph(data, prefs.lens) : { nodes: [], edges: [] }),
-    [data, prefs.lens],
+    () =>
+      graphData ? deriveGraph(graphData, prefs.lens) : { nodes: [], edges: [] },
+    [graphData, prefs.lens],
   );
   const matching = useMemo(
     () =>
       data?.bookmarks.filter((b) => {
+        if (
+          !matchesProgress(
+            nodeProgress(data, `bookmark:${b.id}`),
+            prefs.bubbleProgress,
+          )
+        )
+          return false;
         if (!inQueue(b, prefs.queue, data) || !searchBookmark(b, search, data))
           return false;
         if (prefs.topic) {
@@ -349,6 +375,7 @@ export default function App() {
     [
       data,
       prefs.queue,
+      prefs.bubbleProgress,
       prefs.topic,
       prefs.focus,
       prefs.lens,
@@ -361,6 +388,8 @@ export default function App() {
     ],
   );
   const filterSignature = JSON.stringify([
+    prefs.bubbleProgress,
+    prefs.hubProgress,
     prefs.queue,
     prefs.topic,
     prefs.focus,
@@ -380,7 +409,7 @@ export default function App() {
   }, [filterSignature]);
   useEffect(() => {
     snapshot.current = matching.map((b) => b.id);
-  }, [filterSignature, !!data]);
+  }, [matching]);
   function select(id: string, multi = false) {
     if (
       dirty.current &&
@@ -427,6 +456,10 @@ export default function App() {
       favorite,
     };
     resetFilters();
+    preference({
+      bubbleProgress: prefs.bubbleProgress,
+      hubProgress: prefs.hubProgress,
+    });
     preference({ focus: id, selection: [id], queue: "all", topic: "" });
     setBoard(null);
   }
@@ -469,18 +502,15 @@ export default function App() {
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
   }, [prefs.selection, hubList, zoomTuning, layoutTuning, board]);
-  const shownHubs = new Set(
-    [
-      ...graph.edges
-        .filter(
-          (e) =>
-            matching.some((b) => e.source === `bookmark:${b.id}`) ||
-            prefs.selection.includes(e.source),
-        )
-        .map((e) => e.target),
-      ...prefs.selection,
-      ...prefs.revealedHubs,
-    ].filter((id) => !prefs.hiddenHubs.includes(id)),
+  const { shownHubs } = graphVisibility(
+    graph,
+    new Set(matching.map((b) => b.id)),
+    prefs.selection,
+    prefs.hiddenHubs,
+    prefs.revealedHubs,
+    prefs.bubbleProgress,
+    prefs.hubProgress,
+    readProgressFilter(prefs.queue === "completed" ? "done" : prefs.queue),
   );
   const selected = data?.bookmarks.find(
     (b) =>
@@ -499,9 +529,16 @@ export default function App() {
   const groups = [
     ...new Set(data?.category_review.categories.map((c) => c.group) ?? []),
   ];
-  const complete = data?.bookmarks.filter(isComplete).length ?? 0;
+  const complete =
+    data?.bookmarks.filter((b) => isComplete(b, data)).length ?? 0;
   const resetFilters = () => {
-    preference({ queue: "all", topic: "", focus: null });
+    preference({
+      queue: "all",
+      topic: "",
+      focus: null,
+      bubbleProgress: [...progressStatuses],
+      hubProgress: [...progressStatuses],
+    });
     setSearch("");
     setOriginal("");
     setSource("");
@@ -743,28 +780,70 @@ export default function App() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="space-y-1">
-              {queues.map((q) => (
-                <button
-                  key={q.id}
-                  className={`w-full justify-between !px-3 !py-2.5 !text-xs ${prefs.queue === q.id ? "!bg-emerald-50 font-medium text-emerald-800" : "text-slate-500"}`}
-                  onClick={() => {
-                    if (prefs.queue === q.id)
-                      setFilterRevision((revision) => revision + 1);
-                    else preference({ queue: q.id });
-                  }}
-                >
-                  <span>{q.label}</span>
-                  <span className="text-[10px] tabular-nums opacity-60">
-                    {
-                      data.bookmarks.filter((b) => inQueue(b, q.id, data))
-                        .length
-                    }
-                  </span>
-                </button>
-              ))}
-            </div>
+            {[
+              {
+                label: "",
+                entries: queues.filter(
+                  (q) =>
+                    ![
+                      "pending",
+                      "in_progress",
+                      "completed",
+                      "dropped",
+                    ].includes(q.id),
+                ),
+              },
+              {
+                label: "Progress queues",
+                entries: queues.filter((q) =>
+                  ["pending", "in_progress", "completed", "dropped"].includes(
+                    q.id,
+                  ),
+                ),
+              },
+            ].map(({ label, entries }) => (
+              <section
+                key={label}
+                className={label ? "mt-4 border-t border-slate-100 pt-4" : ""}
+              >
+                {label && <h3 className="eyebrow mb-2">{label}</h3>}
+                <div className="space-y-1">
+                  {entries.map((q) => (
+                    <button
+                      key={q.id}
+                      className={`w-full justify-between !px-3 !py-2.5 !text-xs ${prefs.queue === q.id ? "!bg-emerald-50 font-medium text-emerald-800" : "text-slate-500"}`}
+                      onClick={() => {
+                        if (prefs.queue === q.id)
+                          setFilterRevision((revision) => revision + 1);
+                        else preference({ queue: q.id });
+                      }}
+                    >
+                      <span>{q.label}</span>
+                      <span className="text-[10px] tabular-nums opacity-60">
+                        {
+                          data.bookmarks.filter((b) => inQueue(b, q.id, data))
+                            .length
+                        }
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
             <div className="my-5 border-t border-slate-100" />
+            <section aria-label="Progress filter" className="mb-5">
+              <h3 className="eyebrow">Progress filter</h3>
+              <ProgressFilters
+                label="Bubble progress"
+                value={prefs.bubbleProgress}
+                onChange={(bubbleProgress) => preference({ bubbleProgress })}
+              />
+              <ProgressFilters
+                label="Hub progress"
+                value={prefs.hubProgress}
+                onChange={(hubProgress) => preference({ hubProgress })}
+              />
+            </section>
             <label className="field-label">
               Topic lens
               <select
@@ -883,6 +962,8 @@ export default function App() {
           <HubList
             hubs={graph.nodes.filter((n) => n.kind !== "bookmark")}
             shown={shownHubs}
+            progress={prefs.hubProgress}
+            onProgress={(hubProgress) => preference({ hubProgress })}
             highlighted={prefs.highlightedHubs}
             selected={prefs.selection}
             toggleSelection={toggleHubSelection}
@@ -1001,7 +1082,7 @@ export default function App() {
                       </span>
                     </span>
                     <span className="pill shrink-0">
-                      {isComplete(b) ? "Complete" : b.processing.review_status}
+                      {progressLabels[nodeProgress(data, `bookmark:${b.id}`)]}
                     </span>
                   </button>
                 ))}
@@ -1016,6 +1097,11 @@ export default function App() {
           ) : (
             <Graph
               data={graphData!}
+              bubbleProgress={prefs.bubbleProgress}
+              bubbleQueueProgress={readProgressFilter(
+                prefs.queue === "completed" ? "done" : prefs.queue,
+              )}
+              hubProgress={prefs.hubProgress}
               zoomDetails={prefs.zoomDetails}
               hiddenHubs={prefs.hiddenHubs}
               revealedHubs={prefs.revealedHubs}
@@ -1027,9 +1113,7 @@ export default function App() {
               focus={prefs.focus}
               mode={mode}
               allEdges={prefs.allEdges}
-              onToggleAllEdges={() =>
-                preference({ allEdges: !prefs.allEdges })
-              }
+              onToggleAllEdges={() => preference({ allEdges: !prefs.allEdges })}
               layoutSettings={prefs.layoutSettings}
               hubPerimeterSeeded={prefs.hubPerimeterSeeded}
               positions={prefs.positions}
@@ -1106,6 +1190,28 @@ export default function App() {
               </button>
             </div>
             <h2 className="mt-5 text-xl font-semibold">{hub.label}</h2>
+            <span
+              className={`pill mt-3 ${hub.progress === "done" ? "!bg-emerald-50 !text-emerald-700" : hub.progress === "dropped" ? "!bg-rose-50 !text-rose-700" : ""}`}
+            >
+              {progressLabels[hub.progress]}
+            </span>
+            <ProgressSelect
+              value={hub.progress}
+              disabled={savingHubProgress}
+              onChange={async (progress) => {
+                if (!progress) return;
+                setSavingHubProgress(true);
+                try {
+                  await request(
+                    `/api/nodes/${encodeURIComponent(hub.id)}/progress`,
+                    { progress },
+                    "PATCH",
+                  );
+                } finally {
+                  setSavingHubProgress(false);
+                }
+              }}
+            />
             <p className="mt-3 text-sm text-slate-500">
               {hub.subtitle} · {hub.count} related bookmarks
             </p>
@@ -1162,8 +1268,8 @@ export default function App() {
               </button>
             </div>
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Approve each bookmark's proposed topic. This changes
-              classification only.
+              Approve each bookmark's proposed topic. Progress updates to
+              reflect the review workflow.
             </p>
             <button
               className="primary mt-5 w-full"

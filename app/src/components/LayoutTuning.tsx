@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import {
-  graphLayoutDefaults,
-  type GraphLayoutSettings,
-} from "../data/graph";
+import { graphLayoutDefaults, type GraphLayoutSettings } from "../data/graph";
 
 function sameSettings(a: GraphLayoutSettings, b: GraphLayoutSettings) {
   return Object.keys(graphLayoutDefaults).every(
@@ -49,7 +46,9 @@ function RangeField({
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
       />
-      <span className="mt-1 block text-xs leading-5 text-slate-500">{hint}</span>
+      <span className="mt-1 block text-xs leading-5 text-slate-500">
+        {hint}
+      </span>
     </label>
   );
 }
@@ -108,7 +107,7 @@ export function LayoutTuning({
     setIterationsText(String(value.iterations));
   }, [value]);
   useEffect(() => closeButton.current?.focus(), []);
-  const update = <K extends keyof GraphLayoutSettings,>(
+  const update = <K extends keyof GraphLayoutSettings>(
     key: K,
     next: GraphLayoutSettings[K],
   ) => setDraft((current) => ({ ...current, [key]: next }));

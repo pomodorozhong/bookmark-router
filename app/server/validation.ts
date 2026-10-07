@@ -3,6 +3,7 @@ import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import type { Dataset } from "../src/data/types";
 import { safeUrl, targetKey } from "../src/data/selectors";
+import { nodeIds } from "../src/data/progress";
 const schema = JSON.parse(
   readFileSync(new URL("../../bookmarks.schema.json", import.meta.url), "utf8"),
 );
@@ -13,6 +14,9 @@ export function validateDataset(value: unknown): asserts value is Dataset {
   if (!validateSchema(value))
     throw new Error(ajv.errorsText(validateSchema.errors, { separator: "\n" }));
   const d = value as Dataset;
+  const validNodeIds = nodeIds(d);
+  for (const id of Object.keys(d.node_progress ?? {}))
+    if (!validNodeIds.has(id)) throw new Error(`Unknown progress node: ${id}`);
   const errors: string[] = [];
   const assert = (condition: unknown, message: string) => {
     if (!condition) errors.push(message);

@@ -1,14 +1,6 @@
 import type { Bookmark, Dataset, Target } from "./types";
-export function isComplete(b: Bookmark) {
-  const p = b.processing;
-  if (p.review_status !== "decided") return false;
-  if (["keep", "skip", "duplicate"].includes(p.disposition)) return true;
-  return (
-    p.disposition === "attach" &&
-    p.selected_targets.length > 0 &&
-    p.selected_targets.every((t) => t.placement_status !== "pending")
-  );
-}
+import { isComplete, nodeProgress } from "./progress";
+export { isComplete } from "./progress";
 export const targetKey = (t: Target, d: Dataset): string =>
   t.kind === "existing_issue"
     ? `issue:${t.issue_number}`
@@ -71,6 +63,8 @@ export type Queue =
   | "duplicates"
   | "deferred"
   | "pending"
+  | "in_progress"
+  | "dropped"
   | "completed";
 export const queues: { id: Queue; label: string }[] = [
   { id: "all", label: "All bookmarks" },
@@ -82,8 +76,10 @@ export const queues: { id: Queue; label: string }[] = [
   { id: "links", label: "Link follow-up" },
   { id: "duplicates", label: "Duplicates & mirrors" },
   { id: "deferred", label: "Deferred" },
-  { id: "pending", label: "Reviewed, awaiting placement" },
+  { id: "pending", label: "Pending" },
+  { id: "in_progress", label: "In progress" },
   { id: "completed", label: "Completed" },
+  { id: "dropped", label: "Dropped" },
 ];
 export function inQueue(b: Bookmark, queue: Queue, d: Dataset) {
   const recs = d.references_for_existing_issues.filter(
@@ -120,13 +116,11 @@ export function inQueue(b: Bookmark, queue: Queue, d: Dataset) {
     case "deferred":
       return b.processing.disposition === "defer";
     case "pending":
-      return (
-        b.processing.review_status === "decided" &&
-        b.processing.disposition === "attach" &&
-        !isComplete(b)
-      );
+    case "in_progress":
+    case "dropped":
+      return nodeProgress(d, `bookmark:${b.id}`) === queue;
     case "completed":
-      return isComplete(b);
+      return isComplete(b, d);
     default:
       return true;
   }

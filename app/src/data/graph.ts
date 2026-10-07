@@ -1,6 +1,12 @@
 import Graphology from "graphology";
 import forceAtlas2 from "graphology-layout-forceatlas2";
-import type { Dataset } from "./types";
+import type { Dataset, ProgressStatus } from "./types";
+import {
+  nodeProgress,
+  matchesProgress,
+  progressStatuses,
+  type ProgressFilter,
+} from "./progress";
 import { targetKey } from "./selectors";
 export type Node = {
   id: string;
@@ -9,6 +15,7 @@ export type Node = {
   subtitle: string;
   count: number;
   radius: number;
+  progress: ProgressStatus;
 };
 export type Edge = {
   id: string;
@@ -34,6 +41,7 @@ export function deriveGraph(d: Dataset, lens: "proposed" | "approved") {
       subtitle,
       count: 0,
       radius: kind === "bookmark" ? 21 : 46,
+      progress: nodeProgress(d, id),
     });
   d.category_review.categories.forEach((c) =>
     add(`topic:${c.id}`, "topic", c.label, "Topic"),
@@ -115,6 +123,53 @@ export function deriveGraph(d: Dataset, lens: "proposed" | "approved") {
     if (hub) hub.count++;
   }
   return { nodes, edges: [...edges.values()] };
+}
+export function graphVisibility(
+  graph: { nodes: Node[]; edges: Edge[] },
+  visible: Set<string>,
+  selected: string[],
+  hiddenHubs: string[],
+  revealedHubs: string[],
+  bubbleProgress: ProgressFilter,
+  hubProgress: ProgressFilter,
+  bubbleQueueProgress: ProgressFilter = progressStatuses,
+) {
+  const matchingBubbles = new Set(
+    graph.nodes
+      .filter(
+        (n) =>
+          n.kind === "bookmark" &&
+          matchesProgress(n.progress, bubbleProgress) &&
+          matchesProgress(n.progress, bubbleQueueProgress),
+      )
+      .map((n) => n.id),
+  );
+  const matches = new Set(
+    [...visible]
+      .map((id) => `bookmark:${id}`)
+      .concat(selected)
+      .filter((id) => matchingBubbles.has(id)),
+  );
+  const relevant = graph.edges.filter((e) => matches.has(e.source));
+  const hubs = new Set(relevant.map((e) => e.target));
+  const nodes = graph.nodes.filter((n) =>
+    n.kind === "bookmark"
+      ? matches.has(n.id)
+      : matchesProgress(n.progress, hubProgress) &&
+        !hiddenHubs.includes(n.id) &&
+        (hubs.has(n.id) ||
+          selected.includes(n.id) ||
+          revealedHubs.includes(n.id)),
+  );
+  const ids = new Set(nodes.map((n) => n.id));
+  return {
+    nodes,
+    edges: graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+    relevant,
+    shownHubs: new Set(
+      nodes.filter((n) => n.kind !== "bookmark").map((n) => n.id),
+    ),
+  };
 }
 export type GraphLayoutSettings = {
   scalingRatio: number;
@@ -460,10 +515,7 @@ export function settle(
   // Seed only new nodes during ordinary data changes. Explicit re-layout frees
   // existing unpinned nodes; live dragging also frees all unpinned neighbors.
   graph.forEachNode((id) => {
-    if (
-      saved[id] &&
-      (!reset || saved[id].pinned || temporaryPins.has(id))
-    ) {
+    if (saved[id] && (!reset || saved[id].pinned || temporaryPins.has(id))) {
       if (reset && temporaryPins.has(id) && !saved[id].pinned)
         graph.mergeNodeAttributes(id, { x: saved[id].x, y: -saved[id].y });
       graph.setNodeAttribute(id, "fixed", true);

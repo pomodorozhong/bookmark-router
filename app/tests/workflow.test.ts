@@ -1,3 +1,4 @@
+import { isWorkflowComplete as isComplete } from "../src/data/progress";
 import { readZoomDetails, zoomDetailDefaults } from "../src/data/zoom-details";
 import { fitLabelledPoints } from "../src/data/viewport";
 import test from "node:test";
@@ -8,7 +9,6 @@ import { join } from "node:path";
 import { once } from "node:events";
 import type { Dataset, Target } from "../src/data/types";
 import {
-  isComplete,
   inQueue,
   normalizedUrl,
   referenceDrafts,
@@ -453,6 +453,7 @@ test("ForceAtlas2 drag moves connected neighbors while respecting fixed nodes", 
     subtitle: "",
     count: 0,
     radius: 10,
+    progress: "pending" as const,
   }));
   const graph = createLayoutGraph(
     nodes,
@@ -501,6 +502,7 @@ test("hidden center tethers orphan hubs and stays out of saved layouts and linke
     subtitle: "",
     count: 0,
     radius: 10,
+    progress: "pending" as const,
   }));
   const edges = [
     {
@@ -635,6 +637,7 @@ test("same-kind bubbles and hubs repel apart with collision spacing", () => {
       subtitle: "",
       count: 0,
       radius: kind === "bookmark" ? 21 : 46,
+      progress: "pending" as const,
     }));
     const graph = createLayoutGraph(nodes, [], {
       left: { x: -1, y: 0 },
@@ -661,6 +664,7 @@ test("collision correction respects fixed nodes and separates coincident nodes",
     subtitle: "",
     count: 0,
     radius: 21,
+    progress: "pending" as const,
   }));
   const graph = createLayoutGraph(nodes, [], {
     pinned: { x: 0, y: 0, pinned: true },

@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { Store, ApiError } from "./store";
 import { validateDataset } from "./validation";
 import { referenceDrafts } from "../src/data/selectors";
+import { initializeProgress } from "../src/data/progress";
 export function createApi(store: Store) {
   const app = express(),
     token = randomBytes(32).toString("hex");
@@ -60,6 +61,12 @@ export function createApi(store: Store) {
     "/api/bookmarks/:id/undo",
     mutate((d, req) => store.undo(d, String(req.params.id))),
   );
+  app.patch(
+    "/api/nodes/:id/progress",
+    mutate((d, req) =>
+      store.patchNodeProgress(d, String(req.params.id), req.body.progress),
+    ),
+  );
   app.post(
     "/api/bookmarks/bulk-topic",
     mutate((d, req) => {
@@ -105,7 +112,11 @@ export function createApi(store: Store) {
       });
     return mutate((d, r) => {
       const revision = d.metadata.revision;
-      Object.assign(d, r.body.data);
+      const imported = structuredClone(r.body.data);
+      initializeProgress(imported);
+      for (const key of Object.keys(d))
+        delete (d as unknown as Record<string, unknown>)[key];
+      Object.assign(d, imported);
       d.metadata.revision = revision;
     })(req, res, () => {});
   });

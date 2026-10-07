@@ -11,9 +11,10 @@ import {
   X,
 } from "lucide-react";
 import type { Bookmark, BookmarkPatch, Dataset, Target } from "../data/types";
+import { ProgressSelect } from "./ProgressSelect";
+import { nodeProgress, progressLabels } from "../data/progress";
 import {
   domain,
-  isComplete,
   safeUrl,
   targetKey,
   targetLabel,
@@ -49,6 +50,15 @@ export function Inspector({
     [dirty, setDirty] = useState(false),
     [busy, setBusy] = useState(false),
     [destination, setDestination] = useState("");
+  const savedProgress = nodeProgress(data, `bookmark:${b.id}`);
+  const [progress, setProgress] = useState(savedProgress);
+  const [progressEdited, setProgressEdited] = useState(false);
+  useEffect(() => {
+    if (!dirty) {
+      setProgress(savedProgress);
+      setProgressEdited(false);
+    }
+  }, [savedProgress, dirty]);
   useEffect(() => {
     onTopicPreview({ id: b.id, classification: draft.classification });
   }, [draft.classification]);
@@ -83,6 +93,7 @@ export function Inspector({
     url: next.url,
     tags: next.tags,
     favorite: next.favorite,
+    ...(progressEdited ? { progress } : {}),
     classification: {
       approved_category_id: next.classification.approved_category_id,
       approved_secondary_category_ids:
@@ -185,9 +196,9 @@ export function Inspector({
           <div className="mb-3 flex items-center gap-2">
             <span className="pill">{domain(draft.url)}</span>
             <span
-              className={`pill ${isComplete(b) ? "!bg-emerald-50 !text-emerald-700" : ""}`}
+              className={`pill ${savedProgress === "done" ? "!bg-emerald-50 !text-emerald-700" : savedProgress === "dropped" ? "!bg-rose-50 !text-rose-700" : ""}`}
             >
-              {isComplete(b) ? "Complete" : b.processing.review_status}
+              {progressLabels[savedProgress]}
             </span>
             <button
               aria-label="Toggle favorite"
@@ -206,7 +217,17 @@ export function Inspector({
               />
             </button>
           </div>
-          <label className="field-label" htmlFor="bookmark-title">
+          <ProgressSelect
+            value={progress}
+            disabled={busy}
+            onChange={(value) => {
+              if (!value) return;
+              setProgress(value);
+              setProgressEdited(true);
+              setDirty(true);
+            }}
+          />
+          <label className="field-label mt-4" htmlFor="bookmark-title">
             Title
           </label>
           <textarea

@@ -13,6 +13,7 @@ import FA2Layout from "graphology-layout-forceatlas2/worker";
 import type { NodeLabelDrawingFunction } from "sigma/rendering";
 import {
   deriveGraph,
+  graphVisibility,
   settle,
   forceSettingsFor,
   separateOverlaps,
@@ -26,7 +27,8 @@ import {
 } from "../data/graph";
 import type { ZoomDetails, ZoomDetailKey } from "../data/zoom-details";
 import { fitLabelledPoints } from "../data/viewport";
-import { domain, isComplete } from "../data/selectors";
+import { domain } from "../data/selectors";
+import { progressLabels, type ProgressFilter } from "../data/progress";
 import type { Dataset } from "../data/types";
 export type View = {
   x: number;
@@ -36,6 +38,9 @@ export type View = {
   bounds?: { x: [number, number]; y: [number, number] };
 };
 type Props = {
+  bubbleProgress: ProgressFilter;
+  bubbleQueueProgress: ProgressFilter;
+  hubProgress: ProgressFilter;
   hiddenHubs: string[];
   revealedHubs: string[];
   highlightedHubs: string[];
@@ -157,7 +162,11 @@ export function Graph(p: Props) {
       ctx.globalAlpha = a.dimmed ? 0.38 : 1;
       ctx.strokeStyle = selected
         ? "#174f43"
-        : strokes[a.kind as keyof typeof strokes];
+        : a.progress === "dropped"
+          ? "#b76868"
+          : a.complete
+            ? "#278367"
+            : strokes[a.kind as keyof typeof strokes];
       ctx.lineWidth = selected ? 2 : 1;
       ctx.beginPath();
       ctx.arc(data.x, data.y, data.size, 0, Math.PI * 2);
@@ -196,12 +205,23 @@ export function Graph(p: Props) {
           detail("hubType"),
         );
         text(String(a.count), data.y + 7, "600 12px sans-serif", "#314557");
+        if (a.complete || a.progress === "dropped")
+          text(
+            a.symbol,
+            data.y - data.size + 2,
+            "600 12px sans-serif",
+            a.complete ? "#278367" : "#b76868",
+          );
       } else {
         text(
           a.symbol,
           data.y,
           "12px sans-serif",
-          a.complete ? "#278367" : "#788690",
+          a.complete
+            ? "#278367"
+            : a.progress === "dropped"
+              ? "#b76868"
+              : "#788690",
           detail("bookmarkSymbol"),
         );
       }
@@ -529,25 +549,21 @@ export function Graph(p: Props) {
       )
       .map(([id]) => id);
     previousTopicLinks.current = topicLinks;
-    const matches = new Set(
-      [...p.visible]
-        .map((id) => `bookmark:${id}`)
-        .concat(p.selected.filter((id) => id.startsWith("bookmark:"))),
-    );
-    const relevant = derived.edges.filter((e) => matches.has(e.source));
-    const hubs = new Set(relevant.map((e) => e.target));
-    const shown = derived.nodes.filter(
-      (n) =>
-        !p.hiddenHubs.includes(n.id) &&
-        (matches.has(n.id) ||
-          hubs.has(n.id) ||
-          p.selected.includes(n.id) ||
-          p.revealedHubs.includes(n.id)),
+    const {
+      nodes: shown,
+      edges,
+      relevant,
+    } = graphVisibility(
+      derived,
+      p.visible,
+      p.selected,
+      p.hiddenHubs,
+      p.revealedHubs,
+      p.bubbleProgress,
+      p.hubProgress,
+      p.bubbleQueueProgress,
     );
     const ids = new Set(shown.map((n) => n.id));
-    const edges = derived.edges.filter(
-      (e) => ids.has(e.source) && ids.has(e.target),
-    );
     const emphasized = [...p.selected, ...p.highlightedHubs];
     const neighbors = new Set(emphasized);
     edges
@@ -618,7 +634,13 @@ export function Graph(p: Props) {
           p.selected,
         )
       : derived.nodes.some((n) => !savedPositions[n.id])
-        ? settle(derived.nodes, derived.edges, savedPositions, false, p.layoutSettings)
+        ? settle(
+            derived.nodes,
+            derived.edges,
+            savedPositions,
+            false,
+            p.layoutSettings,
+          )
         : savedPositions;
     const seedHubPerimeter = !p.hubPerimeterSeeded || layoutSettingsChanged;
     if (seedHubPerimeter)
@@ -655,14 +677,19 @@ export function Graph(p: Props) {
         color: colors[n.kind],
         pinned: !!position.pinned,
         fixed:
-          !!position.pinned ||
-          p.selected.includes(n.id) ||
-          r.drag?.id === n.id,
+          !!position.pinned || p.selected.includes(n.id) || r.drag?.id === n.id,
         forceLabel: true,
         zIndex: p.selected.includes(n.id) ? 2 : n.kind === "bookmark" ? 0 : 1,
         dimmed: emphasized.length > 0 && !neighbors.has(n.id),
-        complete: b ? isComplete(b) : false,
-        symbol: b && isComplete(b) ? "✓" : b?.favorite ? "★" : "·",
+        complete: n.progress === "done",
+        symbol:
+          n.progress === "done"
+            ? "✓"
+            : n.progress === "dropped"
+              ? "×"
+              : b?.favorite
+                ? "★"
+                : "·",
         count:
           n.kind === "bookmark"
             ? n.count
@@ -670,8 +697,8 @@ export function Graph(p: Props) {
                 relevant.filter((e) => e.target === n.id).map((e) => e.source),
               ).size,
         subtitle: b
-          ? `${domain(b.url)} · ${b.processing.review_status}`
-          : n.subtitle,
+          ? `${domain(b.url)} · ${progressLabels[n.progress]}`
+          : `${n.subtitle} · ${progressLabels[n.progress]}`,
       };
       // Selection/filter rendering updates must not reset live physics positions.
       if (r.graph.hasNode(n.id)) {
@@ -733,6 +760,9 @@ export function Graph(p: Props) {
   }, [
     derived,
     p.visible,
+    p.bubbleProgress,
+    p.bubbleQueueProgress,
+    p.hubProgress,
     p.selected,
     p.allEdges,
     p.layoutSettings,

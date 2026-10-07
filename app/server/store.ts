@@ -7,8 +7,17 @@ import type {
   Dataset,
   Issue,
   Proposal,
+  ProgressStatus,
 } from "../src/data/types";
 import { normalizedUrl } from "../src/data/selectors";
+import {
+  initializeProgress,
+  nodeIds,
+  nodeProgress,
+  progressStatuses,
+  bookmarkWorkflowProgress,
+  bookmarkWorkflowSignature,
+} from "../src/data/progress";
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -32,6 +41,7 @@ export class Store {
     const raw = await readFile(this.file, "utf8");
     const data: unknown = JSON.parse(raw);
     validateDataset(data);
+    initializeProgress(data);
     return { data, hash: hash(raw) };
   }
   async transaction(
@@ -48,6 +58,7 @@ export class Store {
         );
       const candidate = structuredClone(data);
       change(candidate);
+      initializeProgress(candidate);
       candidate.metadata.revision++;
       candidate.metadata.updated_at = new Date().toISOString();
       validateDataset(candidate);
@@ -92,6 +103,8 @@ export class Store {
   patchBookmark(d: Dataset, id: string, patch: BookmarkPatch) {
     const b = d.bookmarks.find((b) => b.id === id);
     if (!b) throw new ApiError(404, "Bookmark not found");
+    initializeProgress(d);
+    const workflowBefore = bookmarkWorkflowSignature(b);
     allowed(patch, [
       "display_title",
       "url",
@@ -101,6 +114,7 @@ export class Store {
       "processing",
       "duplicate_review",
       "source_review",
+      "progress",
     ]);
     const nested: Record<string, string[]> = {
       classification: [
@@ -118,8 +132,11 @@ export class Store {
       duplicate_review: ["confirmed_duplicate_of", "status"],
       source_review: ["strength", "note", "latest_link_check"],
     };
-    const at = new Date().toISOString();
+    const at = new Date(
+      Math.max(Date.now(), Date.parse(b.history.at(-1)?.at ?? "") + 1 || 0),
+    ).toISOString();
     for (const [key, value] of Object.entries(patch)) {
+      if (key === "progress") continue;
       const previous = structuredClone(b[key as keyof typeof b]);
       if (nested[key]) {
         if (!value || typeof value !== "object" || Array.isArray(value))
@@ -139,12 +156,71 @@ export class Store {
           note: "",
         });
     }
+    const workflowChanged = workflowBefore !== bookmarkWorkflowSignature(b);
+    if (Object.hasOwn(patch, "progress"))
+      this.setBookmarkProgress(
+        d,
+        b,
+        patch.progress,
+        at,
+        "edit",
+        workflowChanged,
+      );
+    else if (workflowChanged)
+      this.setBookmarkProgress(
+        d,
+        b,
+        bookmarkWorkflowProgress(b),
+        at,
+        "edit",
+        true,
+      );
     if (patch.url) b.normalized_url = normalizedUrl(patch.url);
     b.processing.updated_at = new Date().toISOString();
+  }
+  private setBookmarkProgress(
+    d: Dataset,
+    b: Dataset["bookmarks"][number],
+    status: unknown,
+    at: string,
+    action = "edit",
+    recordUnchanged = false,
+  ) {
+    if (!progressStatuses.includes(status as ProgressStatus))
+      throw new ApiError(422, "Invalid progress status");
+    const id = `bookmark:${b.id}`;
+    const previous = nodeProgress(d, id);
+    d.node_progress ??= {};
+    d.node_progress[id] = status as ProgressStatus;
+    if (previous !== status || recordUnchanged)
+      b.history.push({
+        id: randomUUID(),
+        at,
+        action,
+        field: "progress",
+        previous_value: previous,
+        new_value: status,
+        note: "",
+      });
+  }
+  patchNodeProgress(d: Dataset, id: string, status: unknown) {
+    if (!nodeIds(d).has(id)) throw new ApiError(422, "Unknown progress node");
+    if (!progressStatuses.includes(status as ProgressStatus))
+      throw new ApiError(422, "Invalid progress status");
+    if (id.startsWith("bookmark:")) {
+      this.patchBookmark(d, id.slice("bookmark:".length), {
+        progress: status as ProgressStatus,
+      });
+      return;
+    }
+    d.node_progress ??= {};
+    d.node_progress[id] = status as ProgressStatus;
   }
   undo(d: Dataset, id: string) {
     const b = d.bookmarks.find((b) => b.id === id);
     if (!b) throw new ApiError(404, "Bookmark not found");
+    initializeProgress(d);
+    const workflowBefore = bookmarkWorkflowSignature(b);
     const last = [...b.history]
       .reverse()
       .find(
@@ -162,9 +238,16 @@ export class Store {
         !b.history.some((u) => u.action === "undo" && u.note === h.id),
     );
     for (const h of events.reverse()) {
-      const field = h.field! as keyof typeof b;
-      const previous = structuredClone(b[field]);
-      Object.assign(b, { [field]: structuredClone(h.previous_value) });
+      const field = h.field!;
+      const previous = structuredClone(
+        field === "progress"
+          ? nodeProgress(d, `bookmark:${b.id}`)
+          : b[field as keyof typeof b],
+      );
+      if (field === "progress")
+        d.node_progress![`bookmark:${b.id}`] =
+          h.previous_value as ProgressStatus;
+      else Object.assign(b, { [field]: structuredClone(h.previous_value) });
       b.history.push({
         id: randomUUID(),
         at: new Date().toISOString(),
@@ -175,12 +258,25 @@ export class Store {
         note: h.id,
       });
     }
+    // Saves made before node progress existed have no progress snapshot.
+    if (
+      !events.some((h) => h.field === "progress") &&
+      workflowBefore !== bookmarkWorkflowSignature(b)
+    )
+      this.setBookmarkProgress(
+        d,
+        b,
+        bookmarkWorkflowProgress(b),
+        new Date().toISOString(),
+        "undo",
+      );
     b.normalized_url = normalizedUrl(b.url);
     b.processing.updated_at = new Date().toISOString();
   }
   patchProposal(d: Dataset, id: string, patch: Partial<Proposal>) {
     const p = d.bookmarks_worth_their_own_issues.find((p) => p.id === id);
     if (!p) throw new ApiError(404, "Proposal not found");
+    initializeProgress(d);
     allowed(patch, [
       "title",
       "questions",
@@ -216,11 +312,20 @@ export class Store {
           new_value: structuredClone(b.processing),
           note: id,
         });
+        this.setBookmarkProgress(
+          d,
+          b,
+          bookmarkWorkflowProgress(b),
+          new Date().toISOString(),
+          "proposal_rejected",
+        );
       }
   }
   registerIssue(d: Dataset, issue: Issue) {
     if (d.issue_catalog.some((i) => i.number === issue.number))
       throw new ApiError(422, "Issue number already registered");
     d.issue_catalog.push(issue);
+    d.node_progress ??= {};
+    d.node_progress[`issue:${issue.number}`] = "pending";
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Check, Copy, Download, X } from "lucide-react";
 import type { Dataset, Issue, Proposal } from "../data/types";
+import { nodeProgress } from "../data/progress";
 import {
   isComplete,
   queues,
@@ -79,18 +80,26 @@ export function Progress({
   data: Dataset;
   navigate: (q: Queue) => void;
 }) {
-  const complete = data.bookmarks.filter(isComplete),
+  const complete = data.bookmarks.filter((b) => isComplete(b, data)),
     reviewed = data.bookmarks.filter(
       (b) => b.processing.review_status === "decided",
     );
   const targets = data.bookmarks.flatMap((b) => b.processing.selected_targets);
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
             label: "BOOKMARKS COMPLETED",
             value: `${complete.length} / ${data.bookmarks.length}`,
+          },
+          {
+            label: "BOOKMARKS DROPPED",
+            value: String(
+              data.bookmarks.filter(
+                (b) => nodeProgress(data, `bookmark:${b.id}`) === "dropped",
+              ).length,
+            ),
           },
           {
             label: "REVIEW DECISIONS",
@@ -109,20 +118,10 @@ export function Progress({
           </div>
         ))}
       </div>
-      <div className="mt-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
-        Completed:{" "}
-        {complete.filter((b) => b.processing.disposition === "attach").length}{" "}
-        attached ·{" "}
-        {complete.filter((b) => b.processing.disposition === "keep").length}{" "}
-        kept ·{" "}
-        {complete.filter((b) => b.processing.disposition === "skip").length}{" "}
-        skipped ·{" "}
-        {
-          complete.filter((b) => b.processing.disposition === "duplicate")
-            .length
-        }{" "}
-        duplicates
-      </div>
+      <p className="mt-5 text-sm text-slate-500">
+        Done counts as completed. Review decisions and placement confirmations
+        are tracked separately.
+      </p>
       <h3 className="mt-7 mb-3 font-semibold">Continue reviewing</h3>
       <div className="grid gap-2 sm:grid-cols-2">
         {queues
@@ -130,6 +129,9 @@ export function Progress({
             [
               "unreviewed",
               "pending",
+              "in_progress",
+              "completed",
+              "dropped",
               "proposals",
               "duplicates",
               "deferred",

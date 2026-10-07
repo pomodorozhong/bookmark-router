@@ -21,10 +21,7 @@ if (!configuredFile) {
     if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
   }
 }
-const store = new Store(
-  file,
-  resolve(root, "backups"),
-);
+const store = new Store(file, resolve(root, "backups"));
 await store.read();
 const app = createApi(store);
 if (process.env.NODE_ENV === "production") {

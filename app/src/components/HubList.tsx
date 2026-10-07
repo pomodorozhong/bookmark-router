@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { Eye, EyeOff, Highlighter, X } from "lucide-react";
 import type { Node } from "../data/graph";
+import {
+  matchesProgress,
+  progressLabels,
+  type ProgressFilter,
+} from "../data/progress";
+import { ProgressFilters } from "./ProgressFilters";
 const names = {
   topic: "Topics",
   issue: "Existing issues",
@@ -15,6 +21,8 @@ export function HubList({
   toggleHighlight,
   toggleSelection,
   close,
+  progress,
+  onProgress,
 }: {
   hubs: Node[];
   shown: Set<string>;
@@ -24,6 +32,8 @@ export function HubList({
   toggleHighlight: (id: string) => void;
   toggleSelection: (id: string) => void;
   close: () => void;
+  progress: ProgressFilter;
+  onProgress: (value: ProgressFilter) => void;
 }) {
   const [search, setSearch] = useState(""),
     [kind, setKind] = useState("all"),
@@ -33,6 +43,7 @@ export function HubList({
     .filter(
       (n) =>
         (kind === "all" || n.kind === kind) &&
+        matchesProgress(n.progress, progress) &&
         n.label.toLowerCase().includes(search.trim().toLowerCase()) &&
         (visibility === "all" ||
           (visibility === "shown" ? shown.has(n.id) : !shown.has(n.id))),
@@ -79,6 +90,11 @@ export function HubList({
           onChange={(e) => setSearch(e.target.value)}
         />
       </label>
+      <ProgressFilters
+        label="Progress filter"
+        value={progress}
+        onChange={onProgress}
+      />
       <div className="mt-3 grid grid-cols-2 gap-2">
         <label className="text-xs text-slate-500">
           Hub type
@@ -153,7 +169,7 @@ export function HubList({
                     >
                       {n.label}
                       <span className="block text-[10px] text-slate-400">
-                        {n.count} connections
+                        {n.count} connections · {progressLabels[n.progress]}
                       </span>
                     </button>
                     <button
