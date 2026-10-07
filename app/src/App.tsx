@@ -60,6 +60,10 @@ import {
 } from "./components/Boards";
 import {
   deriveGraph,
+  bookmarksLinkedToHubTypes,
+  hubTypes,
+  readHubTypes,
+  type HubType,
   graphVisibility,
   graphLayoutDefaults,
   readGraphLayoutSettings,
@@ -68,6 +72,7 @@ import {
 } from "./data/graph";
 type Envelope = { data: Dataset; hash: string; token?: string };
 type Preferences = {
+  hubTypes: HubType[];
   bubbleProgress: ProgressFilter;
   hubProgress: ProgressFilter;
   hiddenHubs: string[];
@@ -93,6 +98,7 @@ type Preferences = {
   favorite: boolean;
 };
 const defaults: Preferences = {
+  hubTypes: [...hubTypes],
   bubbleProgress: [...progressStatuses],
   hubProgress: [...progressStatuses],
   hiddenHubs: [],
@@ -145,6 +151,7 @@ function readPrefs(id: string): Preferences {
         : null;
     return {
       ...defaults,
+      hubTypes: readHubTypes(stored.hubTypes),
       bubbleProgress: readProgressFilter(stored.bubbleProgress),
       hubProgress: readProgressFilter(stored.hubProgress),
       hiddenHubs: Array.isArray(stored.hiddenHubs)
@@ -338,9 +345,14 @@ export default function App() {
       graphData ? deriveGraph(graphData, prefs.lens) : { nodes: [], edges: [] },
     [graphData, prefs.lens],
   );
+  const linkedBookmarks = useMemo(
+    () => bookmarksLinkedToHubTypes(graph, prefs.hubTypes),
+    [graph, prefs.hubTypes],
+  );
   const matching = useMemo(
     () =>
       data?.bookmarks.filter((b) => {
+        if (!linkedBookmarks.has(`bookmark:${b.id}`)) return false;
         if (
           !matchesProgress(
             nodeProgress(data, `bookmark:${b.id}`),
@@ -385,9 +397,11 @@ export default function App() {
       disposition,
       favorite,
       graph,
+      linkedBookmarks,
     ],
   );
   const filterSignature = JSON.stringify([
+    prefs.hubTypes,
     prefs.bubbleProgress,
     prefs.hubProgress,
     prefs.queue,
@@ -459,6 +473,7 @@ export default function App() {
     preference({
       bubbleProgress: prefs.bubbleProgress,
       hubProgress: prefs.hubProgress,
+      hubTypes: prefs.hubTypes,
     });
     preference({ focus: id, selection: [id], queue: "all", topic: "" });
     setBoard(null);
@@ -511,6 +526,7 @@ export default function App() {
     prefs.bubbleProgress,
     prefs.hubProgress,
     readProgressFilter(prefs.queue === "completed" ? "done" : prefs.queue),
+    prefs.hubTypes,
   );
   const selected = data?.bookmarks.find(
     (b) =>
@@ -538,6 +554,7 @@ export default function App() {
       focus: null,
       bubbleProgress: [...progressStatuses],
       hubProgress: [...progressStatuses],
+      hubTypes: [...hubTypes],
     });
     setSearch("");
     setOriginal("");
@@ -964,6 +981,8 @@ export default function App() {
             shown={shownHubs}
             progress={prefs.hubProgress}
             onProgress={(hubProgress) => preference({ hubProgress })}
+            kinds={prefs.hubTypes}
+            onKinds={(hubTypes) => preference({ hubTypes })}
             highlighted={prefs.highlightedHubs}
             selected={prefs.selection}
             toggleSelection={toggleHubSelection}
@@ -1102,6 +1121,7 @@ export default function App() {
                 prefs.queue === "completed" ? "done" : prefs.queue,
               )}
               hubProgress={prefs.hubProgress}
+              hubTypes={prefs.hubTypes}
               zoomDetails={prefs.zoomDetails}
               hiddenHubs={prefs.hiddenHubs}
               revealedHubs={prefs.revealedHubs}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Eye, EyeOff, Highlighter, X } from "lucide-react";
-import type { Node } from "../data/graph";
+import { hubTypes, type HubType, type Node } from "../data/graph";
 import {
   matchesProgress,
   progressLabels,
@@ -23,6 +23,8 @@ export function HubList({
   close,
   progress,
   onProgress,
+  kinds,
+  onKinds,
 }: {
   hubs: Node[];
   shown: Set<string>;
@@ -34,15 +36,16 @@ export function HubList({
   close: () => void;
   progress: ProgressFilter;
   onProgress: (value: ProgressFilter) => void;
+  kinds: HubType[];
+  onKinds: (value: HubType[]) => void;
 }) {
   const [search, setSearch] = useState(""),
-    [kind, setKind] = useState("all"),
     [group, setGroup] = useState("type"),
     [visibility, setVisibility] = useState("all");
   const filtered = hubs
     .filter(
       (n) =>
-        (kind === "all" || n.kind === kind) &&
+        kinds.some((kind) => n.kind === kind) &&
         matchesProgress(n.progress, progress) &&
         n.label.toLowerCase().includes(search.trim().toLowerCase()) &&
         (visibility === "all" ||
@@ -95,22 +98,32 @@ export function HubList({
         value={progress}
         onChange={onProgress}
       />
+      <fieldset aria-label="Hub type filter" className="mt-4">
+        <legend className="text-xs font-medium text-slate-500">Hub type</legend>
+        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
+          {hubTypes.map((kind) => (
+            <label
+              key={kind}
+              className="flex cursor-pointer items-center gap-2 text-xs text-slate-600"
+            >
+              <input
+                type="checkbox"
+                checked={kinds.includes(kind)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  onKinds(
+                    hubTypes.filter((candidate) =>
+                      candidate === kind ? checked : kinds.includes(candidate),
+                    ),
+                  );
+                }}
+              />
+              {names[kind]}
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <label className="text-xs text-slate-500">
-          Hub type
-          <select
-            aria-label="Hub type filter"
-            value={kind}
-            onChange={(e) => setKind(e.target.value)}
-          >
-            <option value="all">All types</option>
-            {Object.entries(names).map(([type, label]) => (
-              <option key={type} value={type}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
         <label className="text-xs text-slate-500">
           Group by
           <select
@@ -122,7 +135,7 @@ export function HubList({
             <option value="none">No grouping</option>
           </select>
         </label>
-        <label className="col-span-2 text-xs text-slate-500">
+        <label className="text-xs text-slate-500">
           Visibility
           <select
             aria-label="Hub visibility filter"

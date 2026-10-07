@@ -25,6 +25,26 @@ export type Edge = {
   label: string;
 };
 export type Position = { x: number; y: number; pinned?: boolean };
+export type HubType = Exclude<Node["kind"], "bookmark">;
+export const hubTypes: HubType[] = ["topic", "issue", "proposal"];
+export function readHubTypes(value: unknown): HubType[] {
+  return Array.isArray(value)
+    ? hubTypes.filter((kind) => value.includes(kind))
+    : [...hubTypes];
+}
+export function bookmarksLinkedToHubTypes(
+  graph: { nodes: Node[]; edges: Edge[] },
+  types: HubType[],
+) {
+  const hubs = new Set(
+    graph.nodes
+      .filter((n) => n.kind !== "bookmark" && types.includes(n.kind))
+      .map((n) => n.id),
+  );
+  return new Set(
+    graph.edges.filter((e) => hubs.has(e.target)).map((e) => e.source),
+  );
+}
 export function deriveGraph(d: Dataset, lens: "proposed" | "approved") {
   const nodes: Node[] = [],
     edges = new Map<string, Edge>();
@@ -133,12 +153,15 @@ export function graphVisibility(
   bubbleProgress: ProgressFilter,
   hubProgress: ProgressFilter,
   bubbleQueueProgress: ProgressFilter = progressStatuses,
+  types: HubType[] = hubTypes,
 ) {
+  const linkedBubbles = bookmarksLinkedToHubTypes(graph, types);
   const matchingBubbles = new Set(
     graph.nodes
       .filter(
         (n) =>
           n.kind === "bookmark" &&
+          linkedBubbles.has(n.id) &&
           matchesProgress(n.progress, bubbleProgress) &&
           matchesProgress(n.progress, bubbleQueueProgress),
       )
@@ -155,7 +178,8 @@ export function graphVisibility(
   const nodes = graph.nodes.filter((n) =>
     n.kind === "bookmark"
       ? matches.has(n.id)
-      : matchesProgress(n.progress, hubProgress) &&
+      : types.includes(n.kind) &&
+        matchesProgress(n.progress, hubProgress) &&
         !hiddenHubs.includes(n.id) &&
         (hubs.has(n.id) ||
           selected.includes(n.id) ||

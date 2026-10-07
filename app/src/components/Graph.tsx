@@ -25,6 +25,7 @@ import {
   placeMostLinkedHubsOnPerimeter,
   type GraphLayoutSettings,
   type Position,
+  type HubType,
 } from "../data/graph";
 import type { ZoomDetails, ZoomDetailKey } from "../data/zoom-details";
 import { fitLabelledPoints } from "../data/viewport";
@@ -39,6 +40,7 @@ export type View = {
   bounds?: { x: [number, number]; y: [number, number] };
 };
 type Props = {
+  hubTypes: HubType[];
   bubbleProgress: ProgressFilter;
   bubbleQueueProgress: ProgressFilter;
   hubProgress: ProgressFilter;
@@ -559,6 +561,7 @@ export function Graph(p: Props) {
       p.bubbleProgress,
       p.hubProgress,
       p.bubbleQueueProgress,
+      p.hubTypes,
     );
     const ids = new Set(shown.map((n) => n.id));
     const emphasized = [...p.selected, ...p.highlightedHubs];
@@ -753,6 +756,7 @@ export function Graph(p: Props) {
     p.bubbleProgress,
     p.bubbleQueueProgress,
     p.hubProgress,
+    p.hubTypes,
     p.selected,
     p.allEdges,
     p.layoutSettings,
