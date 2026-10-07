@@ -472,6 +472,25 @@ export function placeMostLinkedHubsOnPerimeter(
   });
   return next;
 }
+// Physics owns live coordinates; preferences own pin changes, which may not
+// have reached the runtime graph when a running worker is stopped.
+export function captureLayoutPositions(
+  graph: Graphology,
+  saved: Record<string, Position>,
+  ids = graph.nodes(),
+): Record<string, Position> {
+  const positions = { ...saved };
+  for (const id of ids) {
+    if (id === CENTER_ID) continue;
+    const a = graph.getNodeAttributes(id);
+    positions[id] = {
+      x: a.x,
+      y: -a.y,
+      pinned: saved[id] ? !!saved[id].pinned : !!a.pinned,
+    };
+  }
+  return positions;
+}
 export function createLayoutGraph(
   nodes: Node[],
   edges: Edge[],

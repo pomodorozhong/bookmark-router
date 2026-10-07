@@ -13,6 +13,7 @@ import FA2Layout from "graphology-layout-forceatlas2/worker";
 import type { NodeLabelDrawingFunction } from "sigma/rendering";
 import {
   deriveGraph,
+  captureLayoutPositions,
   graphVisibility,
   settle,
   forceSettingsFor,
@@ -297,11 +298,7 @@ export function Graph(p: Props) {
       suppressClick: false,
     });
     r.save = () => {
-      const positions = { ...props.current.positions };
-      graph.forEachNode((id, a) => {
-        if (id !== CENTER_ID)
-          positions[id] = { x: a.x, y: -a.y, pinned: !!a.pinned };
-      });
+      const positions = captureLayoutPositions(graph, props.current.positions);
       props.current.onPositions(positions);
       setOverview(
         graph
@@ -599,23 +596,16 @@ export function Graph(p: Props) {
     const workerWasRunning = !!r.worker?.isRunning();
     const savedPositions =
       workerWasRunning && shouldRun
-        ? {
-            ...p.positions,
-            ...Object.fromEntries(
-              r.graph
-                .filterNodes(
-                  (id) =>
-                    id !== CENTER_ID &&
-                    (!layoutSettingsChanged ||
-                      !!p.positions[id]?.pinned ||
-                      p.selected.includes(id)),
-                )
-                .map((id) => {
-                  const a = r.graph.getNodeAttributes(id);
-                  return [id, { x: a.x, y: -a.y, pinned: !!a.pinned }];
-                }),
+        ? captureLayoutPositions(
+            r.graph,
+            p.positions,
+            r.graph.filterNodes(
+              (id) =>
+                !layoutSettingsChanged ||
+                !!p.positions[id]?.pinned ||
+                p.selected.includes(id),
             ),
-          }
+          )
         : p.positions;
     if (
       topologyChanged ||
@@ -873,17 +863,10 @@ export function Graph(p: Props) {
   const relayout = () => {
     const r = runtime.current;
     if (!r) return;
-    const startingPositions = {
-      ...props.current.positions,
-      ...Object.fromEntries(
-        r.graph
-          .filterNodes((id) => id !== CENTER_ID)
-          .map((id) => {
-            const a = r.graph.getNodeAttributes(id);
-            return [id, { x: a.x, y: -a.y, pinned: !!a.pinned }];
-          }),
-      ),
-    };
+    const startingPositions = captureLayoutPositions(
+      r.graph,
+      props.current.positions,
+    );
     r.stop();
     const positions = placeMostLinkedHubsOnPerimeter(
       derived.nodes,
