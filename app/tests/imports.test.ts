@@ -13,17 +13,17 @@ test('CSV flags uneven rows', () => assert.equal(parseImport('title,url\nonly on
 test('formats are detected by extension and source content', () => {
   assert.equal(detectFormat('title\turl\na\tb'),'tsv'); assert.equal(detectFormat('https://example.com/?a=1,b=2'),'urls'); assert.equal(detectFormat('title,url\na,b'),'csv'); assert.equal(detectFormat('<DL><DT><A HREF="https://example.com">Test</A></DL>'),'html');
 });
-test('URL paste preserves source rows and reports unsafe schemes', () => {
+test('URL paste preserves source rows and warns about unrecognized values without excluding them', () => {
   const p=parseImport('https://example.com\n\njavascript:alert(1)','urls'), v=previewImport(p,guessMapping(p.headers),emptyWorkspace(),options);
-  assert.equal(v.candidates[1].row,3); assert.match(v.candidates[1].errors[0],/HTTPS/);
+  assert.equal(v.candidates[1].row,3); assert.equal(v.candidates[1].errors.length,0);assert.match(v.candidates[1].urlWarning!,/saved as text/);
 });
 test('HTML extracts decoded title, description, folder tags, and original line', () => {
   const p=parseImport('<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<DL><DT><H3>Research</H3><DL>\n<DT><A HREF="https://example.com/?a=1&amp;b=2">A &amp; B</A><DD>A useful note\n</DL></DL>','html');
   assert.equal(p.rows[0].values.title,'A & B'); assert.equal(p.rows[0].values.url,'https://example.com/?a=1&b=2'); assert.equal(p.rows[0].row,3); assert.match(p.rows[0].values.tags,/Research/); assert.match(p.rows[0].values.description,/useful note/);
 });
-test('bookmark sample has duplicate, invalid, missing title and URL-less records', () => {
+test('bookmark sample has duplicate, unrecognized URL, missing title and URL-less records', () => {
   const p=parseImport(bookmarkSample,'csv'), v=previewImport(p,guessMapping(p.headers),emptyWorkspace(),options);
-  assert.equal(v.candidates.length,6); assert.equal(v.candidates[2].duplicate?.row,2); assert.equal(v.candidates[3].errors.length,1); assert.equal(v.candidates[4].missingTitle,true); assert.equal(v.candidates[5].errors.length,0); assert.equal(v.candidates[5].url,undefined);
+  assert.equal(v.candidates.length,6); assert.equal(v.candidates[2].duplicate?.row,2); assert.equal(v.candidates[3].errors.length,0);assert.ok(v.candidates[3].urlWarning); assert.equal(v.candidates[4].missingTitle,true); assert.equal(v.candidates[5].errors.length,0); assert.equal(v.candidates[5].url,undefined);
 });
 test('reading workflow permits URL-less records and combines tags', () => {
   const p=parseImport(readingSample,'tsv'), v=previewImport(p,guessMapping(p.headers),emptyWorkspace(),{...options,commonTags:'Imported|Design'});
