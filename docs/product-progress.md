@@ -21,16 +21,16 @@
 
 The user approved stage one on October 10, 2026 after the import and workspace design refinements. Phase 2 is now authorized. Domain/parser/storage foundations are independently implemented and tested.
 
-The UI explicitly saves nothing yet. Merge selections and unknown status/type resolution are design previews, not committed edits.
+Stage A was approved with in-memory previews. Stage B now persists confirmed operations and implements the reviewed import choices.
 
 ## Remaining
 
-- Phase 2: transactional import confirmation and undo, basic editing, memberships/statuses, persistence integration, saved geometry/pins, and full media backup/restore.
+- Checkpoint B: user review of the usable import and recovery workflow; resolve any material blockers before Stage C.
 - Phase 3: appearance editor/inheritance, confirmed bulk status UI and undo, copy composer, detailed/saved/distance filters, bulk media uploads, full selection and semantic detail.
 - Phase 4: optional extraction service, missing-data queue, reviewed WebMCP proposals, and browser/agent validation.
 - Phase 5: accessibility/recovery hardening, static-deployment verification, and 1,000/5,000-bubble performance checks.
 
-Implementation changes after the revert remain uncommitted. No deployment or publishing has occurred.
+Stage A is committed as `c31e483` and `0e3fb53`. Stage B is recorded in focused local commits. No deployment, push, or publishing has occurred.
 
 ## Checkpoint A feedback corrections
 
@@ -46,6 +46,38 @@ Implementation changes after the revert remain uncommitted. No deployment or pub
 
 - Simplified the workspace summary to bubble/tag counts only; removed its preview heading, collection name, tagline, and design-review badge at user request.
 
-## Phase 2 started
+## Phase 2 — ready for checkpoint B
 
-Transactional import/undo and media backup/restore domain code is in progress, not yet wired into the UI or verified. Keep this work out of the approved stage-one commit.
+- Transactional import confirmation, unknown status/type mapping or explicit creation, explicit invalid-row exclusion, duplicate Skip/Keep/Merge choices, and frozen revision checks. Duplicate submission is guarded; stale confirmation refreshes review.
+- Persistent collections start empty; sample buttons only load sources. Collection creation/selection and browser reload are integrated with IndexedDB.
+- Bubble/tag editors retain failed drafts; edits, independent statuses, tag creation, and memberships use revision-checked commands.
+- Import history previews undo targets and protects bubbles edited since import. Merged values and memberships are restored; imported taxonomy is kept for reuse and saved references.
+- Full JSON backup/restore bundles local media (including media retained by undo snapshots), validates encoding/references/geometry, remaps local media IDs, and restores into a new collection atomically. Remote media stays referenced. Image/video/audio previews support restored assets.
+- G6 geometry and viewport save separately from content. Saved coordinates/pins are restored without renewed motion; deliberate re-layout respects pins. Structural changes use frozen placement; styles/search/selection/pan/zoom do not restart physics. Public d3-force simulation injection handles persisted pins without using G6 internals.
+
+### Stage B verification
+
+- 35 tests cover the existing foundations plus import/merge/undo, protected membership edits, invalid selected rows, stale/double submissions, unknown mappings, bundled-media round trips, undo snapshot media, and quota/restore failure rollback.
+- TypeScript and production build pass. G6's large bundle warning remains a release-hardening item.
+- Browser: imported bookmark sample with a merge; edited description and status; reloaded and verified those values; reviewed and executed undo keeping the edited bubble; downloaded a backup and restored that actual file into another collection.
+- Browser: restored the bundled-media fixture and displayed its image; dragged a tag with responding neighbor; restored saved viewport after reload. Fixed a viewport coordinate-space issue and a graph initialization race during collection switching.
+- Physical Mac trackpad pinch/panning remain in the user checklist. Media upload UI and the advanced Stage C tools are intentionally next-stage work.
+
+Use [checkpoint B in the review checklist](product-review-guide.md#b--real-import-and-recovery--ready-for-review). Implementation is ready for workflow feedback; checkpoint B has not yet been approved.
+
+## Checkpoint B feedback — URL warnings and graph titles
+
+- Bubble/tag URLs accept unrecognized text instead of blocking imports or editor saves. Import review and details highlight these values in amber; only HTTP(S) values become source links. Duplicate matching/merging and backup/restore preserve unrecognized text.
+- Media URLs and malformed source rows retain structural validation.
+- Graph titles use a fixed screen font size with G6 collision suppression. Selected records and tags get display priority; visibility recalculates during zooming, dragging, filtering, and selection without re-layout.
+- Added an import/persistence/deduplication/merge/restore test for malformed and JavaScript-scheme URL text; updated existing URL expectations to match the new product rule.
+- Browser verification: malformed sample URL remains checked and Continue is enabled; graph titles retain screen size at 86% and 135%, suppress crowded labels at 35%, and keep layout/position counters unchanged.
+
+### Stage B interaction refinements
+
+- Missing-title badges use an amber warning tint; Details shows a compact non-link warning.
+- Search hides tags with no matching linked bubbles and restores them when cleared.
+- Pins are explicit through Details; dragging does not pin. Pinned nodes show a red dot.
+- Fit graph uses asymmetric padding measured from the open Details panel.
+- Browser verified search visibility, manual pin/unpin and marker, drag without pinning, and fit beside Details.
+- Final verification: TypeScript/Vite production build and all 35 tests passed; explicit pins also survived browser reload.

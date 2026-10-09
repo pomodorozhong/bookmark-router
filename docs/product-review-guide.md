@@ -1,12 +1,12 @@
 # Product review checklist
 
-Follow the [approved plan](product-plan.md). **Checkpoint A is approved. Checkpoint B is being built.** Later sections are for future builds; see [implementation progress](product-progress.md).
+Follow the [approved plan](product-plan.md). **Checkpoint A is approved. Checkpoint B is ready for review.** Later sections are for future builds; see [implementation progress](product-progress.md).
 
 Check an item when its expected result matches what you see. Leave failed items unchecked and add a note. Share feedback as **task → expected → actual → impact**.
 
 ## A — Import mapping and terminology — approved October 10, 2026
 
-Open [the review app](http://127.0.0.1:5199/). Allow about 10–15 minutes. The UI saves nothing yet; reloading clears your preview. You are reviewing mapping, duplicate choices, terminology, and graph interaction.
+Open [the review app](http://127.0.0.1:5199/). Allow about 10–15 minutes. This section records the earlier design review. The current Stage B build saves confirmed changes; use the checklist below for current testing.
 
 ### Bookmark sample
 
@@ -49,19 +49,53 @@ Open [the review app](http://127.0.0.1:5199/). Allow about 10–15 minutes. The 
 
 Checkpoint A findings guide the final import interactions. Parser and storage work can continue independently.
 
-## B — Real import and recovery — future build
+## B — Real import and recovery — ready for review
 
-Prepare a real collection with some duplicates and invalid records. The implementer will supply transactional importing, editors, persistence, import undo, and full backup/restore.
+Open [the app](http://127.0.0.1:5199/). Allow about 15–20 minutes. Confirmed changes now persist in this browser. Use **New collection** to keep your test separate from your own data. Samples load import sources without replacing a collection.
 
-- [ ] Import the collection and check that only reviewed records are committed.
-- [ ] Try Skip, Keep both, and Merge on duplicate records. Confirm the resulting records and memberships match the reviewed choices.
-- [ ] Resolve unknown statuses/types by mapping them or explicitly creating them.
-- [ ] Organize bubbles through tags, edit fields and statuses, and compare graph and list results.
-- [ ] Reload. Expect content, positions, and pins to survive.
-- [ ] Undo an import. Expect created records to be removed and merged values restored.
-- [ ] Edit an imported record, then try undo. Expect a conflict preview rather than loss of the later edit.
-- [ ] Export a full backup containing uploaded media and restore it. Expect a new workspace with matching content, media, memberships, styles, statuses, views, and layout preferences.
-- [ ] Report import or recovery problems before moving to expanded workflow tools.
+### Import and confirmation
+
+- [ ] Create a new collection, select **Bookmark sample**, then **Read source**. Expect 6 source records with suggested mappings.
+- [ ] Review the sample in an empty collection. Expect 5 selected records, 1 duplicate candidate, and 0 invalid rows.
+- [ ] Inspect row 5 (`not-a-url`). Expect an amber **Unrecognized URL** warning and an enabled, checked inclusion checkbox. It can be imported without repairing the value.
+- [ ] Try a malformed CSV row or invalid media URL. Expect an exclusion reason and acknowledgement before continuing with the remaining records.
+- [ ] Leave the duplicate on **Skip**, continue and confirm. Expect 5 bubbles and 2 tags, including **Broken link** with its URL saved as text. No records should be saved before the final confirmation.
+- [ ] Load the same sample again. Choose **Keep both** for a duplicate, confirm, and check that a separate bubble was added.
+- [ ] Try **Merge** in another import. Inspect the proposed title, description, status, media, and added tags before confirming; expect one existing bubble to change rather than a second bubble being created.
+- [ ] Uncheck a valid row. Expect it to be excluded from the final result.
+- [ ] Go Back and change a mapping. Expect the review to reflect the change; navigating to Collection before confirming must leave its contents unchanged.
+- [ ] Try **Reading & writing**. Expect three URL-less records that can be imported and edited normally.
+- [ ] Try your own CSV/TSV, browser bookmark HTML, or pasted URLs. Check source-row references, missing-title fallback, and preserved URL query parameters.
+- [ ] Try an unfamiliar status or tag type in a CSV. Choose an existing mapping or explicitly create it; confirmation must stay unavailable while selected rows have unresolved values.
+
+### Editing and layout
+
+- [ ] Select a bubble and choose **Edit bubble**. Change its title, description, URL, and status; expect Save changes to persist them.
+- [ ] Create a tag and use **Manage linked tags** in bubble details to add/remove connections. Expect graph and list details to agree.
+- [ ] Edit a tag's name, description, URL, type, and status. Its status should change independently of its bubbles. Bulk propagation arrives in Stage C.
+- [ ] Search and switch between Graph and List. Expect the same matching bubbles, including unlinked items. While searching, tags without matching linked bubbles should hide; clearing search restores all tags.
+- [ ] Drag a tag; expect connected bubbles to respond and settle. Dragging must not pin. Open Details and press **Pin node**; expect **Unpin node** and a red dot at the upper-right edge of the circle. Unpin it and expect the dot to disappear.
+- [ ] Open Details and click **Fit graph**. Expect the graph to fit beside the panel, with nodes visible. Close Details and fit again to use the full canvas.
+- [ ] Use **Re-layout** with a pinned node. Expect its position to remain fixed.
+- [ ] Use **Reset positions**. Expect confirmation before clearing all pins and rearranging the graph.
+- [ ] Zoom in and out. Expect bubble and tag titles to keep the same screen size. Nearby titles should hide rather than overlap, then return when space opens up. Selected titles get priority.
+- [ ] Select **Broken link**. Expect its URL highlighted as unrecognized text, with a compact **Not a link** warning and no **Open source** link. Edit it to a valid HTTP(S) URL and expect a source link to appear.
+- [ ] Pan, pinch, fit, change search, select items, or toggle Details/left panel. Expect settled world positions to stay unchanged. Please verify physical Mac trackpad pinch and two-finger panning.
+- [ ] Reload. Expect content, memberships, node positions, pins, and viewport to survive.
+- [ ] If using two tabs, edit the same record in each. Expect a conflict warning rather than silent replacement; a failed editor save keeps the draft.
+
+- [ ] In import review, check **Title missing** uses a yellow warning tint.
+
+### Recovery and backup
+
+- [ ] Open **Import history**, then **Review undo**. Inspect the affected bubble list before confirming.
+- [ ] Undo an unchanged batch. Expect imported bubbles to be removed and merged values/memberships to be restored. Imported tags remain available for reuse.
+- [ ] Edit an imported bubble, then review undo. Expect that bubble listed under **Keep these later edits**; confirm undo and check its later edit survives while unchanged records are removed/restored.
+- [ ] Download a backup, then import that JSON. Expect a restore confirmation and a new collection; the current collection should remain intact.
+- [ ] Switch collections and check that restored content, tags, memberships, statuses, appearance, saved views (if present), and layout match the backup.
+- [ ] For bundled-media recovery, choose [the included media backup fixture](../app/fixtures/media-backup.json) as an import file. Confirm restore, select **Backup item**, and expect a small teal image and `fixture.svg` in its details. Reload and check it again. Media uploads arrive in Stage C.
+- [ ] Download a backup of that restored fixture and restore it again. Expect the image to remain available. Remote media remains a URL reference rather than being downloaded into backups.
+- [ ] Report import or recovery blockers using **task → expected → actual → impact** before moving to Stage C.
 
 ## C — A complicated workflow — future build
 

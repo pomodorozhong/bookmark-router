@@ -11,11 +11,13 @@ npm run dev
 
 Open http://127.0.0.1:5199/. `npm run build` produces a static-hostable `dist/`; `npm run preview` serves it on port 5200. `npm test` checks parsers, data integrity, command revisions, and transactional IndexedDB conflicts. `npm run check` checks TypeScript.
 
-## Current milestone: checkpoint A
+## Current milestone: checkpoint B
 
-The runnable design supports pasted links, CSV/TSV, bookmark HTML, and versioned product JSON; editable column mappings; previews with source rows, duplicate choices, invalid rows, unknown types/statuses, and missing titles; and an in-memory G6 collection preview. Try the bookmark and URL-less reading samples. Search, graph/list navigation, selection, node dragging, fit, zoom buttons, and two-finger panning are available.
+The import-first usable build saves confirmed imports in IndexedDB. Sources include pasted links, CSV/TSV, Netscape bookmark HTML, and versioned JSON backups. Review field mappings, explicitly exclude invalid rows, resolve unknown statuses/types, and choose Skip, Keep both, or Merge. Confirmation commits the batch atomically.
 
-**The UI saves nothing yet.** This is the review artifact for import semantics, not the phase-2 usable product. The IndexedDB store and domain commands are implemented and tested separately. Import commit/undo, backup/media restore, editing, persistence integration, layout preferences, advanced filtering/copy, enrichment, and WebMCP remain later milestones.
+Bubble/tag editors, tag creation, memberships, independent statuses, graph/list search, import history with conflict-aware undo, collection selection, and full backup/restore are available. Node positions, pins, and viewport are stored separately from content. Dragging does not pin. Use Pin/Unpin in Details; a red dot marks each pinned node. Re-layout preserves pins; confirmed Reset positions clears them. Search hides tags without matching linked bubbles, and Fit graph accounts for the Details overlay.
+
+Backups bundle local media and preserve remote references. Restores create new collections. `fixtures/media-backup.json` contains a harmless bundled image for recovery testing. Bulk media uploads, appearance editing, advanced filters/copy, enrichment, and WebMCP arrive in later stages. See the [review checklist](../docs/product-review-guide.md).
 
 G6 is pinned to 5.1.1. Memberships have no direction or arrows. Two-finger pinch zoom is supported through Chromium Ctrl-wheel and Safari gesture events; ordinary two-finger scrolling remains panning. Initialization errors appear over the graph; the list remains available. Sample data contains no private bookmarks.
 

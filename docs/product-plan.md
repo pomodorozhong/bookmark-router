@@ -43,7 +43,7 @@ Use four steps:
 
 1. **Select or paste:** detect format and show record count.
 2. **Map fields:** map title, description, URL, media URL, status, tags, and tag type. Show sample records and an explicit delimiter for tag columns.
-3. **Review:** show valid records, invalid rows, duplicate candidates, and tags/types/statuses to create.
+3. **Review:** show records, unrecognized URL warnings, malformed rows, duplicate candidates, and tags/types/statuses to create.
 4. **Confirm:** commit the reviewed records transactionally and open the imported collection in graph or list.
 
 Allow common tags and an initial status for the entire import. Unknown statuses and tag types require mapping or explicit creation.
@@ -54,7 +54,7 @@ Allow common tags and an initial status for the entire import. Unknown statuses 
 - Detect repeated source rows and duplicate URLs within the import and existing workspace.
 - Default to skipping duplicate URLs. Offer Keep both or Merge, with an exact field preview before overwriting existing values.
 - Use conservative URL matching; preserve parameters that identify content.
-- Allow valid rows to proceed while users explicitly exclude invalid rows. Report source row numbers and reasons.
+- Preserve unrecognized bubble/tag URLs as text and visually distinguish them; do not block import or editing. Only valid HTTP(S) values become clickable links. Detect duplicate unrecognized values by exact text. Malformed rows and invalid media URLs still require explicit exclusion, with source row numbers and reasons.
 - Canceling a preview changes nothing. Revalidate if the workspace changes before confirmation.
 - Prevent duplicate submission. Commit before starting optional extraction; failed enrichment leaves usable records.
 - Associate committed records with their import batch.
@@ -70,7 +70,7 @@ Provide backup and restore in this first usable build. Full backups bundle uploa
 Use the disposable demo’s working configuration:
 
 - `d3-force` layout with **`layout.animation: true`**, needed for visible simulation updates during force dragging. Disable ordinary transition animation separately.
-- `drag-element-force` with no modifier required and `fixed: true`: dragging pulls connected neighbors and leaves the dragged node pinned until explicitly unpinned.
+- `drag-element-force` with no modifier required and `fixed: false`: dragging pulls connected neighbors without pinning. Pin/Unpin in Details explicitly controls saved pins; pinned nodes show a red dot at the upper-right edge.
 - `scroll-canvas` for two-finger trackpad panning, with sensitivity `1`. Exclude Ctrl-wheel events from panning.
 - Begin with the tested force values: link distance `120`, link strength `0.45`, many-body strength `-250`, alpha decay `0.035`, and velocity decay `0.45`. Calculate collision radius from rendered node size plus label clearance.
 - Render membership edges without arrows. Directed-edge rendering was tested but is not part of the membership model.
@@ -84,10 +84,10 @@ Keep one G6 instance per mounted workspace and destroy it on unmount. Use stable
 - Panning, zooming, selection, status edits, appearance edits, filtering, and inspector actions must not restart global physics.
 - Place newly imported nodes near linked tags or an insertion area; preserve existing settled positions until deliberate re-layout.
 - Filtering changes visibility rather than deleting records or rebuilding the layout. Preserve full-workspace geometry and memberships.
-- Provide fit-all, fit-selection, zoom buttons, explicit unpin, and re-layout controls. Re-layout preserves pins; resetting positions clears pins only after an explicit choice.
+- Provide fit-all, fit-selection, zoom buttons, explicit Pin/Unpin in Details, and re-layout controls. Fit into the unobscured canvas when Details is open. Search hides tags without matching linked bubbles; clearing search restores all tags. Re-layout preserves pins; resetting positions clears pins only after an explicit choice.
 - Use a full-window graph workspace by default, with a retractable left panel containing collection information and navigation/import. Keep search at the top and Graph/List and Details controls at the top right, accessible when the panel is retracted. Panel toggles must preserve geometry and selection.
 - Provide search, click selection, modifier-assisted multi-selection, and equivalent list controls.
-- Show compact bubble marks at overview scale, short labels at middle scale, and more detail at close scale. Selected labels remain visible.
+- Keep bubble and tag titles at a constant screen size when zooming. Hide titles that overlap or are too close, preferring the selected item and tags; restore titles when space becomes available. Show more detail at close scale without changing title size.
 - Keep initialization and layout errors visible. Offer retry and list access so failure cannot resemble an empty collection.
 - With reduced motion enabled, calculate initial settled positions without displaying intermediate movement; use direct dragging without animated neighbor motion.
 
