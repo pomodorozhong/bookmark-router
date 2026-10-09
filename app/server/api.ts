@@ -4,6 +4,7 @@ import { Store, ApiError } from "./store";
 import { validateDataset } from "./validation";
 import { referenceDrafts } from "../src/data/selectors";
 import { initializeProgress } from "../src/data/progress";
+import { deriveGraph } from "../src/data/graph";
 export function createApi(store: Store) {
   const app = express(),
     token = randomBytes(32).toString("hex");
@@ -66,6 +67,23 @@ export function createApi(store: Store) {
     mutate((d, req) =>
       store.patchNodeProgress(d, String(req.params.id), req.body.progress),
     ),
+  );
+  app.post(
+    "/api/hubs/:id/complete-bubbles",
+    mutate((d, req) => {
+      const { lens } = req.body;
+      if (lens !== "proposed" && lens !== "approved")
+        throw new ApiError(422, "Invalid topic lens");
+      const id = String(req.params.id);
+      const graph = deriveGraph(d, lens);
+      if (!graph.nodes.some((n) => n.id === id && n.kind !== "bookmark"))
+        throw new ApiError(422, "Unknown hub");
+      const linkedIds = new Set(
+        graph.edges.filter((e) => e.target === id).map((e) => e.source),
+      );
+      for (const linkedId of linkedIds)
+        store.patchNodeProgress(d, linkedId, "done");
+    }),
   );
   app.post(
     "/api/bookmarks/bulk-topic",

@@ -433,6 +433,87 @@ test("progress API protects writes, persists all kinds, supports bulk sync and r
   }
 });
 
+test("hub completion atomically marks all linked bubbles done for each hub and topic lens", async () => {
+  const f = await fixture();
+  const server = createApi(f.store).listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const base = `http://127.0.0.1:${address.port}`;
+  try {
+    let envelope = await (await fetch(`${base}/api/dataset`)).json();
+    const token = envelope.token;
+    const send = async (id: string, lens: string) => {
+      const response = await fetch(
+        `${base}/api/hubs/${encodeURIComponent(id)}/complete-bubbles`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-session-token": token,
+          },
+          body: JSON.stringify({
+            revision: envelope.data.metadata.revision,
+            hash: envelope.hash,
+            lens,
+          }),
+        },
+      );
+      const result = await response.json();
+      if (result.data) envelope = result;
+      return response;
+    };
+    for (const lens of ["proposed", "approved"] as const) {
+      for (const kind of ["topic", "issue", "proposal"] as const) {
+        const graph = deriveGraph(envelope.data, lens);
+        const hub = graph.nodes.find((n) => n.kind === kind && n.count > 0)!;
+        assert.ok(hub);
+        const linked = new Set(
+          graph.edges.filter((e) => e.target === hub.id).map((e) => e.source),
+        );
+        const before = structuredClone(envelope.data) as Dataset;
+        assert.equal((await send(hub.id, lens)).status, 200);
+        assert.equal(
+          envelope.data.metadata.revision,
+          before.metadata.revision + 1,
+        );
+        for (const id of nodeIds(before))
+          assert.equal(
+            nodeProgress(envelope.data, id),
+            linked.has(id) ? "done" : nodeProgress(before, id),
+          );
+        for (const b of before.bookmarks) {
+          const updated = envelope.data.bookmarks.find(
+            (v: Dataset["bookmarks"][number]) => v.id === b.id,
+          );
+          assert.deepEqual(updated.processing, {
+            ...b.processing,
+            updated_at: linked.has(`bookmark:${b.id}`)
+              ? updated.processing.updated_at
+              : b.processing.updated_at,
+          });
+          assert.deepEqual(updated.classification, b.classification);
+        }
+        assert.deepEqual(
+          (await f.store.read()).data.node_progress,
+          envelope.data.node_progress,
+        );
+      }
+    }
+    const before = await readFile(f.file, "utf8");
+    assert.equal(
+      (await send(bookmarkId(envelope.data), "proposed")).status,
+      422,
+    );
+    assert.equal((await send("topic:missing", "proposed")).status, 422);
+    assert.equal((await send("topic:unapproved", "invalid")).status, 422);
+    assert.equal(await readFile(f.file, "utf8"), before);
+  } finally {
+    server.close();
+    await rm(f.dir, { recursive: true, force: true });
+  }
+});
+
 test("progress queues cannot reveal a selected bubble with another status", () => {
   const d = clone();
   initializeProgress(d);

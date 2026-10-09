@@ -226,7 +226,14 @@ export default function App() {
     [hubList, setHubList] = useState(false),
     [hubSearch, setHubSearch] = useState(""),
     [hubVisibility, setHubVisibility] = useState("all"),
-    [savingHubProgress, setSavingHubProgress] = useState(false);
+    [savingHubProgress, setSavingHubProgress] = useState(false),
+    [completingHubBubbles, setCompletingHubBubbles] = useState(false);
+  const [hubCompletion, setHubCompletion] = useState<{
+    id: string;
+    label: string;
+    lens: Preferences["lens"];
+    bubbles: Bookmark[];
+  } | null>(null);
   const [original, setOriginal] = useState(""),
     [source, setSource] = useState(""),
     [disposition, setDisposition] = useState(""),
@@ -1277,6 +1284,31 @@ export default function App() {
             )}
             <button
               className="secondary mt-3 w-full"
+              disabled={completingHubBubbles || hub.count === 0}
+              onClick={() => {
+                const savedGraph = deriveGraph(data, prefs.lens);
+                const linkedIds = new Set(
+                  savedGraph.edges
+                    .filter((edge) => edge.target === hub.id)
+                    .map((edge) => edge.source),
+                );
+                setError("");
+                setHubCompletion({
+                  id: hub.id,
+                  label: hub.label,
+                  lens: prefs.lens,
+                  bubbles: data.bookmarks.filter((bubble) =>
+                    linkedIds.has(`bookmark:${bubble.id}`),
+                  ),
+                });
+              }}
+            >
+              {completingHubBubbles
+                ? "Marking bubbles done…"
+                : "Mark all linked bubbles done"}
+            </button>
+            <button
+              className="secondary mt-3 w-full"
               onClick={() => {
                 const pt = prefs.positions[hub.id];
                 if (pt)
@@ -1329,6 +1361,88 @@ export default function App() {
           </aside>
         )}
       </div>
+      {hubCompletion && (
+        <Modal
+          title="Mark all linked bubbles done?"
+          close={() => {
+            if (!completingHubBubbles) setHubCompletion(null);
+          }}
+        >
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            This will set all {hubCompletion.bubbles.length} bubbles linked to{" "}
+            <strong>{hubCompletion.label}</strong> to Done, including bubbles
+            hidden by your filters. Their current progress will be replaced.
+          </div>
+          <p className="mt-4 text-sm text-slate-500">
+            Review the affected bubbles below, then confirm the operation.
+          </p>
+          <ul
+            aria-label="Affected bubbles"
+            className="mt-4 max-h-[40dvh] overflow-y-auto divide-y divide-slate-100 rounded-xl border border-slate-200"
+          >
+            {hubCompletion.bubbles.map((bubble) => (
+              <li
+                key={bubble.id}
+                className="flex items-center justify-between gap-4 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium break-words">
+                    {bubble.display_title}
+                  </p>
+                  <p className="mt-1 break-all text-xs text-slate-400">
+                    {bubble.url}
+                  </p>
+                </div>
+                <span className="pill shrink-0">
+                  {progressLabels[nodeProgress(data, `bookmark:${bubble.id}`)]}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {error && (
+            <p role="alert" className="mt-4 text-sm text-rose-700">
+              {error}
+            </p>
+          )}
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              className="secondary"
+              disabled={completingHubBubbles}
+              onClick={() => setHubCompletion(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="primary"
+              disabled={
+                completingHubBubbles || hubCompletion.bubbles.length === 0
+              }
+              onClick={async () => {
+                if (completingHubBubbles) return;
+                setCompletingHubBubbles(true);
+                try {
+                  const result = await request(
+                    `/api/hubs/${encodeURIComponent(hubCompletion.id)}/complete-bubbles`,
+                    { lens: hubCompletion.lens },
+                  );
+                  if (result) {
+                    setHubCompletion(null);
+                    setNotice(
+                      "All bubbles linked to this hub are marked done.",
+                    );
+                  }
+                } finally {
+                  setCompletingHubBubbles(false);
+                }
+              }}
+            >
+              {completingHubBubbles
+                ? "Marking bubbles done…"
+                : "Confirm: mark all done"}
+            </button>
+          </div>
+        </Modal>
+      )}
       {zoomTuning && (
         <ZoomTuning
           value={prefs.zoomDetails}
