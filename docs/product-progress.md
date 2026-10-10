@@ -25,7 +25,7 @@ Stage A was approved with in-memory previews. Stage B now persists confirmed ope
 
 ## Remaining
 
-- Checkpoint B: user review of the usable import and recovery workflow; resolve any material blockers before Stage C.
+- Stage B.1: UI improvement before Stage C; see the [audit and plan](ui-improvement-plan.md). Implementation was revised after the user rejected the first visual pass; U2 remains open. See [review findings and evidence](ui-review/review.md).
 - Phase 3: appearance editor/inheritance, confirmed bulk status UI and undo, copy composer, detailed/saved/distance filters, bulk media uploads, full selection and semantic detail.
 - Phase 4: optional extraction service, missing-data queue, reviewed WebMCP proposals, and browser/agent validation.
 - Phase 5: accessibility/recovery hardening, static-deployment verification, and 1,000/5,000-bubble performance checks.
@@ -46,7 +46,7 @@ Stage A is committed as `c31e483` and `0e3fb53`. Stage B is recorded in focused 
 
 - Simplified the workspace summary to bubble/tag counts only; removed its preview heading, collection name, tagline, and design-review badge at user request.
 
-## Phase 2 — ready for checkpoint B
+## Phase 2 — functionally accepted October 10, 2026
 
 - Transactional import confirmation, unknown status/type mapping or explicit creation, explicit invalid-row exclusion, duplicate Skip/Keep/Merge choices, and frozen revision checks. Duplicate submission is guarded; stale confirmation refreshes review.
 - Persistent collections start empty; sample buttons only load sources. Collection creation/selection and browser reload are integrated with IndexedDB.
@@ -63,7 +63,7 @@ Stage A is committed as `c31e483` and `0e3fb53`. Stage B is recorded in focused 
 - Browser: restored the bundled-media fixture and displayed its image; dragged a tag with responding neighbor; restored saved viewport after reload. Fixed a viewport coordinate-space issue and a graph initialization race during collection switching.
 - Physical Mac trackpad pinch/panning remain in the user checklist. Media upload UI and the advanced Stage C tools are intentionally next-stage work.
 
-Use [checkpoint B in the review checklist](product-review-guide.md#b--real-import-and-recovery--ready-for-review). Implementation is ready for workflow feedback; checkpoint B has not yet been approved.
+The user accepted Stage B's functionality on October 10, 2026 and requested a UI improvement stage before Stage C. The [checkpoint B checklist](product-review-guide.md#b--real-import-and-recovery--accepted-october-10-2026) remains the functional regression reference; acceptance does not imply every manual checklist item was individually verified.
 
 ## Checkpoint B feedback — URL warnings and graph titles
 
@@ -81,3 +81,20 @@ Use [checkpoint B in the review checklist](product-review-guide.md#b--real-impor
 - Fit graph uses asymmetric padding measured from the open Details panel.
 - Browser verified search visibility, manual pin/unpin and marker, drag without pinning, and fit beside Details.
 - Final verification: TypeScript/Vite production build and all 35 tests passed; explicit pins also survived browser reload.
+
+## Stage B.1 — UI implementation revised; U2 review pending
+
+- User identified detached/flat red pin, disordered sidebar, overuse of text buttons, and off-center icons.
+- User additionally requested fixing tag text during zoom; this is an explicit P1 item with font, placement, background, and hide/restore checks across the supported zoom range.
+- Audited the live graph/Details view and implementation; recorded additional hierarchy, typography, diagnostics, state-feedback, list, import, dialog, and responsive-style issues in [ui-improvement-plan.md](ui-improvement-plan.md).
+- Inserted B.1 between B and C, with visual design review U1 and runnable review U2 in the [companion checklist](product-review-guide.md#b1--ui-improvement--planned).
+- Implemented the shared SVG icon system, reordered sidebar, collection context card, responsive toolbar, attached flat vector pin marker, zoom-stable tag label padding/background, grouped layout controls, structured Details panel, list selection/empty states, import source hierarchy, and shared creation/editor dialogs.
+- Browser-verified populated graph, selected Details, fit graph, list mode, list/Details coexistence, reduced and increased zoom, narrow toolbar/navigation, import source screen, and custom tag dialog. Stage C follows U2 feedback.
+
+### B.1 review corrections — October 10, 2026
+
+- Replaced the layered stylesheet, raised useful text sizes/contrast, simplified collection context, moved Details actions into its header, and made long titles readable without hover.
+- User feedback supersedes the realistic pin: the current marker is a flat red vector pushpin. Zoomed-out tags use plain labels below small nodes instead of oversized green pills.
+- Unified native dialogs and fixed creation error retention, keyboard focus, mobile drawer dismissal, and list/sheet layouts.
+- Corrected empty-geometry initialization and supplied-simulation repainting discovered during demo import and layout review.
+- Added a separate UI review collection, screenshots, and [a review report](ui-review/review.md) distinguishing verified checks from remaining acceptance work. All 37 tests, TypeScript, and build pass.

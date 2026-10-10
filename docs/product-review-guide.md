@@ -1,6 +1,6 @@
 # Product review checklist
 
-Follow the [approved plan](product-plan.md). **Checkpoint A is approved. Checkpoint B is ready for review.** Later sections are for future builds; see [implementation progress](product-progress.md).
+Follow the [product plan](product-plan.md). **Checkpoints A and B are accepted. Stage B.1 UI improvement comes before Stage C.** The [UI improvement plan](ui-improvement-plan.md) is proposed; its mockup and implementation reviews are pending. See [implementation progress](product-progress.md).
 
 Check an item when its expected result matches what you see. Leave failed items unchecked and add a note. Share feedback as **task → expected → actual → impact**.
 
@@ -49,7 +49,9 @@ Open [the review app](http://127.0.0.1:5199/). Allow about 10–15 minutes. This
 
 Checkpoint A findings guide the final import interactions. Parser and storage work can continue independently.
 
-## B — Real import and recovery — ready for review
+## B — Real import and recovery — accepted October 10, 2026
+
+The user accepted Stage B's functionality. The tasks below remain a regression reference; unchecked items do not claim individual verification. The red-dot expectation describes Stage B and will be superseded by the pushpin review in B.1.
 
 Open [the app](http://127.0.0.1:5199/). Allow about 15–20 minutes. Confirmed changes now persist in this browser. Use **New collection** to keep your test separate from your own data. Samples load import sources without replacing a collection.
 
@@ -96,6 +98,36 @@ Open [the app](http://127.0.0.1:5199/). Allow about 15–20 minutes. Confirmed c
 - [ ] For bundled-media recovery, choose [the included media backup fixture](../app/fixtures/media-backup.json) as an import file. Confirm restore, select **Backup item**, and expect a small teal image and `fixture.svg` in its details. Reload and check it again. Media uploads arrive in Stage C.
 - [ ] Download a backup of that restored fixture and restore it again. Expect the image to remain available. Remote media remains a URL reference rather than being downloaded into backups.
 - [ ] Report import or recovery blockers using **task → expected → actual → impact** before moving to Stage C.
+
+## B.1 — UI improvement — planned
+
+See the [detailed plan and audit](ui-improvement-plan.md). The implementation is ready for U2; no new data preparation is needed.
+
+### U1 — Review the visual direction (5–10 minutes)
+
+The implementer will supply a high-fidelity mockup with a populated graph, a selected pinned bubble, open Details, collapsed navigation, a narrow-screen layout, and a pin close-up.
+
+- [ ] Find the current collection, Import, New tag, and recovery tools. Their grouping should make sense without an explanation.
+- [ ] Look at the pin on a small bubble and a larger tag. It should visibly enter the upper-right edge with a clear flat silhouette; it should not float beside the node.
+- [ ] Compare the close, collapse, fit, zoom, pin, and edit controls. Icons should look centered and consistent, and their purpose should be understandable.
+- [ ] Read the Details panel in order. Record information, actions, and connections should be clearly separated.
+- [ ] Judge text size, spacing, contrast, and overall density at desktop and narrow sizes.
+
+The written visual direction was used to implement B.1 directly. Use this checklist to record any material visual adjustments before Stage C.
+
+### U2 — Try the improved app (10–15 minutes)
+
+The implementer will provide the running build, comparison screenshots, technical verification results, and a separate demo collection with long titles, warnings, several statuses, and pinned/linked/unlinked items.
+
+- [ ] Switch collections, retract/open navigation, and switch Graph/List. It should remain clear where you are and which controls are active.
+- [ ] Select a bubble and a tag, read a long title, edit a record, and manage its connections. Check that the panel is easy to scan and controls stay reachable.
+- [ ] Pin/unpin, drag, pan, zoom, and fit. The pin should stay attached and visible, while the established graph behavior stays familiar.
+- [ ] Zoom in and out with short and long tag names. Text should stay readable and centered at a consistent screen size, without clipping or awkward backgrounds. Crowded labels should return when there is room; try a selected tag too.
+- [ ] Search for a known item and then something absent. Selected and empty states should be understandable, and clearing search should be easy.
+- [ ] Try Import and review an undo/restore flow using the demo collection. Labels, icons, dialogs, warnings, and primary actions should follow one visual system.
+- [ ] Narrow the window and use keyboard navigation. Look for clipped titles, overlapping panels, tiny targets, or focus that disappears.
+
+Report **screen/action → expected → actual → impact**; a screenshot or a quick “too dense / too faint / hard to find” note is useful. The implementer resolves material findings before marking B.1 complete and starting Stage C.
 
 ## C — A complicated workflow — future build
 
