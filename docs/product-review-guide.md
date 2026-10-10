@@ -1,6 +1,6 @@
 # Product review checklist
 
-Follow the [product plan](product-plan.md). **Checkpoints A and B are accepted. Stage B.1 UI improvement comes before Stage C.** The [UI improvement plan](ui-improvement-plan.md) is proposed; its mockup and implementation reviews are pending. See [implementation progress](product-progress.md).
+Follow the [product plan](product-plan.md). **Checkpoints A, B, and B.1 are accepted. Stage C may proceed.** The [UI improvement plan](ui-improvement-plan.md) and its running implementation review are retained as references. See [implementation progress](product-progress.md).
 
 Check an item when its expected result matches what you see. Leave failed items unchecked and add a note. Share feedback as **task → expected → actual → impact**.
 
@@ -99,9 +99,9 @@ Open [the app](http://127.0.0.1:5199/). Allow about 15–20 minutes. Confirmed c
 - [ ] Download a backup of that restored fixture and restore it again. Expect the image to remain available. Remote media remains a URL reference rather than being downloaded into backups.
 - [ ] Report import or recovery blockers using **task → expected → actual → impact** before moving to Stage C.
 
-## B.1 — UI improvement — planned
+## B.1 — UI improvement — accepted October 10, 2026
 
-See the [detailed plan and audit](ui-improvement-plan.md). The implementation is ready for U2; no new data preparation is needed.
+See the [detailed plan and audit](ui-improvement-plan.md). The user approved the running implementation after U2 review; no new data preparation is needed. The tasks below remain a regression reference, and unchecked items do not claim individual verification.
 
 ### U1 — Review the visual direction (5–10 minutes)
 
@@ -113,7 +113,7 @@ The implementer will supply a high-fidelity mockup with a populated graph, a sel
 - [ ] Read the Details panel in order. Record information, actions, and connections should be clearly separated.
 - [ ] Judge text size, spacing, contrast, and overall density at desktop and narrow sizes.
 
-The written visual direction was used to implement B.1 directly. Use this checklist to record any material visual adjustments before Stage C.
+The written visual direction was used to implement B.1 directly. Use this checklist to record follow-up regression findings during Stage C.
 
 ### U2 — Try the improved app (10–15 minutes)
 
@@ -127,7 +127,7 @@ The implementer will provide the running build, comparison screenshots, technica
 - [ ] Try Import and review an undo/restore flow using the demo collection. Labels, icons, dialogs, warnings, and primary actions should follow one visual system.
 - [ ] Narrow the window and use keyboard navigation. Look for clipped titles, overlapping panels, tiny targets, or focus that disappears.
 
-Report **screen/action → expected → actual → impact**; a screenshot or a quick “too dense / too faint / hard to find” note is useful. The implementer resolves material findings before marking B.1 complete and starting Stage C.
+Report **screen/action → expected → actual → impact**; a screenshot or a quick “too dense / too faint / hard to find” note is useful. B.1 is approved; use this checklist for follow-up regression checks while Stage C proceeds.
 
 ## C — A complicated workflow — future build
 

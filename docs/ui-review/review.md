@@ -37,4 +37,4 @@ Reviewed the running UI against [the improvement plan](../ui-improvement-plan.md
 
 ## Remaining acceptance checks
 
-User visual acceptance (U2) remains open. Physical Mac trackpad gestures, 200% browser/text zoom, and the complete recovery/media interaction matrix were not reverified in this pass. Existing transaction, backup/restore, undo and conflict tests pass. No Stage C features, deployment, commits, or publishing were added.
+User approved visual acceptance (U2) on October 10, 2026. Physical Mac trackpad gestures, 200% browser/text zoom, and the complete recovery/media interaction matrix were not reverified in this pass and remain follow-up regression checks. Existing transaction, backup/restore, undo and conflict tests pass. No Stage C features, deployment, or publishing were added.

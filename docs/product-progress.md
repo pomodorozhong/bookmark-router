@@ -25,8 +25,7 @@ Stage A was approved with in-memory previews. Stage B now persists confirmed ope
 
 ## Remaining
 
-- Stage B.1: UI improvement before Stage C; see the [audit and plan](ui-improvement-plan.md). Implementation was revised after the user rejected the first visual pass; U2 remains open. See [review findings and evidence](ui-review/review.md).
-- Phase 3: appearance editor/inheritance, confirmed bulk status UI and undo, copy composer, detailed/saved/distance filters, bulk media uploads, full selection and semantic detail.
+- Stage C (Phase 3): appearance editor/inheritance, confirmed bulk status UI and undo, copy composer, detailed/saved/distance filters, bulk media uploads, full selection and semantic detail.
 - Phase 4: optional extraction service, missing-data queue, reviewed WebMCP proposals, and browser/agent validation.
 - Phase 5: accessibility/recovery hardening, static-deployment verification, and 1,000/5,000-bubble performance checks.
 
@@ -82,14 +81,16 @@ The user accepted Stage B's functionality on October 10, 2026 and requested a UI
 - Browser verified search visibility, manual pin/unpin and marker, drag without pinning, and fit beside Details.
 - Final verification: TypeScript/Vite production build and all 35 tests passed; explicit pins also survived browser reload.
 
-## Stage B.1 — UI implementation revised; U2 review pending
+## Stage B.1 — UI improvement approved October 10, 2026
+
+The user approved B.1 after reviewing the running UI. U2 is complete for product acceptance; the remaining physical trackpad, 200% browser/text zoom, and full recovery/media matrix checks remain follow-up regression work and do not block Stage C.
 
 - User identified detached/flat red pin, disordered sidebar, overuse of text buttons, and off-center icons.
 - User additionally requested fixing tag text during zoom; this is an explicit P1 item with font, placement, background, and hide/restore checks across the supported zoom range.
 - Audited the live graph/Details view and implementation; recorded additional hierarchy, typography, diagnostics, state-feedback, list, import, dialog, and responsive-style issues in [ui-improvement-plan.md](ui-improvement-plan.md).
-- Inserted B.1 between B and C, with visual design review U1 and runnable review U2 in the [companion checklist](product-review-guide.md#b1--ui-improvement--planned).
+- Inserted B.1 between B and C, with visual design review U1 and runnable review U2 in the [companion checklist](product-review-guide.md#b1--ui-improvement--accepted-october-10-2026).
 - Implemented the shared SVG icon system, reordered sidebar, collection context card, responsive toolbar, attached flat vector pin marker, zoom-stable tag label padding/background, grouped layout controls, structured Details panel, list selection/empty states, import source hierarchy, and shared creation/editor dialogs.
-- Browser-verified populated graph, selected Details, fit graph, list mode, list/Details coexistence, reduced and increased zoom, narrow toolbar/navigation, import source screen, and custom tag dialog. Stage C follows U2 feedback.
+- Browser-verified populated graph, selected Details, fit graph, list mode, list/Details coexistence, reduced and increased zoom, narrow toolbar/navigation, import source screen, and custom tag dialog. Stage C follows B.1 approval.
 
 ### B.1 review corrections — October 10, 2026
 

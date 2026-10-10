@@ -1,10 +1,10 @@
 # Stage B.1 — UI improvement before Stage C
 
-Status: implementation revised after user review, October 10, 2026; U2 acceptance remains open. Stage B is functionally accepted. See the [implementation review and evidence](ui-review/review.md).
+Status: implementation revised and U2 approved after user review, October 10, 2026. Stage B and B.1 are accepted; follow-up manual checks remain documented. See the [implementation review and evidence](ui-review/review.md).
 
 **Review amendments:** The user rejected the realistic pin treatment; use a flat red vector pushpin with a visible needle and minimal shading. The zoomed-out tag treatment was also rejected: titles now remain centered inside only when they fit, and move below small nodes as plain constant-size labels. These amendments supersede the dimensional-pin and always-centered label requirements below.
 
-[Product roadmap](product-plan.md) · [Review guide](product-review-guide.md#b1--ui-improvement--planned) · [Progress](product-progress.md)
+[Product roadmap](product-plan.md) · [Review guide](product-review-guide.md#b1--ui-improvement--accepted-october-10-2026) · [Progress](product-progress.md)
 
 ## Review basis
 
@@ -95,7 +95,7 @@ Use short and long tag names, crowded neighboring tags, and selected/unselected 
 
 U1 requires roughly 5–10 minutes of visual review. The implementer prepares all variants and example states; the user decides whether the hierarchy, density, and pin feel right. Broad UI implementation waits for this response; a control inventory and nonvisual regression preparation can continue independently.
 
-U2 requires roughly 10–15 minutes with the running app. The implementer supplies a separate demo collection containing long titles, URL warnings, different statuses, linked/unlinked items, and pinned nodes. The user tries navigation, inspection, search, and an import/recovery path. Stage C waits for resolution of material visual or interaction findings. Routine technical checks remain the implementer's responsibility.
+U2 required roughly 10–15 minutes with the running app. The implementer supplied a separate demo collection containing long titles, URL warnings, different statuses, linked/unlinked items, and pinned nodes. The user reviewed navigation, inspection, search, and an import/recovery path. Remaining manual checks are regression work during Stage C; routine technical checks remain the implementer's responsibility.
 
 ## Verification and scope boundaries
 
