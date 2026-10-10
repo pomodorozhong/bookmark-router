@@ -19,7 +19,8 @@ import { Icon, IconButton } from "./Icon";
 export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
 }
-const thumbnailSize = 128;
+// About a bubble at maximum zoom on a 2x display.
+const thumbnailSize = 256;
 function roundThumbnail(img: HTMLImageElement, key: string): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = thumbnailSize;
@@ -134,8 +135,9 @@ export function GraphCanvas({
     if (!node.data?.tag) {
       const shown = scale >= bubbleLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current;
       const image = shown ? bubbleImage(bubblesRef.current.get(node.id)) : undefined;
-      // Inside the node's 2px outline.
-      const diameter = Number(node.style?.size ?? 25) - 3;
+      // The 2px outline is centered on the edge; tucking the image 0.5px under
+      // it fills the inner circle without a seam.
+      const diameter = Number(node.style?.size ?? 25) - 1;
       return {
       label: shown,
       icon: !!image,
