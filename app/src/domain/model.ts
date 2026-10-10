@@ -24,6 +24,11 @@ export interface Asset {
   blobId?: string;
   filename?: string;
 }
+// Read-only context carried over from an import source, such as review hints.
+export interface SourceNote {
+  label: string;
+  text: string;
+}
 export interface Bubble extends RecordMeta {
   id: string;
   title: string;
@@ -33,6 +38,8 @@ export interface Bubble extends RecordMeta {
   statusId: string;
   importBatchId?: string;
   missingTitle?: boolean;
+  notes?: SourceNote[];
+  source?: { name: string; fields: Record<string, string> };
   extraction?: {
     state:
       | "queued"
@@ -309,6 +316,23 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
       typeof b.description !== "string"
     )
       fail("invalid bubble fields");
+    if (
+      b.notes !== undefined &&
+      (!Array.isArray(b.notes) ||
+        b.notes.some(
+          (n) => !n || typeof n.label !== "string" || typeof n.text !== "string",
+        ))
+    )
+      fail("invalid bubble notes");
+    if (
+      b.source !== undefined &&
+      (!b.source ||
+        typeof b.source.name !== "string" ||
+        !b.source.fields ||
+        typeof b.source.fields !== "object" ||
+        Object.values(b.source.fields).some((v) => typeof v !== "string"))
+    )
+      fail("invalid bubble source");
     if (
       b.importBatchId &&
       !w.batches.some((batch) => batch.id === b.importBatchId)

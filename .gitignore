@@ -4,3 +4,4 @@ app/.runtime/
 bookmarks-working.json
 *.tsbuildinfo
 __pycache__/
+bookmarks-converted.json

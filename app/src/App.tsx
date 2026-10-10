@@ -1411,6 +1411,16 @@ export default function App() {
                         </p>
                       )}
                     </section>
+                    {selectedRecord?.notes?.length ? (
+                      <section className="detail-section source-notes">
+                        <h3>From import</h3>
+                        <ul>
+                          {selectedRecord.notes.map((n, i) => (
+                            <li key={i}><strong>{n.label}</strong>{n.text && <span>{n.text}</span>}</li>
+                          ))}
+                        </ul>
+                      </section>
+                    ) : null}
                     <section className="detail-section connection-section">
                       <div className="section-heading">
                         <div>
