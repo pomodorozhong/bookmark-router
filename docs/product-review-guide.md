@@ -158,6 +158,7 @@ Report feedback as **task → expected → actual → impact**. For copy issues,
 ### Changes since ready
 
 - General per-collection Undo replaced the separate Undo status control (uncommitted when this checkpoint was marked ready). Stage C.1 reworks its storage; behavior in this checklist stays the same.
+- October 11: the import-screen Undo bar covered the wizard footer, hiding **Read source**, **Continue**, and **Confirm import**. Undo now sits inside the footer beside **Back**.
 
 ### Decisions made October 11, 2026
 

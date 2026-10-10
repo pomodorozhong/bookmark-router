@@ -1129,6 +1129,7 @@ export default function App() {
               </section>
             )}
             <footer className="wizard-footer">
+              <div className="wizard-footer-start">
               <button
                 onClick={() => {
                   if (parsed?.restore) {
@@ -1145,6 +1146,8 @@ export default function App() {
               >
                 {step > 0 ? <><Icon name="arrow-left" size={15} /> Back</> : <><Icon name="close" size={15} /> Clear source</>}
               </button>
+              {workspaceFeedback}
+              </div>
               <span className="subtle">
                 Your original file stays unchanged.
               </span>
@@ -1469,7 +1472,6 @@ export default function App() {
             {list && <div className="list-feedback-bar">{workspaceFeedback}</div>}
           </div>
         )}
-        {screen === "import" && <div className="import-undo-bar">{workspaceFeedback}</div>}
       </main>
       {editing && (
         <RecordEditor
