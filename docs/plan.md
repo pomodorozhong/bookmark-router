@@ -45,6 +45,8 @@ There are no checkpoint tags, deferred-verification registers, or release gates.
 - Write the converter and restore your collection.
 - Fix the bugs found in the Checkpoint C review: the graph is blank until **Fit graph** after an import, and new tags from a second import are placed badly.
 - **You try:** restore your collection; check that bookmarks, project ideas, and topics look right.
+- **Follow-up — smooth panning with your collection:** measure the lag first; hide bubble titles below a zoom threshold (tag titles and the selected or hovered bubble stay); stop restyling every label on each pan/zoom step.
+- **You try:** pan and zoom around your collection; check the threshold feels right.
 
 ### 1. Triage
 

@@ -1,4 +1,4 @@
-import { tagLabelOutside } from "./graph-labels";
+import { bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
 import { placeNear, type Point } from "./graph-placement";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from "react";
 import {
@@ -75,9 +75,12 @@ export function GraphCanvas({
   const pinLayer = useRef<HTMLDivElement>(null);
   const drawPinsRef = useRef<() => void>(() => {});
   const outsideLabels = useRef(new Map<string, boolean>());
+  const hovered = useRef<string | undefined>(undefined);
   const textMetrics = useRef<CanvasRenderingContext2D | null>(null);
   function labelStyle(node: NodeData, scale: number): NonNullable<NodeData["style"]> {
-    if (!node.data?.tag) return { labelFontSize: 13 / scale, labelOffsetY: 6 / scale, labelWordWrap: true, labelMaxWidth: 180 / scale, labelMaxLines: 1 };
+    if (!node.data?.tag) return {
+      label: scale >= bubbleLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current,
+      labelFontSize: 13 / scale, labelOffsetY: 6 / scale, labelWordWrap: true, labelMaxWidth: 180 / scale, labelMaxLines: 1 };
     const context = textMetrics.current ??= document.createElement("canvas").getContext("2d");
     if (context) context.font = '600 13px sans-serif';
     const title = String(node.data.label ?? "");
@@ -442,10 +445,14 @@ export function GraphCanvas({
     g.on(GraphEvent.AFTER_TRANSFORM, drawPins);
     g.on(GraphEvent.AFTER_ELEMENT_TRANSLATE, drawPins);
     g.on(NodeEvent.DRAG, drawPins);
+    let labelZoom: number | undefined;
     g.on(GraphEvent.AFTER_TRANSFORM, () => {
       // Transforms can fire while G6 is still creating its viewport.
       if (!canceled && renderedGraph.current === g) {
         setZoom(g.getZoom());
+        // Labels keep a fixed screen size, so only a zoom change restyles them; panning does not.
+        if (g.getZoom() === labelZoom) return;
+        labelZoom = g.getZoom();
         if (labelFrame !== undefined) cancelAnimationFrame(labelFrame);
         labelFrame = requestAnimationFrame(() => {
           labelFrame = undefined;
@@ -473,6 +480,16 @@ export function GraphCanvas({
       dragging.current.delete(event.target.id);
       persist();
     });
+    const hover = (id: string | undefined) => {
+      const previous = hovered.current;
+      hovered.current = id;
+      if (canceled || renderedGraph.current !== g || g.getZoom() >= bubbleLabelMinZoom) return;
+      const ids = [previous, id].filter((x): x is string => !!x && g.hasNode(x));
+      g.updateNodeData(ids.map((nodeId) => ({ id: nodeId, style: labelStyle(g.getNodeData(nodeId), g.getZoom()) })));
+      void g.draw().catch((e) => { if (!canceled) setError(String(e)); });
+    };
+    g.on(NodeEvent.POINTER_ENTER, (event: IElementEvent) => hover(event.target.id));
+    g.on(NodeEvent.POINTER_LEAVE, () => hover(undefined));
     g.on(NodeEvent.CLICK, (event: IElementEvent) =>
       onSelectRef.current(event.target.id),
     );

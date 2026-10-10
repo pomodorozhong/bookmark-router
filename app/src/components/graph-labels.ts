@@ -5,3 +5,6 @@ export function tagLabelOutside(size: number, zoom: number, textWidth: number, w
   // A four-pixel dead band prevents labels oscillating at a zoom threshold.
   return available < required + (wasOutside === true ? 4 : wasOutside === false ? -4 : 0);
 }
+
+/** Below this zoom, bubble titles are hidden except for the selected or hovered bubble. */
+export const bubbleLabelMinZoom = 0.6;
