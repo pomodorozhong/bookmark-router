@@ -1,6 +1,6 @@
 import { bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
 import { placeNear, type Point } from "./graph-placement";
-import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from "react";
 import {
   Graph,
   GraphEvent,
@@ -14,11 +14,26 @@ import {
   type SimulationLinkDatum,
   type Simulation,
 } from "d3-force";
-import { appearanceFor, type Geometry, type Workspace } from "../domain/model";
+import { appearanceFor, type Bubble, type Geometry, type Workspace } from "../domain/model";
 import { Icon, IconButton } from "./Icon";
 export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
 }
+const thumbnailSize = 128;
+function roundThumbnail(img: HTMLImageElement, key: string): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = thumbnailSize;
+  const context = canvas.getContext("2d")!;
+  context.beginPath();
+  context.arc(thumbnailSize / 2, thumbnailSize / 2, thumbnailSize / 2, 0, Math.PI * 2);
+  context.clip();
+  // Cover: fill the circle, cropping the longer side around the center.
+  const scale = thumbnailSize / Math.min(img.naturalWidth || 1, img.naturalHeight || 1);
+  const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
+  context.drawImage(img, (thumbnailSize - width) / 2, (thumbnailSize - height) / 2, width, height);
+  return Object.assign(canvas, { src: `thumbnail:${key}`, complete: true });
+}
+
 export function GraphCanvas({
   ref,
   onPinsChanged,
@@ -33,7 +48,9 @@ export function GraphCanvas({
   onGeometry,
   onImport, onClearSearch, onShowList,
   feedback,
+  loadMedia,
 }: {
+  loadMedia?: (id: string) => Promise<{ blob: Blob } | undefined>;
   onImport: () => void;
   onClearSearch: () => void;
   onShowList: () => void;
@@ -76,11 +93,57 @@ export function GraphCanvas({
   const drawPinsRef = useRef<() => void>(() => {});
   const outsideLabels = useRef(new Map<string, boolean>());
   const hovered = useRef<string | undefined>(undefined);
+  const bubbles = useMemo(() => new Map(workspace.bubbles.map((b) => [b.id, b])), [workspace.bubbles]);
+  const bubblesRef = useRef(bubbles);
+  bubblesRef.current = bubbles;
+  const loadMediaRef = useRef(loadMedia);
+  loadMediaRef.current = loadMedia;
+  // Bubble images by source, preloaded so the graph never draws a broken image.
+  // Each becomes a small round thumbnail once, because redrawing full-size
+  // covers on every frame makes panning slow. G6 reloads string sources as CORS
+  // requests, which most sites refuse, so the thumbnail canvas is drawn instead,
+  // with the `src` and `complete` fields G's image cache keys on.
+  const images = useRef(new Map<string, HTMLCanvasElement | "loading" | "failed">());
+  const imageReady = useRef<(bubbleId: string) => void>(() => {});
+  function bubbleImage(bubble: Bubble | undefined) {
+    const asset = bubble?.asset;
+    if (!asset || asset.kind !== "image") return undefined;
+    const key = asset.source === "local" ? `blob:${asset.blobId}` : asset.url;
+    if (!key) return undefined;
+    const known = images.current.get(key);
+    if (known === "failed" || known === "loading") return undefined;
+    if (known) return known;
+    images.current.set(key, "loading");
+    void (async () => {
+      const src = asset.source === "local"
+        ? await loadMediaRef.current?.(asset.blobId!).then((m) => (m ? URL.createObjectURL(m.blob) : undefined)).catch(() => undefined)
+        : asset.url;
+      if (!src) return images.current.set(key, "failed");
+      const img = new Image();
+      img.onload = () => {
+        images.current.set(key, roundThumbnail(img, key));
+        imageReady.current(bubble!.id);
+      };
+      img.onerror = () => images.current.set(key, "failed");
+      img.src = src;
+    })();
+    return undefined;
+  }
   const textMetrics = useRef<CanvasRenderingContext2D | null>(null);
   function labelStyle(node: NodeData, scale: number): NonNullable<NodeData["style"]> {
-    if (!node.data?.tag) return {
-      label: scale >= bubbleLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current,
+    if (!node.data?.tag) {
+      const shown = scale >= bubbleLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current;
+      const image = shown ? bubbleImage(bubblesRef.current.get(node.id)) : undefined;
+      // Inside the node's 2px outline.
+      const diameter = Number(node.style?.size ?? 25) - 3;
+      return {
+      label: shown,
+      icon: !!image,
+      iconSrc: image as unknown as HTMLImageElement | undefined,
+      iconWidth: diameter,
+      iconHeight: diameter,
       labelFontSize: 13 / scale, labelOffsetY: 6 / scale, labelWordWrap: true, labelMaxWidth: 180 / scale, labelMaxLines: 1 };
+    }
     const context = textMetrics.current ??= document.createElement("canvas").getContext("2d");
     if (context) context.font = '600 13px sans-serif';
     const title = String(node.data.label ?? "");
@@ -486,6 +549,11 @@ export function GraphCanvas({
       if (canceled || renderedGraph.current !== g || g.getZoom() >= bubbleLabelMinZoom) return;
       const ids = [previous, id].filter((x): x is string => !!x && g.hasNode(x));
       g.updateNodeData(ids.map((nodeId) => ({ id: nodeId, style: labelStyle(g.getNodeData(nodeId), g.getZoom()) })));
+      void g.draw().catch((e) => { if (!canceled) setError(String(e)); });
+    };
+    imageReady.current = (bubbleId) => {
+      if (canceled || renderedGraph.current !== g || !g.hasNode(bubbleId)) return;
+      g.updateNodeData([{ id: bubbleId, style: labelStyle(g.getNodeData(bubbleId), g.getZoom()) }]);
       void g.draw().catch((e) => { if (!canceled) setError(String(e)); });
     };
     g.on(NodeEvent.POINTER_ENTER, (event: IElementEvent) => hover(event.target.id));

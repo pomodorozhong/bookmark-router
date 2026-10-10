@@ -1289,6 +1289,7 @@ export default function App() {
                   filtering={filterActive || Boolean(query.trim())}
                   hiddenTagIds={hiddenTagIds}
                   feedback={workspaceFeedback}
+                  loadMedia={(id) => store.media(id)}
                   geometry={geometry}
                   onGeometry={(g) => {
                     setGeometry(g);
