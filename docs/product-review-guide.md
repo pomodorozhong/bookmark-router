@@ -147,7 +147,8 @@ Open the running app at http://127.0.0.1:5199/ and use the existing review colle
 - [ ] In **Customize copy**, try **Link only**, **Title only**, **Title + link**, and **Markdown links**. Expect the result to update without leaving the composer.
 - [ ] Compare **All linked bubbles** with **Current view**, save a copy preset, reload the composer, and try that preset.
 - [ ] Open **Bubble Details** and choose **Copy**. Expect the bubble's default copy text to reach the clipboard and a visible confirmation.
-- [ ] After a reviewed bulk status change, expect the status feedback and **Undo status** to stay on the left side of the graph's bottom bar until the next status action; after Undo, expect the concise confirmation **Previous statuses restored.** rather than a floating toast.
+- [ ] Expect **Undo** to remain visible in the bottom bar in Graph and List, disabled when no saved action is available, with no dismiss control. Save an edit, then change a status. Undo twice to restore the status and then the edit. The adjacent label identifies the next action to undo.
+- [ ] Reload after saving a change and switch between collections. Undo history should persist separately for each collection. Changes made before the general history was introduced have no entry.
 - [ ] Paste the result into your actual destination. Check links, missing fields, ordering, and formatting.
 - [ ] Upload image, video, and audio files. Expect usable assets; copied local assets should use filenames, not temporary blob URLs.
 - [ ] Report confusing rules or output, including the exact filter summary or copied text that caused trouble. Enrichment work can continue independently.

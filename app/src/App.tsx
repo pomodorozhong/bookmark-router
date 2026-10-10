@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GraphCanvas, type GraphCanvasHandle } from "./components/GraphCanvas";
+import { WorkspaceFeedback } from "./components/WorkspaceFeedback";
 import {
   fields,
   guessMapping,
@@ -111,8 +112,8 @@ export default function App() {
     [promptKind, setPromptKind] = useState<"collection" | "tag">(),
     [promptValue, setPromptValue] = useState("");
   const [statusDialogTag, setStatusDialogTag] = useState<string>(),
-    [statusUndoId, setStatusUndoId] = useState<string>(),
-    [statusBarMessage, setStatusBarMessage] = useState<string>(),
+    [nextUndo, setNextUndo] = useState<Awaited<ReturnType<WorkspaceStore["nextUndo"]>>>(),
+    [undoMessage, setUndoMessage] = useState<string>(),
     [filterDialogOpen, setFilterDialogOpen] = useState(false),
     [copyDialogTag, setCopyDialogTag] = useState<string>(),
     [bulkStatusOpen, setBulkStatusOpen] = useState(false),
@@ -167,6 +168,9 @@ export default function App() {
   }, [collectionMenuOpen]);
   useEffect(() => {
     let active = true;
+    const storageTimeout = window.setTimeout(() => {
+      if (active) setError("Local storage is taking longer than expected. Close other pages for this app and reload. If it still waits, restart the browser.");
+    }, 10000);
     void store
       .list()
       .then(async (all) => {
@@ -180,13 +184,17 @@ export default function App() {
           setWorkspace(w);
           setCollections(all);
           setGeometry(await store.getGeometry(w.id));
+          setNextUndo(await store.nextUndo(w.id));
+          setError("");
           setLoaded(true);
           if (w.bubbles.length) setScreen("workspace");
         }
       })
-      .catch((e) => setError("Unable to open local storage: " + String(e)));
+      .catch((e) => { if (active) setError("Unable to open local storage: " + String(e)); })
+      .finally(() => window.clearTimeout(storageTimeout));
     return () => {
       active = false;
+      window.clearTimeout(storageTimeout);
     };
   }, []);
   useEffect(() => {
@@ -195,6 +203,8 @@ export default function App() {
       void store.get(workspaceRef.current.id).then((w) => {
         if (w && w.revision !== workspaceRef.current.revision) {
           setWorkspace(w);
+          void store.nextUndo(w.id).then(setNextUndo);
+          setUndoMessage(undefined);
           setNotice(
             "This collection changed in another tab. Review pending changes again.",
           );
@@ -217,8 +227,8 @@ export default function App() {
     setSelectedIds([]);
     setManageMemberships(false);
     setStatusDialogTag(undefined);
-    setStatusUndoId(undefined);
-    setStatusBarMessage(undefined);
+    setNextUndo(await store.nextUndo(w.id));
+    setUndoMessage(undefined);
     setFilterDialogOpen(false);
     setCopyDialogTag(undefined);
     setBulkStatusOpen(false);
@@ -232,48 +242,39 @@ export default function App() {
   }
   async function publish(w: Workspace) {
     setWorkspace(w);
+    setNextUndo(await store.nextUndo(w.id));
     setCollections(await store.list());
   }
   async function save(command: Command | Command[]) {
     try {
-      const commands = Array.isArray(command) ? command : [command];
-      let current = workspace;
-      for (const item of commands) {
-        current = await store.command(current.id, current.revision, item);
-        await publish(current);
-        if (item.type === "status.bulk") {
-          setStatusUndoId(current.settings.statusHistory?.at(-1)?.id);
-          setStatusBarMessage("Status updated for reviewed records.");
-        }
-        if (item.type === "status.undo") {
-          setStatusUndoId(undefined);
-          setStatusBarMessage("Previous statuses restored.");
-        }
-      }
+      const current = await store.command(workspace.id, workspace.revision, command);
+      await publish(current);
+      setUndoMessage(undefined);
     } catch (e) {
       const latest = await store.get(workspace.id);
-      if (latest) setWorkspace(latest);
+      if (latest) await publish(latest);
       throw e;
     }
   }
-  async function undoStatus() {
-    if (!statusUndoId || submitting.current) return;
-    const change = workspace.settings.statusHistory?.find((item) => item.id === statusUndoId);
-    if (!change) {
-      setStatusUndoId(undefined);
-      return;
-    }
+  async function undoLastAction() {
+    if (!nextUndo || nextUndo.revision !== workspace.revision || busy || submitting.current) return;
     submitting.current = true;
     setBusy(true);
     setError("");
     try {
-      await save({
-        type: "status.undo",
-        changeId: change.id,
-        reviewedRecordRevisions: change.afterRevisions,
-      });
+      const next = await store.undoLast(workspace.id, workspace.revision, nextUndo.id);
+      await publish(next);
+      setUndoMessage(`Undid: ${nextUndo.label}`);
+      setSelectedIds((ids) => ids.filter((id) => [...next.bubbles, ...next.tags].some((record) => record.id === id)));
+      if (selected && ![...next.bubbles, ...next.tags].some((record) => record.id === selected)) setSelected(undefined);
+      setActiveFilter({ op: "all", rules: [] });
+      setHiddenTagIds([]);
+      setActiveViewId(undefined);
+      setViewSort("title");
     } catch (e) {
       setError(String(e));
+      const latest = await store.get(workspace.id);
+      if (latest) await publish(latest);
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -325,10 +326,11 @@ export default function App() {
         files,
       );
       await publish(next);
+      setUndoMessage(undefined);
       setNotice(`Attached ${files.length} local media file${files.length === 1 ? "" : "s"}.`);
     } catch (e) {
       const latest = await store.get(workspace.id);
-      if (latest) setWorkspace(latest);
+      if (latest) await publish(latest);
       throw e;
     }
   }
@@ -423,7 +425,7 @@ export default function App() {
         await publish(next);
         await openWorkspace(next);
         setNotice(
-          `${selectedRows.length} source rows applied: ${next.bubbles.length - workspace.bubbles.length} new bubbles and ${selectedRows.filter((c) => choices[c.row] === "merge").length} merges. Undo is available in Import history.`,
+          `${selectedRows.length} source rows applied: ${next.bubbles.length - workspace.bubbles.length} new bubbles and ${selectedRows.filter((c) => choices[c.row] === "merge").length} merges. Use Undo to reverse this import.`,
         );
       }
       setStep(0);
@@ -434,7 +436,7 @@ export default function App() {
       if (e instanceof ConflictError) {
         const latest = await store.get(workspace.id);
         if (latest) {
-          setWorkspace(latest);
+          await publish(latest);
           setReviewTarget(latest);
           setStep(2);
           setChoices({});
@@ -461,11 +463,11 @@ export default function App() {
       );
       await publish(next);
       setUndoBatch(undefined);
-      setNotice("Import undone. Later edits and imported tags were kept.");
+      setUndoMessage(changed.length ? `Import undone · ${changed.length} edited ${changed.length === 1 ? "bubble" : "bubbles"} kept` : "Import undone");
     } catch (e) {
       setError(String(e));
       const latest = await store.get(workspace.id);
-      if (latest) setWorkspace(latest);
+      if (latest) await publish(latest);
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -613,6 +615,13 @@ export default function App() {
         {error && <div role="alert">{error}</div>}
       </main>
     );
+  const workspaceFeedback = <WorkspaceFeedback
+    message={undoMessage}
+    actionLabel={nextUndo?.label}
+    undoAvailable={Boolean(nextUndo && nextUndo.revision === workspace.revision)}
+    busy={busy}
+    onUndo={() => void undoLastAction()}
+  />;
   return (
     <div
       className={`app-shell ${screen === "workspace" ? "workspace-mode" : "import-mode"} ${panelOpen ? "panel-open" : "panel-closed"}`}
@@ -1111,8 +1120,8 @@ export default function App() {
                     <div className="notice text-left">
                       Merges replace supplied titles, nonempty descriptions,
                       mapped statuses and supplied media, and add tags. Import
-                      history can restore previous values. Later edits are
-                      protected during undo.
+                      history lets you undo these changes. Bubbles edited after
+                      import are kept when you undo.
                     </div>
                   </>
                 )}
@@ -1276,11 +1285,7 @@ export default function App() {
                   matchingBubbleIds={visibleBubbles.map((bubble) => bubble.id)}
                   filtering={filterActive || Boolean(query.trim())}
                   hiddenTagIds={hiddenTagIds}
-                  statusUndoAvailable={Boolean(statusUndoId)}
-                  statusUndoBusy={busy}
-                  statusBarMessage={statusBarMessage}
-                  onUndoStatus={() => void undoStatus()}
-                  onDismissStatusUndo={() => setStatusUndoId(undefined)}
+                  feedback={workspaceFeedback}
                   geometry={geometry}
                   onGeometry={(g) => {
                     setGeometry(g);
@@ -1461,8 +1466,10 @@ export default function App() {
                 )}
               </aside>
             </div>
+            {list && <div className="list-feedback-bar">{workspaceFeedback}</div>}
           </div>
         )}
+        {screen === "import" && <div className="import-undo-bar">{workspaceFeedback}</div>}
       </main>
       {editing && (
         <RecordEditor
@@ -1546,8 +1553,9 @@ export default function App() {
         <Dialog labelledBy="history-title" onClose={() => setHistory(false)}>
             <h2 id="history-title">Import history</h2>
             <p>
-              Undo restores merged values and removes unchanged imported
-              bubbles. Tags are kept for reuse.
+              Undo an import to remove new bubbles and restore merged bubbles
+              to their previous values. Bubbles edited after import and imported
+              tags are kept.
             </p>
             {!workspace.batches.length && <p>No imports yet.</p>}
             {workspace.batches.map((b) => (
@@ -1557,7 +1565,7 @@ export default function App() {
                   {b.bubbleIds.length} affected bubbles ·{" "}
                   {new Date(b.createdAt).toLocaleString()}
                 </p>
-                <button onClick={() => setUndoBatch(b.id)}>Review undo</button>
+                <button onClick={() => setUndoBatch(b.id)}>Review import undo</button>
               </article>
             ))}
             <footer>
@@ -1572,18 +1580,20 @@ export default function App() {
           const changed = undoConflicts(workspace, b);
           return (
             <Dialog labelledBy="undo-title" onClose={() => { if (!busy) setUndoBatch(undefined); }}>
-                <h2 id="undo-title">Confirm import undo</h2>
+                <h2 id="undo-title">Undo this import?</h2>
                 <p>
                   {b.bubbleIds.length - changed.length} unchanged bubbles will
-                  be removed or restored to their previous values.
+                  be affected. New bubbles will be removed; merged bubbles will
+                  return to their values and tags from before this import.
+                  Imported tags will remain available.
                 </p>
                 {changed.length > 0 && (
                   <div className="notice">
-                    <strong>Keep these later edits</strong>
+                    <strong>Bubbles to keep</strong>
                     {changed.map((b) => (
                       <p key={b.id}>{b.title}</p>
                     ))}
-                    <p>These records changed after import and will be kept.</p>
+                    <p>These bubbles were edited after import. Undo will keep their current values and tags.</p>
                   </div>
                 )}
                 <ul>
@@ -1607,7 +1617,7 @@ export default function App() {
                     disabled={busy}
                     onClick={() => void undo()}
                   >
-                    <Icon name="history" size={15} /> Undo unchanged records
+                    <Icon name="history" size={15} /> {busy ? "Undoing import…" : "Undo import"}
                   </button>
                 </footer>
             </Dialog>

@@ -1,5 +1,5 @@
 import { tagLabelOutside } from "./graph-labels";
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from "react";
 import {
   Graph,
   GraphEvent,
@@ -31,20 +31,12 @@ export function GraphCanvas({
   geometry,
   onGeometry,
   onImport, onClearSearch, onShowList,
-  statusUndoAvailable = false,
-  statusUndoBusy = false,
-  statusBarMessage,
-  onUndoStatus,
-  onDismissStatusUndo,
+  feedback,
 }: {
   onImport: () => void;
   onClearSearch: () => void;
   onShowList: () => void;
-  statusUndoAvailable?: boolean;
-  statusUndoBusy?: boolean;
-  statusBarMessage?: string;
-  onUndoStatus?: () => void;
-  onDismissStatusUndo?: () => void;
+  feedback?: ReactNode;
   ref?: Ref<GraphCanvasHandle>;
   onPinsChanged: (ids: string[]) => void;
   workspace: Workspace;
@@ -762,19 +754,7 @@ export function GraphCanvas({
       <div className="canvas-bottom">
         <div className="canvas-status">
           {!ready && <span className="subtle" role="status">{status}</span>}
-          {statusBarMessage && (
-            <span className="canvas-status-message" role="status">
-              {statusBarMessage}
-            </span>
-          )}
-          {statusUndoAvailable && onUndoStatus && (
-            <div className="canvas-undo" role="status">
-              <button className="undo-button" disabled={statusUndoBusy} onClick={onUndoStatus}>
-                <Icon name="history" size={15} /> <span>Undo status</span>
-              </button>
-              {onDismissStatusUndo && <IconButton label="Dismiss status undo" icon="close" size={15} className="toolbar-dismiss" onClick={onDismissStatusUndo} />}
-            </div>
-          )}
+          {feedback}
         </div>
         <div className="canvas-tools">
           <details className="help-menu"><summary aria-label="Graph help"><Icon name="info" /><span>Help</span></summary><div className="help-popover"><strong>Explore your collection</strong><p>Drag a bubble to move it. Scroll with two fingers to pan; pinch to zoom.</p><p>Select an item for Details. Pin it there to keep its position during layout.</p></div></details>

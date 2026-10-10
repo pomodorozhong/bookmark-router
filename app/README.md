@@ -19,6 +19,8 @@ Bubble/tag editors, tag creation, memberships, independent statuses, graph/list 
 
 Backups bundle local media and preserve remote references. Restores create new collections. `fixtures/media-backup.json` contains a harmless bundled image for recovery testing. Enrichment and WebMCP are later phases. See the [Checkpoint C review checklist](../docs/product-review-guide.md#c--a-complicated-workflow--ready-for-review-october-10-2026).
 
+The permanent **Undo** control in the bottom bar reverses the latest saved collection action. Each collection keeps up to 50 actions across reloads, covering edits, tags, connections, statuses, imports, media attachments, saved views, and copy presets. An editor save is one action even when it changes multiple fields or connections. Undo advances revisions and rejects stale targets from other tabs. Search, selection, graph navigation/positions, collection creation, and backup restoration into a new collection are outside this history. Existing changes made before this history was introduced have no general undo entry; older imports can still be reviewed in Import history. Backups preserve collection content rather than this local undo history.
+
 G6 is pinned to 5.1.1. Memberships have no direction or arrows. Two-finger pinch zoom is supported through Chromium Ctrl-wheel and Safari gesture events; ordinary two-finger scrolling remains panning. Initialization errors appear over the graph; the list remains available. Sample data contains no private bookmarks.
 
 ## Prototype recovery

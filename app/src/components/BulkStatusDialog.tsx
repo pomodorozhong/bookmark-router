@@ -50,7 +50,7 @@ export function BulkStatusDialog({
     <Dialog labelledBy="selection-status-title" onClose={() => { if (!busy) onClose(); }} className="status-dialog">
       <div className="modal-heading"><div><div className="eyebrow">BULK STATUS</div><h2 id="selection-status-title">Change selected bubble statuses</h2></div><IconButton label="Close bulk status dialog" icon="close" size={17} disabled={busy} onClick={onClose} /></div>
       {error && <div className="alert" role="alert">{error}</div>}
-      <p className="subtle">Review every selected bubble before applying the change. Later edits will block undo until reviewed again.</p>
+      <p className="subtle">Review the selected bubbles before applying. Use Undo in the bottom bar to reverse saved changes, starting with the most recent.</p>
       <StatusSegmentedControl statuses={workspace.statuses} value={statusId} onChange={setStatusId} disabled={busy} />
       <div className="status-review" aria-label="Selected bubbles for status change">{bubbles.map((bubble) => <div className="status-review-row" key={bubble.id}><span><strong>{bubble.title}</strong><small>{workspace.statuses.find((status) => status.id === bubble.statusId)?.label}</small></span><span className="status-review-change">{workspace.statuses.find((status) => status.id === bubble.statusId)?.label}<Icon name="arrow-right" size={13} />{nextStatus?.label}</span></div>)}</div>
       <footer><button disabled={busy} onClick={onClose}>Cancel</button><button className="primary" disabled={busy || !nextStatus || !bubbles.length} onClick={() => void apply()}><Icon name="check" size={15} />{busy ? "Applying…" : "Apply reviewed status"}</button></footer>
