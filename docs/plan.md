@@ -53,6 +53,16 @@ The main screen for job 1. Its shape is decided in the mockup. The likely starti
 - Decide in the mockup: which decisions you need (the prototype had keep / attach / skip / duplicate / defer) and how they map to statuses.
 - **You try:** triage 10 real bookmarks and see how long it takes.
 
+### 1.5. Fetch title, description, and image from the URL
+
+A browser page cannot read other sites (CORS), so fetching needs a small helper.
+
+- **Helper:** a local Node service started with the app (`npm run dev` starts both). It downloads the page with a timeout and size limit, reads the title, description, and preview image (Open Graph / Twitter / `<title>` / meta description), and downloads the image. It never runs page scripts, and it refuses `localhost` and private-network addresses. It does not work on a static-only deployment unless it is hosted there too.
+- **In the app:** a **Fetch details** action on one bubble, a multi-selection, or a filtered view. Results are reviewed before saving: empty fields can be filled in one step; values that differ from existing ones are shown side by side to choose. Saving appears in Undo.
+- **Images** are stored as local image assets on the bubble (this unfreezes media for images). Raindrop's `cover` URL is used when the page has no image.
+- Failures (timeout, 404, blocked, non-HTML) are recorded on the bubble so triage and filters can find them. This replaces the prototype's link-check warnings for bookmarks that are fetched again.
+- **You try:** fetch one bookmark, then 20 at once; accept some changes and reject others; check the images after reload and in a backup.
+
 ### 2. Project ideas and tags
 
 - Create and edit tag types (Project idea, Topic, …). This does not exist today.
@@ -76,7 +86,6 @@ Starting this round requires naming the browser and agent you will use.
 
 ### Later, only if needed
 
-- Metadata extraction for missing titles and descriptions, if the agent does not cover it.
 - Performance work, if your real collection is slow. 148 bookmarks does not need the 5,000-bubble budget.
 - Static deployment.
 
@@ -86,7 +95,7 @@ Starting this round requires naming the browser and agent you will use.
 |---|---|
 | Graph view, import wizard, backup/restore, current Undo | Keep. Fix bugs as they are found. |
 | Copy composer | Freeze: keep the one-click Copy and quick presets; no more template work. |
-| Media upload | Freeze. |
+| Media upload | Freeze, except image assets from round 1.5. |
 | Bulk status propagation | Keep; revisit in round 1 if triage replaces it. |
 | C.1 undo rework (change sets, Redo, schema 2) | Cut. Current undo stays until it causes a real problem. |
 | New bubble, archive | Moved into rounds 1/4 (WebMCP needs add item; triage may need archive). |
