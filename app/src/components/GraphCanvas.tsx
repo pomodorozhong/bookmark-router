@@ -1,3 +1,4 @@
+import { tagLabelOutside } from "./graph-labels";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import {
   Graph,
@@ -13,6 +14,7 @@ import {
   type Simulation,
 } from "d3-force";
 import { appearanceFor, type Geometry, type Workspace } from "../domain/model";
+import { Icon, IconButton } from "./Icon";
 export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
 }
@@ -25,7 +27,11 @@ export function GraphCanvas({
   query,
   geometry,
   onGeometry,
+  onImport, onClearSearch, onShowList,
 }: {
+  onImport: () => void;
+  onClearSearch: () => void;
+  onShowList: () => void;
   ref?: Ref<GraphCanvasHandle>;
   onPinsChanged: (ids: string[]) => void;
   workspace: Workspace;
@@ -53,16 +59,40 @@ export function GraphCanvas({
   saveRef.current = onGeometry;
   const pinsChangedRef = useRef(onPinsChanged);
   pinsChangedRef.current = onPinsChanged;
+  const pinLayer = useRef<HTMLDivElement>(null);
+  const drawPinsRef = useRef<() => void>(() => {});
+  const outsideLabels = useRef(new Map<string, boolean>());
+  const textMetrics = useRef<CanvasRenderingContext2D | null>(null);
+  function labelStyle(node: NodeData, scale: number): NonNullable<NodeData["style"]> {
+    if (!node.data?.tag) return { labelFontSize: 13 / scale, labelOffsetY: 6 / scale, labelWordWrap: true, labelMaxWidth: 180 / scale, labelMaxLines: 1 };
+    const context = textMetrics.current ??= document.createElement("canvas").getContext("2d");
+    if (context) context.font = '600 13px sans-serif';
+    const title = String(node.data.label ?? "");
+    const width = context?.measureText(title).width ?? title.length * 7;
+    const outside = tagLabelOutside(Number(node.style?.size ?? 65), scale, width, outsideLabels.current.get(node.id));
+    outsideLabels.current.set(node.id, outside);
+    return {
+      labelFontSize: 13 / scale,
+      labelFontFamily: "sans-serif",
+      labelWordWrap: true,
+      labelMaxWidth: 220 / scale,
+      labelMaxLines: 1,
+      labelFontWeight: 600,
+      labelPlacement: outside ? "bottom" : "center",
+      labelOffsetY: outside ? 6 / scale : 0,
+      labelFill: outside ? "#294d41" : "#fff",
+      labelBackground: outside,
+      labelBackgroundFill: "#f8faf9",
+      labelBackgroundOpacity: .94,
+      labelBackgroundRadius: 3 / scale,
+      labelPadding: outside ? [2 / scale, 3 / scale] : 0,
+    };
+  }
   function refreshPins() {
     pinsChangedRef.current([...pins.current]);
     const g = graph.current;
     if (!g || renderedGraph.current !== g) return;
-    g.updateNodeData(
-      g.getNodeData().map((n) => ({
-        id: n.id,
-        style: { badge: pins.current.has(n.id) },
-      })),
-    );
+    drawPinsRef.current();
     void g.draw().catch((e) => setError(String(e)));
   }
   useImperativeHandle(ref, () => ({
@@ -108,12 +138,27 @@ export function GraphCanvas({
     [ready, setReady] = useState(false),
     [status, setStatus] = useState("Placing your collection…"),
     [retry, setRetry] = useState(0),
-    [zoom, setZoom] = useState(1);
+    [zoom, setZoom] = useState(1),
+    [layoutOpen, setLayoutOpen] = useState(false);
+  useEffect(() => {
+    const closeMenus = (event: KeyboardEvent | PointerEvent) => {
+      const shell = container.current?.parentElement;
+      if (!shell) return;
+      if (event instanceof KeyboardEvent && event.key !== "Escape") return;
+      const target = event.target as Element;
+      if (event instanceof KeyboardEvent || !target.closest(".layout-menu")) setLayoutOpen(false);
+      if (event instanceof KeyboardEvent || !target.closest(".help-menu")) shell.querySelector(".help-menu")?.removeAttribute("open");
+    };
+    document.addEventListener("keydown", closeMenus);
+    document.addEventListener("pointerdown", closeMenus);
+    return () => { document.removeEventListener("keydown", closeMenus); document.removeEventListener("pointerdown", closeMenus); };
+  }, []);
   useEffect(() => {
     if (!container.current) return;
     let canceled = false,
       timer: ReturnType<typeof setInterval> | undefined,
       labelFrame: number | undefined;
+    outsideLabels.current.clear();
     renderedGraph.current = null;
     setReady(false);
     setError("");
@@ -158,20 +203,21 @@ export function GraphCanvas({
       const pos = geometry?.positions[node.id];
       if (pos) node.style = { ...node.style, x: pos.x, y: pos.y };
     }
-    if (geometry)
-      for (const node of nodes) {
+    const hasSavedPositions = nodes.some((node) => geometry?.positions[node.id]);
+    if (geometry && hasSavedPositions)
+      for (const [index, node] of nodes.entries()) {
         if (geometry.positions[node.id]) continue;
         const m = workspace.memberships.find(
           (m) => m.bubbleId === node.id || m.tagId === node.id,
         );
         const neighbor = nodes.find(
-          (n) => n.id === (node.data?.tag ? m?.bubbleId : m?.tagId),
+          (n) => n.id === (node.data?.tag ? m?.bubbleId : m?.tagId) && geometry.positions[n.id],
         );
         if (neighbor?.style)
           node.style = {
             ...node.style,
-            x: Number(neighbor.style.x) + 80,
-            y: Number(neighbor.style.y) + 80,
+            x: Number(neighbor.style.x) + (100 + 45 * Math.floor(index / 6)) * Math.cos(index * 2.39996),
+            y: Number(neighbor.style.y) + (100 + 45 * Math.floor(index / 6)) * Math.sin(index * 2.39996),
           };
       }
     pins.current = new Set(
@@ -179,7 +225,7 @@ export function GraphCanvas({
         .filter(([, p]) => p.pinned)
         .map(([id]) => id),
     );
-    frozen.current = !!geometry;
+    frozen.current = hasSavedPositions;
     const sim = forceSimulation<ForceNode>();
     simulation.current = sim;
     // Public d3 simulation option supplies persisted pins without touching G6 internals.
@@ -213,32 +259,16 @@ export function GraphCanvas({
       },
       node: {
         style: {
-          badge: (d) => pins.current.has(d.id),
-          badges: [{
-            text: "●", placement: "right-top", fill: "#dc2626",
-            fontSize: 12, padding: 0, background: false,
-            stroke: "#fff", lineWidth: 1,
-          }],
+          badge: false,
           labelText: (d) => String(d.data?.label ?? ""),
-          labelFontSize: () => 11 / (graph.current?.getZoom() ?? 1),
-          labelBackground: (d) => Boolean(d.data?.tag),
-          labelBackgroundFill: (d) => String(d.style?.fill ?? "#0f766e"),
-          labelBackgroundOpacity: 1,
-          labelBackgroundRadius: 3,
-          labelPadding: (d) =>
-            d.data?.tag
-              ? [
-                  2 / (graph.current?.getZoom() ?? 1),
-                  4 / (graph.current?.getZoom() ?? 1),
-                ]
-              : 0,
+          labelFontSize: () => 13 / (graph.current?.getZoom() ?? 1),
         },
       },
       edge: { style: { stroke: "#a9bdba", lineWidth: 1.2, endArrow: false } },
       layout: {
         type: "d3-force",
         forceSimulation: sim,
-        alpha: geometry || !nodes.length ? 0 : 1,
+        alpha: hasSavedPositions || !nodes.length ? 0 : 1,
         center: false,
         animation: !reduced,
         link: { distance: 120, strength: 0.45 },
@@ -288,6 +318,17 @@ export function GraphCanvas({
       ],
     });
     graph.current = g;
+    // A supplied d3 simulation does not get the layout adapter's default tick
+    // listener. Publish its positions through G6's public data API so explicit
+    // re-layout and force dragging actually repaint after a saved layout loads.
+    sim.on("tick.workspace", () => {
+      if (canceled || frozen.current || renderedGraph.current !== g) return;
+      const ids = new Set(g.getNodeData().map((node) => node.id));
+      g.updateNodeData(sim.nodes().filter((node) => ids.has(node.id)).map((node) => ({
+        id: node.id, style: { x: node.x ?? 0, y: node.y ?? 0 },
+      })));
+      void g.draw().catch((error) => { if (!canceled) setError(String(error)); });
+    });
     const surface = container.current;
     const zoomAt = (scale: number, clientX?: number, clientY?: number) => {
       const rect = surface.getBoundingClientRect();
@@ -348,6 +389,31 @@ export function GraphCanvas({
       passive: false,
     });
     surface.addEventListener("gestureend", gestureEnd, { passive: false });
+    // Decorative SVGs live outside graph bounds and never affect hit testing or physics.
+    // Their tip is anchored to the node contour; size falls from 18px to 12px for tiny nodes.
+    const drawPins = () => {
+      const layer = pinLayer.current;
+      if (!layer || canceled) return;
+      layer.replaceChildren();
+      for (const n of g.getNodeData()) {
+        if (!pins.current.has(n.id) || g.getElementVisibility(n.id) === "hidden") continue;
+        const size = Number(n.style?.size ?? 25), r = size / 2;
+        const offset = n.type === "diamond" ? r / 2 : n.type === "rect" ? r - Math.min(14, r) * (1 - Math.SQRT1_2) : r * Math.SQRT1_2;
+        const [nodeX, nodeY] = g.getElementPosition(n.id);
+        const [x, y] = g.getViewportByCanvas([nodeX + offset, nodeY - offset]);
+        const marker = document.createElement("div");
+        marker.className = "graph-pin";
+        const px = Math.max(12, Math.min(18, size * g.getZoom() * .65));
+        marker.style.cssText = "left:" + x + "px;top:" + y + "px;width:" + px + "px;height:" + px + "px";
+        marker.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 21 7-7" stroke="#68766f" stroke-width="1.8" stroke-linecap="round"/><path d="m12 3 9 9-2 2-3-1-3 3-1 3-7-7 3-1 3-3-1-3Z" fill="#d84c58" stroke="#a93643" stroke-width="1" stroke-linejoin="round"/></svg>';
+        layer.append(marker);
+      }
+    };
+    drawPinsRef.current = drawPins;
+    g.on(GraphEvent.AFTER_DRAW, drawPins);
+    g.on(GraphEvent.AFTER_TRANSFORM, drawPins);
+    g.on(GraphEvent.AFTER_ELEMENT_TRANSLATE, drawPins);
+    g.on(NodeEvent.DRAG, drawPins);
     g.on(GraphEvent.AFTER_TRANSFORM, () => {
       if (!canceled) {
         setZoom(g.getZoom());
@@ -358,7 +424,7 @@ export function GraphCanvas({
           g.updateNodeData(
             g.getNodeData().map((n) => ({
               id: n.id,
-              style: { labelFontSize: 11 / g.getZoom() },
+              style: labelStyle(n, g.getZoom()),
             })),
           );
           g.updateBehavior({
@@ -390,7 +456,7 @@ export function GraphCanvas({
       layouts++;
     });
     const observer = new ResizeObserver(() => {
-      if (!canceled && container.current)
+      if (!canceled && container.current && container.current.clientWidth > 0 && container.current.clientHeight > 0)
         g.setSize(
           container.current.clientWidth,
           container.current.clientHeight,
@@ -413,6 +479,7 @@ export function GraphCanvas({
         frozen.current = false;
         if (canceled) return;
         renderedGraph.current = g;
+        g.updateNodeData(g.getNodeData().map((n) => ({ id: n.id, style: labelStyle(n, g.getZoom()) })));
         setReady(true);
         refreshPins();
         timer = setInterval(() => {
@@ -436,7 +503,7 @@ export function GraphCanvas({
             saved = stamp;
           }
           setStatus(
-            `${performance.now() - last < 400 ? "Layout moving" : "Layout settled"} · ${layouts} layout run${layouts === 1 ? "" : "s"} · ${changes} position samples · ${pins.current.size} pinned`,
+            performance.now() - last < 400 ? "Layout moving" : "Layout settled",
           );
         }, 200);
       })
@@ -454,6 +521,8 @@ export function GraphCanvas({
       surface.removeEventListener("gestureend", gestureEnd);
       renderedGraph.current = null;
       graph.current = null;
+      drawPinsRef.current = () => {};
+      sim.on("tick.workspace", null);
       sim.stop();
       g.destroy();
     };
@@ -518,11 +587,6 @@ export function GraphCanvas({
           target: m.tagId,
         })),
       });
-    g.updateNodeData(
-      g
-        .getNodeData()
-        .map((n) => ({ id: n.id, style: { labelFontSize: 11 / g.getZoom() } })),
-    );
     g.updateNodeData([
       ...workspace.tags.map((t) => ({
         id: t.id,
@@ -530,6 +594,12 @@ export function GraphCanvas({
       })),
       ...workspace.bubbles.map((b) => ({ id: b.id, data: { label: b.title } })),
     ]);
+    g.updateNodeData(
+      g.getNodeData().map((n) => ({
+        id: n.id,
+        style: labelStyle(n, g.getZoom()),
+      })),
+    );
     if (
       added.length ||
       removedNodes.length ||
@@ -629,69 +699,76 @@ export function GraphCanvas({
   }
   return (
     <div className="canvas-shell">
-      <div className="canvas-top">
-        <span className="eyebrow">G6 5.1.1 · UNDIRECTED MEMBERSHIPS</span>
-        <span className="subtle">
-          Two fingers to pan · Pinch to zoom · Drag a node to pull its neighbors
-        </span>
-      </div>
+
       <div
         ref={container}
         className="graph-canvas"
         role="img"
         aria-label="Force-directed bubble and tag graph"
       />
+      <div ref={pinLayer} className="pin-layer" aria-hidden="true" />
       {!workspace.bubbles.length && !workspace.tags.length && (
         <div className="canvas-empty">
           <h2>Your collection is empty</h2>
-          <p>Open Import to add links, notes, or a file.</p>
+          <p>Add links, notes, or a file to start exploring.</p>
+          <button className="primary" onClick={onImport}>Open Import</button>
         </div>
       )}
+      {query && workspace.bubbles.length > 0 && !workspace.bubbles.some((b) => `${b.title} ${b.description} ${b.url ?? ""}`.toLowerCase().includes(query.toLowerCase())) && <div className="canvas-empty"><h2>No matching bubbles</h2><p>Try a different search or clear the filter.</p><button onClick={onClearSearch}>Clear search</button></div>}
       {error && (
         <div className="canvas-error" role="alert">
           <strong>The graph couldn’t load</strong>
           <p>{error}</p>
           <button onClick={() => setRetry((n) => n + 1)}>Retry graph</button>
-          <p>Your collection is available in the list.</p>
+          <button onClick={onShowList}>Open list</button>
         </div>
       )}
       <div className="canvas-bottom">
         <span className="subtle" role="status">
-          {status} · {Math.round(zoom * 100)}%
+          {!ready ? status : ""}
         </span>
-        <div className="flex gap-2">
-          <button
-            disabled={!ready}
-            onClick={() => {
-              simulation.current?.alpha(1).restart();
-            }}
-          >
-            Re-layout
-          </button>
-          <button
-            disabled={!ready}
-            onClick={() => {
-              if (window.confirm("Reset positions and clear all pins?")) {
-                pins.current.clear();
-                refreshPins();
-                for (const [i, n] of (
-                  simulation.current?.nodes() ?? []
-                ).entries()) {
-                  n.x = 90 + (i % 6) * 90;
-                  n.y = 120 + Math.floor(i / 6) * 100;
-                  n.vx = 0;
-                  n.vy = 0;
-                  n.fx = null;
-                  n.fy = null;
-                }
-                simulation.current?.alpha(1).restart();
-                persist();
-              }
-            }}
-          >
-            Reset positions
-          </button>
-          <button
+        <div className="canvas-tools">
+          <details className="help-menu"><summary aria-label="Graph help"><Icon name="info" /><span>Help</span></summary><div className="help-popover"><strong>Explore your collection</strong><p>Drag a bubble to move it. Scroll with two fingers to pan; pinch to zoom.</p><p>Select an item for Details. Pin it there to keep its position during layout.</p></div></details>
+          <span className="zoom-value">{Math.round(zoom * 100)}%</span>
+          <div className="layout-menu">
+            <button
+              className="tool-button"
+              aria-expanded={layoutOpen}
+              disabled={!ready}
+              onClick={() => setLayoutOpen((v) => !v)}
+            >
+              <Icon name="layout" size={15} /> <span>Layout</span><Icon name="chevron-down" size={14} />
+            </button>
+            {layoutOpen && (
+              <div className="layout-menu-popover">
+                <button onClick={() => { setLayoutOpen(false); simulation.current?.alpha(1).restart(); }}>
+                  <Icon name="refresh" size={15} /> Re-layout
+                </button>
+                <button onClick={() => {
+                  setLayoutOpen(false);
+                  if (window.confirm("Reset positions and clear all pins?")) {
+                    pins.current.clear();
+                    refreshPins();
+                    for (const [i, n] of (simulation.current?.nodes() ?? []).entries()) {
+                      n.x = 90 + (i % 6) * 90;
+                      n.y = 120 + Math.floor(i / 6) * 100;
+                      n.vx = 0;
+                      n.vy = 0;
+                      n.fx = null;
+                      n.fy = null;
+                    }
+                    simulation.current?.alpha(1).restart();
+                    persist();
+                  }
+                }}>
+                  <Icon name="refresh" size={15} /> Reset positions
+                </button>
+              </div>
+            )}
+          </div>
+          <IconButton
+            label="Fit graph"
+            icon="fit"
             disabled={!ready}
             onClick={() => void action(async (g) => {
               const rect = container.current!.getBoundingClientRect();
@@ -706,23 +783,9 @@ export function GraphCanvas({
               });
               await g.fitView({}, false);
             })}
-          >
-            Fit graph
-          </button>
-          <button
-            aria-label="Zoom out"
-            disabled={!ready}
-            onClick={() => void action((g) => g.zoomBy(0.8, false))}
-          >
-            −
-          </button>
-          <button
-            aria-label="Zoom in"
-            disabled={!ready}
-            onClick={() => void action((g) => g.zoomBy(1.25, false))}
-          >
-            +
-          </button>
+          />
+          <IconButton label="Zoom out" icon="zoom-out" disabled={!ready} onClick={() => void action((g) => g.zoomBy(0.8, false))} />
+          <IconButton label="Zoom in" icon="zoom-in" disabled={!ready} onClick={() => void action((g) => g.zoomBy(1.25, false))} />
         </div>
       </div>
     </div>

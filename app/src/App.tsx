@@ -22,6 +22,9 @@ import { ConflictError, type Command } from "./domain/commands";
 import { undoConflicts } from "./domain/import-commands";
 import { AssetPreview } from "./components/AssetPreview";
 import { RecordEditor } from "./components/RecordEditor";
+import { usePanelFocus } from "./components/usePanelFocus";
+import { Dialog } from "./components/Dialog";
+import { Icon, IconButton, type IconName } from "./components/Icon";
 const store = new WorkspaceStore();
 function activeCollection() {
   try {
@@ -48,21 +51,21 @@ const fieldLabels: Record<Field, string> = {
 };
 const steps = ["Source", "Map fields", "Review", "Confirm"];
 const sources = [
-  { id: "urls", label: "Paste links", hint: "One URL per line", icon: "↗" },
-  { id: "csv", label: "CSV / TSV", hint: "Map your own columns", icon: "▤" },
+  { id: "urls", label: "Paste links", hint: "One URL per line", icon: "external" },
+  { id: "csv", label: "CSV / TSV", hint: "Map your own columns", icon: "file" },
   {
     id: "html",
     label: "Bookmark HTML",
     hint: "Browser bookmark exports",
-    icon: "⌘",
+    icon: "bookmark",
   },
   {
     id: "json",
     label: "Workspace JSON",
     hint: "Versioned portable backup",
-    icon: "{}",
+    icon: "json",
   },
-];
+] satisfies Array<{ id: string; label: string; hint: string; icon: IconName }>;
 export default function App() {
   const [screen, setScreen] = useState<"import" | "workspace">("import"),
     [step, setStep] = useState(0),
@@ -85,14 +88,17 @@ export default function App() {
     [query, setQuery] = useState(""),
     [list, setList] = useState(false),
     [inspectorOpen, setInspectorOpen] = useState(false),
-    [panelOpen, setPanelOpen] = useState(true);
+    [panelOpen, setPanelOpen] = useState(true),
+    [manageMemberships, setManageMemberships] = useState(false);
   const [loaded, setLoaded] = useState(false),
     [collections, setCollections] = useState<Workspace[]>([]),
     [geometry, setGeometry] = useState<Geometry>(),
     [editing, setEditing] = useState<string>(),
     [history, setHistory] = useState(false),
     [undoBatch, setUndoBatch] = useState<string>(),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [promptKind, setPromptKind] = useState<"collection" | "tag">(),
+    [promptValue, setPromptValue] = useState("");
   const [statusMapping, setStatusMapping] = useState<Record<string, string>>(
       {},
     ),
@@ -100,10 +106,50 @@ export default function App() {
     [invalidAcknowledged, setInvalidAcknowledged] = useState(false),
     [reviewTarget, setReviewTarget] = useState<Workspace>();
   const graphRef = useRef<GraphCanvasHandle>(null);
+  const collectionPickerRef = useRef<HTMLDivElement>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  usePanelFocus(panelOpen && loaded, "#left-panel", 820, () => setPanelOpen(false));
+  usePanelFocus(inspectorOpen && screen === "workspace", ".inspector", 600, () => setInspectorOpen(false));
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 820px)");
+    const closeDetails = () => { if (media.matches && panelOpen) setInspectorOpen(false); };
+    closeDetails();
+    media.addEventListener("change", closeDetails);
+    return () => media.removeEventListener("change", closeDetails);
+  }, [panelOpen]);
+  const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
   const submitting = useRef(false),
     workspaceRef = useRef(workspace);
   workspaceRef.current = workspace;
+  useEffect(() => {
+    if (!collectionMenuOpen) return;
+    collectionPickerRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!collectionPickerRef.current?.contains(event.target as Node)) {
+        setCollectionMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        setCollectionMenuOpen(false);
+        collectionPickerRef.current?.querySelector<HTMLElement>(".collection-select")?.focus();
+      }
+      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+        event.preventDefault();
+        const options = Array.from(collectionPickerRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
+        const current = options.indexOf(document.activeElement as HTMLElement);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : (current + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+        options[next]?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [collectionMenuOpen]);
   useEffect(() => {
     let active = true;
     void store
@@ -151,7 +197,9 @@ export default function App() {
     setGeometry(await store.getGeometry(w.id));
     setWorkspace(w);
     rememberCollection(w.id);
+    setCollectionMenuOpen(false);
     setSelected(undefined);
+    setManageMemberships(false);
     setQuery("");
     setScreen("workspace");
   }
@@ -173,8 +221,7 @@ export default function App() {
       throw e;
     }
   }
-  async function createCollection() {
-    const name = window.prompt("Collection name");
+  async function createCollection(name: string) {
     if (!name?.trim()) return;
     try {
       const w = emptyWorkspace(name.trim());
@@ -182,16 +229,15 @@ export default function App() {
       setCollections(await store.list());
       await openWorkspace(w);
     } catch (e) {
-      setError(String(e));
+      throw e;
     }
   }
-  async function createTag() {
-    const name = window.prompt("New tag name");
+  async function createTag(name: string) {
     if (!name) return;
     try {
       await save({ type: "tag.create", name });
     } catch (e) {
-      setError(String(e));
+      throw e;
     }
   }
   async function backup() {
@@ -409,84 +455,116 @@ export default function App() {
         aria-label={panelOpen ? "Retract left panel" : "Open left panel"}
         aria-expanded={panelOpen}
         aria-controls="left-panel"
-        onClick={() => setPanelOpen((v) => !v)}
+        onClick={() => { setPanelOpen((v) => !v); if (window.innerWidth <= 820) setInspectorOpen(false); }}
       >
-        {panelOpen ? "‹" : "☰"}
+        <Icon name={panelOpen ? "chevron-left" : "menu"} size={18} />
       </button>
       <aside id="left-panel" className={`sidebar ${panelOpen ? "" : "hidden"}`}>
+        <IconButton className="sidebar-close" label="Close navigation" icon="close" onClick={() => setPanelOpen(false)} />
         <a
           className="brand"
           href="#"
           onClick={(e) => {
             e.preventDefault();
             setScreen("import");
+            if (window.innerWidth <= 820) setPanelOpen(false);
           }}
         >
-          <span className="brand-mark">◉</span> Bubble & Tag
+          <span className="brand-mark" aria-hidden="true">
+            <span />
+            <span />
+          </span>
+          <span>Bubble &amp; Tag</span>
         </a>
-        {screen === "workspace" && (
-          <section className="sidebar-workspace">
-            <p>
-              {workspace.bubbles.length} bubbles · {workspace.tags.length} tags
-            </p>
-          </section>
-        )}
-        <div className="sidebar-section">WORKSPACE</div>
+        <section className="collection-context">
+          <div className="sidebar-section">COLLECTION</div>
+          <div className="collection-picker" ref={collectionPickerRef}>
+            <button
+              type="button"
+              className="collection-select"
+              aria-label="Collection"
+              aria-haspopup="listbox"
+              aria-expanded={collectionMenuOpen}
+              aria-controls="collection-menu"
+              onClick={() => setCollectionMenuOpen((open) => !open)}
+            >
+              <span className="collection-select-name">{workspace.name}</span>
+              <Icon name="chevron-down" size={15} />
+            </button>
+            {collectionMenuOpen && (
+              <div
+                id="collection-menu"
+                className="collection-menu"
+                role="listbox"
+                aria-label="Collections"
+              >
+                {collections.map((w) => (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={w.id === workspace.id}
+                    className={`collection-option ${w.id === workspace.id ? "selected" : ""}`}
+                    key={w.id}
+                    onClick={() => void openWorkspace(w)}
+                  >
+                    <span className="collection-option-copy">
+                      <strong>{w.name}</strong>
+                      <span>{w.bubbles.length} bubbles · {w.tags.length} tags</span>
+                    </span>
+                    {w.id === workspace.id && <Icon name="check" size={15} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <IconButton className="new-collection" label="New collection" icon="plus" onClick={() => { setPromptKind("collection"); setPromptValue(""); }} />
+          <p className="collection-count">
+            <span>{workspace.bubbles.length} bubbles</span>
+            <span>{workspace.tags.length} tags</span>
+          </p>
+        </section>
+
         <button
           className={screen === "workspace" ? "nav active" : "nav"}
-          onClick={() => setScreen("workspace")}
+          onClick={() => { setScreen("workspace"); if (window.innerWidth <= 820) setPanelOpen(false); }}
         >
-          ◎ <span>Collection</span>
-          <span className="nav-count">{workspace.bubbles.length}</span>
+          <Icon name="collection" /> <span>Collection</span>
         </button>
         <button
           className={screen === "import" ? "nav active" : "nav"}
-          onClick={() => setScreen("import")}
+          onClick={() => { setScreen("import"); if (window.innerWidth <= 820) setPanelOpen(false); }}
         >
-          ↓ <span>Import</span>
+          <Icon name="import" /> <span>Import</span>
         </button>
-        <div className="sidebar-section mt-8">SAMPLE SOURCES</div>
-        <button className="nav" onClick={() => loadSample("bookmarks")}>
-          ↗ <span>Bookmark sample</span>
+        <div className="sidebar-divider" />
+        <button className="nav" onClick={() => { setPromptKind("tag"); setPromptValue(""); }}>
+          <Icon name="tag" /> <span>New tag</span>
         </button>
-        <button className="nav" onClick={() => loadSample("reading")}>
-          ▧ <span>Reading & writing</span>
-        </button>
-        <div className="sidebar-section">COLLECTIONS & RECOVERY</div>
-        <select
-          aria-label="Collection"
-          value={workspace.id}
-          onChange={(e) => {
-            const w = collections.find((w) => w.id === e.target.value);
-            if (w) void openWorkspace(w);
-          }}
-        >
-          {collections.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-        <button className="nav" onClick={() => void createCollection()}>
-          + <span>New collection</span>
+        <div className="sidebar-utilities">
+        <div className="sidebar-section">COLLECTION TOOLS</div>
+        <button className="nav" onClick={() => {
+          setScreen("import");
+          if (window.innerWidth <= 820) setPanelOpen(false);
+          setFormat("json");
+          setStep(0);
+          setText("");
+          setFilename("");
+        }}>
+          <Icon name="upload" /> <span>Restore backup</span>
         </button>
         <button className="nav" onClick={() => void backup()}>
-          ↓ <span>Download backup</span>
+          <Icon name="download" /> <span>Download backup</span>
         </button>
         <button className="nav" onClick={() => setHistory(true)}>
-          ↶ <span>Import history</span>
+          <Icon name="history" /> <span>Import history</span>
         </button>
-        <button className="nav" onClick={() => void createTag()}>
-          + <span>New tag</span>
-        </button>
+        </div>
         <div className="sidebar-footer">
-          <span className="local-dot" />
-          Local-first
-          <br />
-          <span className="subtle">Saved on this device</span>
+          <span className="subtle">Changes are saved on this device.</span>
         </div>
       </aside>
-      <main className="main-area">
+      {panelOpen && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setPanelOpen(false)} />}
+      <main className="main-area" onClick={() => { if (window.innerWidth <= 820) setPanelOpen(false); }}>
         <header className="topbar">
           <span>
             {screen === "import" ? "Import a collection" : workspace.name}
@@ -496,9 +574,7 @@ export default function App() {
         {notice && (
           <div className="toast" role="status">
             {notice}
-            <button aria-label="Dismiss notice" onClick={() => setNotice("")}>
-              ×
-            </button>
+            <IconButton label="Dismiss notice" icon="close" onClick={() => setNotice("")} />
           </div>
         )}
         {screen === "workspace" && error && (
@@ -525,7 +601,7 @@ export default function App() {
                     i === step ? "current" : i < step ? "complete" : ""
                   }
                 >
-                  <span>{i < step ? "✓" : i + 1}</span>
+                  <span>{i < step ? <Icon name="check" size={14} /> : i + 1}</span>
                   {label}
                 </li>
               ))}
@@ -544,7 +620,7 @@ export default function App() {
                       className={`source-card ${format === s.id || (s.id === "csv" && format === "tsv") ? "chosen" : ""}`}
                       onClick={() => setFormat(s.id as Format)}
                     >
-                      <span className="source-icon">{s.icon}</span>
+                      <span className="source-icon"><Icon name={s.icon} size={22} /></span>
                       <strong>{s.label}</strong>
                       <span>{s.hint}</span>
                     </button>
@@ -552,9 +628,13 @@ export default function App() {
                 </div>
                 <section className="panel">
                   <div className="panel-heading">
-                    <h2>Paste data or select a file</h2>
-                    <label className="file-label">
-                      Choose file
+                    <div>
+                      <h2>Paste data or select a file</h2>
+                      <p className="panel-kicker">Your source is processed and saved only on this device.</p>
+                    </div>
+                    <label className="file-picker">
+                      <Icon name="upload" size={16} />
+                      <span>Choose file</span>
                       <input
                         aria-label="Choose import file"
                         type="file"
@@ -603,18 +683,18 @@ export default function App() {
                   </div>
                 </section>
                 <div className="sample-callout">
-                  <span>Try it first with a sample.</span>
+                  <span>Need an example?</span>
                   <button
                     className="text-button"
                     onClick={() => loadSample("bookmarks")}
                   >
-                    Bookmarks with duplicates ↗
+                    <span>Bookmarks with duplicates</span><Icon name="arrow-right" size={14} />
                   </button>
                   <button
                     className="text-button"
                     onClick={() => loadSample("reading")}
                   >
-                    URL-less reading list ↗
+                    <span>URL-less reading list</span><Icon name="arrow-right" size={14} />
                   </button>
                 </div>
               </>
@@ -632,9 +712,7 @@ export default function App() {
                 </div>
                 {parsed.restore && (
                   <div className="notice">
-                    This is a full workspace backup. Phase 2 will restore its
-                    media, styles, memberships, and saved views into a new
-                    workspace. This design shows its bubbles for review only.
+                    Restore creates a new collection with the backup’s media, memberships, styles, and saved positions.
                   </div>
                 )}
                 <div className="mapping-grid">
@@ -841,7 +919,7 @@ export default function App() {
             )}
             {step === 3 && (
               <section className="panel confirmation">
-                <span className="confirm-icon">◎</span>
+                <span className="confirm-icon"><Icon name="collection" size={36} /></span>
                 <h2>
                   {parsed?.restore
                     ? "Restore this backup?"
@@ -889,7 +967,7 @@ export default function App() {
                   }
                 }}
               >
-                {step > 0 ? "← Back" : "Clear source"}
+                {step > 0 ? <><Icon name="arrow-left" size={15} /> Back</> : <><Icon name="close" size={15} /> Clear source</>}
               </button>
               <span className="subtle">
                 Your original file stays unchanged.
@@ -923,10 +1001,10 @@ export default function App() {
                   {busy
                     ? "Reading source…"
                     : step === 0
-                      ? "Read source →"
+                      ? <><span>Read source</span><Icon name="arrow-right" size={15} /></>
                       : step === 1
-                        ? "Review records →"
-                        : "Continue →"}
+                        ? <><span>Review records</span><Icon name="arrow-right" size={15} /></>
+                        : <><span>Continue</span><Icon name="arrow-right" size={15} /></>}
                 </button>
               )}
               {step === 3 && (
@@ -938,8 +1016,8 @@ export default function App() {
                   {busy
                     ? "Saving…"
                     : parsed?.restore
-                      ? "Confirm restore →"
-                      : "Confirm import →"}
+                      ? "Confirm restore"
+                      : "Confirm import"}
                 </button>
               )}
             </footer>
@@ -947,49 +1025,69 @@ export default function App() {
         ) : (
           <div className="workspace-page">
             <div className="workspace-toolbar">
-              <input
-                aria-label="Search bubbles"
-                placeholder="Search bubbles…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+              <div className="search-field">
+                <Icon name="search" size={17} />
+                <input
+                  aria-label="Search bubbles"
+                  placeholder="Search bubbles…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                {query && (
+                  <IconButton
+                    label="Clear search"
+                    icon="close"
+                    size={15}
+                    className="search-clear"
+                    onClick={() => setQuery("")}
+                  />
+                )}
+              </div>
               <div className="workspace-actions">
                 <button
+                  className="toolbar-button" aria-label="Details"
                   onClick={() => setInspectorOpen((v) => !v)}
                   aria-pressed={inspectorOpen}
                 >
-                  Details
+                  <Icon name="info" size={16} /> <span>Details</span>
                 </button>
                 <div className="segmented">
                   <button
-                    className={!list ? "active" : ""}
+                    aria-label="Graph" className={!list ? "active" : ""}
                     onClick={() => setList(false)}
+                    aria-pressed={!list}
                   >
-                    Graph
+                    <Icon name="graph" size={15} /> <span>Graph</span>
                   </button>
                   <button
-                    className={list ? "active" : ""}
+                    aria-label="List" className={list ? "active" : ""}
                     onClick={() => setList(true)}
+                    aria-pressed={list}
                   >
-                    List
+                    <Icon name="list" size={15} /> <span>List</span>
                   </button>
                 </div>
               </div>
             </div>
-            <div className="workspace-grid">
+            <div className={`workspace-grid ${list ? "list-mode" : ""} ${inspectorOpen ? "inspector-open" : ""}`}>
               <div className={list ? "hidden" : "graph-area"}>
                 <GraphCanvas
                   ref={graphRef}
+                  onImport={() => setScreen("import")}
+                  onClearSearch={() => setQuery("")}
+                  onShowList={() => setList(true)}
                   onPinsChanged={setPinnedIds}
                   workspace={workspace}
                   selected={selected}
                   onSelect={(id) => {
                     setSelected(id);
                     setInspectorOpen(true);
+                    setManageMemberships(false);
                   }}
                   query={query}
                   geometry={geometry}
                   onGeometry={(g) => {
+                    setGeometry(g);
                     void store
                       .saveGeometry(g)
                       .catch((e) =>
@@ -1010,15 +1108,19 @@ export default function App() {
                     )
                     .map((b) => (
                       <button
-                        className="list-item"
+                        aria-pressed={selected === b.id}
+                        className={`list-item ${selected === b.id ? "selected" : ""}`}
                         key={b.id}
                         onClick={() => {
                           setSelected(b.id);
                           setInspectorOpen(true);
+                          setManageMemberships(false);
                         }}
                       >
-                        <strong>{b.title}</strong>
-                        <span>{b.description}</span>
+                        <span className="list-item-main">
+                          <strong>{b.title}</strong>
+                          <span>{b.description || "No description"}</span>
+                        </span>
                         <span className="badge">
                           {
                             workspace.statuses.find((s) => s.id === b.statusId)
@@ -1027,190 +1129,131 @@ export default function App() {
                         </span>
                       </button>
                     ))}
+                  {!workspace.bubbles.length && (
+                    <div className="list-empty">
+                      <Icon name="collection" size={24} />
+                      <strong>Your collection is empty</strong>
+                      <span>Import links, notes, or a backup to begin.</span>
+                      <button className="primary" onClick={() => { setScreen("import"); if (window.innerWidth <= 820) setPanelOpen(false); }}>Open Import</button>
+                    </div>
+                  )}
+                  {workspace.bubbles.length > 0 && !workspace.bubbles.some((b) =>
+                    `${b.title} ${b.description} ${b.url ?? ""}`.toLowerCase().includes(query.toLowerCase()),
+                  ) && (
+                    <div className="list-empty">
+                      <Icon name="search" size={24} />
+                      <strong>No matching bubbles</strong>
+                      <span>Try a different search or clear the filter.</span>
+                      <button onClick={() => setQuery("")}>Clear search</button>
+                    </div>
+                  )}
                 </section>
               )}
               <aside className={`inspector ${inspectorOpen ? "" : "hidden"}`}>
-                <button
-                  className="inspector-close"
-                  aria-label="Close details"
-                  onClick={() => setInspectorOpen(false)}
-                >
-                  ×
-                </button>
-                <div className="eyebrow">
-                  {selectedTag ? "TAG DETAILS" : "BUBBLE DETAILS"}
-                </div>
-                {selectedRecord ? (
-                  <>
-                    <h2 className="detail-title" title={selectedRecord.title}>
-                      {selectedRecord.title}
-                    </h2>
-                    <span className="badge">
-                      {
-                        workspace.statuses.find(
-                          (s) => s.id === selectedRecord.statusId,
-                        )?.label
-                      }
-                    </span>
-                    <p>{selectedRecord.description || "No description yet."}</p>
-                    {selectedRecord.asset && (
-                      <AssetPreview
-                        asset={selectedRecord.asset}
-                        load={(id) => store.media(id)}
-                      />
-                    )}
-                    {selectedRecord.url && isWebUrl(selectedRecord.url) && (
-                      <a
-                        href={selectedRecord.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open source ↗
-                      </a>
-                    )}
-                    {selectedRecord.url && !isWebUrl(selectedRecord.url) && (
-                      <p className="url-warning">
-                        {selectedRecord.url}
-                        <span className="url-warning-label">Not a link</span>
-                      </p>
-                    )}
-                    <h3 className="mt-6 mb-3">Linked tags</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {workspace.memberships
-                        .filter((m) => m.bubbleId === selectedRecord.id)
-                        .map((m) => (
-                          <button
-                            key={m.id}
-                            onClick={() => setSelected(m.tagId)}
-                          >
-                            {workspace.tags.find((t) => t.id === m.tagId)?.name}
-                          </button>
-                        ))}
+                <div className="detail-header">
+                  <div className="detail-header-copy">
+                    <div className="eyebrow">
+                      {selectedTag ? "TAG DETAILS" : selectedRecord ? "BUBBLE DETAILS" : "DETAILS"}
                     </div>
-                  </>
-                ) : selectedTag ? (
+                    {selectedRecord ? (
+                      <h2 className="detail-title" title={selectedRecord.title}>{selectedRecord.title}</h2>
+                    ) : selectedTag ? (
+                      <h2 className="detail-title" title={selectedTag.name}>{selectedTag.name}</h2>
+                    ) : (
+                      <h2 className="detail-title">Select an item</h2>
+                    )}
+                  </div>
+                  <div className="detail-header-actions">
+                    {(selectedRecord || selectedTag) && <>
+                      <IconButton label="Edit record" icon="edit" onClick={() => setEditing(selected!)} />
+                      <IconButton label={pinnedIds.includes(selected!) ? "Unpin record" : "Pin record"} icon="pin" aria-pressed={pinnedIds.includes(selected!)} onClick={() => graphRef.current?.setPinned(selected!, !pinnedIds.includes(selected!))} />
+                    </>}
+                  <IconButton label="Close details" icon="close" size={17} className="inspector-close" onClick={() => setInspectorOpen(false)} />
+                  </div>
+                </div>
+                {selectedRecord || selectedTag ? (
                   <>
-                    <h2 className="detail-title" title={selectedTag.name}>
-                      {selectedTag.name}
-                    </h2>
-                    <span className="badge">
-                      {
-                        workspace.statuses.find(
-                          (s) => s.id === selectedTag.statusId,
-                        )?.label
-                      }
-                    </span>
-                    {selectedTag.description && (
-                      <p>{selectedTag.description}</p>
-                    )}
-                    {selectedTag.url && isWebUrl(selectedTag.url) && (
-                      <a
-                        href={selectedTag.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open source ↗
-                      </a>
-                    )}
-                    {selectedTag.url && !isWebUrl(selectedTag.url) && (
-                      <p className="url-warning">
-                        {selectedTag.url}
-                        <span className="url-warning-label">Not a link</span>
-                      </p>
-                    )}
-                    {selectedTag.typeId && (
-                      <p className="subtle">
-                        Type:{" "}
-                        {
-                          workspace.tagTypes.find(
-                            (t) => t.id === selectedTag.typeId,
-                          )?.name
-                        }
-                      </p>
-                    )}
-                    <p>
-                      {
-                        workspace.memberships.filter(
-                          (m) => m.tagId === selectedTag.id,
-                        ).length
-                      }{" "}
-                      linked bubbles
-                    </p>
-                    {workspace.memberships
-                      .filter((m) => m.tagId === selectedTag.id)
-                      .map((m) => (
-                        <button
-                          className="linked-item"
-                          title={
-                            workspace.bubbles.find((b) => b.id === m.bubbleId)
-                              ?.title
-                          }
-                          key={m.id}
-                          onClick={() => setSelected(m.bubbleId)}
-                        >
-                          {
-                            workspace.bubbles.find((b) => b.id === m.bubbleId)
-                              ?.title
-                          }
-                        </button>
-                      ))}
+                    <section className="detail-section detail-overview">
+                      <div className="detail-meta">
+                        <span className="badge">
+                          {workspace.statuses.find((s) => s.id === (selectedRecord ?? selectedTag)?.statusId)?.label}
+                        </span>
+                        {selectedTag?.typeId && (
+                          <span className="detail-type">
+                            {workspace.tagTypes.find((t) => t.id === selectedTag.typeId)?.name}
+                          </span>
+                        )}
+                      </div>
+                      <p>{selectedRecord?.description || selectedTag?.description || "No description yet."}</p>
+                      {selectedRecord?.asset && <AssetPreview asset={selectedRecord.asset} load={(id) => store.media(id)} />}
+                      {(selectedRecord?.url || selectedTag?.url) && isWebUrl((selectedRecord ?? selectedTag)!.url! as string) && (
+                        <a className="detail-link" href={(selectedRecord ?? selectedTag)!.url!} target="_blank" rel="noreferrer">
+                          <Icon name="external" size={14} /> Open source
+                        </a>
+                      )}
+                      {(selectedRecord?.url || selectedTag?.url) && !isWebUrl((selectedRecord ?? selectedTag)!.url! as string) && (
+                        <p className="url-warning">
+                          {(selectedRecord ?? selectedTag)!.url}
+                          <span className="url-warning-label">Not a link</span>
+                        </p>
+                      )}
+                    </section>
+                    <section className="detail-section connection-section">
+                      <div className="section-heading">
+                        <div>
+                          <h3>Connections</h3>
+                          <p className="subtle">
+                            {selectedRecord
+                              ? `${workspace.memberships.filter((m) => m.bubbleId === selectedRecord.id).length} linked tags`
+                              : `${workspace.memberships.filter((m) => m.tagId === selectedTag!.id).length} linked bubbles`}
+                          </p>
+                        </div>
+                        {selectedRecord && (
+                          <button className="section-toggle" onClick={() => setManageMemberships((v) => !v)} aria-pressed={manageMemberships}>
+                            <Icon name="tag" size={14} /> {manageMemberships ? "Done" : "Manage tags"}
+                          </button>
+                        )}
+                      </div>
+                      {selectedRecord && manageMemberships ? (
+                        <div className="membership-list">
+                          {workspace.tags.map((t) => (
+                            <label className="membership-option" key={t.id}>
+                              <input
+                                type="checkbox"
+                                checked={workspace.memberships.some((m) => m.bubbleId === selectedRecord.id && m.tagId === t.id)}
+                                onChange={(e) => void save({ type: "membership.set", bubbleId: selectedRecord.id, tagId: t.id, linked: e.target.checked }).catch((e) => setError(String(e)))}
+                              />
+                              <span>{t.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : selectedRecord ? (
+                        <div className="connection-chips">
+                          {workspace.memberships.filter((m) => m.bubbleId === selectedRecord.id).map((m) => (
+                            <button className="connection-chip" key={m.id} onClick={() => { setSelected(m.tagId); setManageMemberships(false); }}>
+                              <Icon name="tag" size={13} /> {workspace.tags.find((t) => t.id === m.tagId)?.name}
+                            </button>
+                          ))}
+                          {!workspace.memberships.some((m) => m.bubbleId === selectedRecord.id) && <span className="empty-inline">No linked tags yet.</span>}
+                        </div>
+                      ) : (
+                        <div className="connection-list">
+                          {workspace.memberships.filter((m) => m.tagId === selectedTag!.id).map((m) => {
+                            const bubble = workspace.bubbles.find((b) => b.id === m.bubbleId);
+                            return bubble ? <button className="linked-item" title={bubble.title} key={m.id} onClick={() => setSelected(bubble.id)}><span>{bubble.title}</span><Icon name="chevron-right" size={14} /></button> : null;
+                          })}
+                          {!workspace.memberships.some((m) => m.tagId === selectedTag!.id) && <span className="empty-inline">No linked bubbles yet.</span>}
+                        </div>
+                      )}
+                    </section>
                   </>
                 ) : (
-                  <>
-                    <h2>Select a bubble or tag</h2>
-                    <p>Inspect its information and follow its connections.</p>
-                    <div className="empty-illustration">◯ — ◉</div>
-                    <p className="subtle">
-                      Items with several tags appear once. Unlinked bubbles
-                      remain in the collection.
-                    </p>
-                  </>
+                  <div className="detail-empty">
+                    <div className="empty-illustration"><Icon name="collection" size={30} /></div>
+                    <p>Inspect an item to see its information and connections.</p>
+                    <span className="subtle">Select a bubble or tag in the graph or list.</span>
+                  </div>
                 )}
-                {(selectedRecord || selectedTag) && (
-                  <button
-                    aria-pressed={pinnedIds.includes(selected!)}
-                    onClick={() => graphRef.current?.setPinned(
-                      selected!, !pinnedIds.includes(selected!),
-                    )}
-                  >
-                    {pinnedIds.includes(selected!) ? "Unpin node" : "Pin node"}
-                  </button>
-                )}
-                {(selectedRecord || selectedTag) && (
-                  <button onClick={() => setEditing(selected!)}>
-                    Edit {selectedTag ? "tag" : "bubble"}
-                  </button>
-                )}
-                {selectedRecord && (
-                  <>
-                    <h3 className="mt-6">Manage linked tags</h3>
-                    {workspace.tags.map((t) => (
-                      <label className="membership-option" key={t.id}>
-                        <input
-                          type="checkbox"
-                          checked={workspace.memberships.some(
-                            (m) =>
-                              m.bubbleId === selectedRecord.id &&
-                              m.tagId === t.id,
-                          )}
-                          onChange={(e) =>
-                            void save({
-                              type: "membership.set",
-                              bubbleId: selectedRecord.id,
-                              tagId: t.id,
-                              linked: e.target.checked,
-                            }).catch((e) => setError(String(e)))
-                          }
-                        />
-                        {t.name}
-                      </label>
-                    ))}
-                  </>
-                )}
-                <div className="inspector-note">
-                  Changes are saved on this device. Download a backup to keep an
-                  independent copy.
-                </div>
               </aside>
             </div>
           </div>
@@ -1225,14 +1268,24 @@ export default function App() {
           onClose={() => setEditing(undefined)}
         />
       )}
+      {promptKind && (
+        <PromptModal
+          kind={promptKind}
+          value={promptValue}
+          onChange={setPromptValue}
+          onClose={() => setPromptKind(undefined)}
+          onSubmit={async () => {
+            const value = promptValue.trim();
+            if (!value) return;
+            if (promptKind === "collection") await createCollection(value);
+            else await createTag(value);
+            setPromptKind(undefined);
+            setPromptValue("");
+          }}
+        />
+      )}
       {history && !undoBatch && (
-        <div className="modal-backdrop">
-          <section
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="history-title"
-          >
+        <Dialog labelledBy="history-title" onClose={() => setHistory(false)}>
             <h2 id="history-title">Import history</h2>
             <p>
               Undo restores merged values and removes unchanged imported
@@ -1250,10 +1303,9 @@ export default function App() {
               </article>
             ))}
             <footer>
-              <button onClick={() => setHistory(false)}>Close</button>
+                <button onClick={() => setHistory(false)}><Icon name="close" size={15} /> Close</button>
             </footer>
-          </section>
-        </div>
+        </Dialog>
       )}
       {undoBatch &&
         (() => {
@@ -1261,13 +1313,7 @@ export default function App() {
           if (!b) return null;
           const changed = undoConflicts(workspace, b);
           return (
-            <div className="modal-backdrop">
-              <section
-                className="modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="undo-title"
-              >
+            <Dialog labelledBy="undo-title" onClose={() => { if (!busy) setUndoBatch(undefined); }}>
                 <h2 id="undo-title">Confirm import undo</h2>
                 <p>
                   {b.bubbleIds.length - changed.length} unchanged bubbles will
@@ -1296,21 +1342,75 @@ export default function App() {
                     disabled={busy}
                     onClick={() => setUndoBatch(undefined)}
                   >
-                    Cancel
+                    <Icon name="close" size={15} /> Cancel
                   </button>
                   <button
                     className="primary"
                     disabled={busy}
                     onClick={() => void undo()}
                   >
-                    Undo unchanged records
+                    <Icon name="history" size={15} /> Undo unchanged records
                   </button>
                 </footer>
-              </section>
-            </div>
+            </Dialog>
           );
         })()}
     </div>
+  );
+}
+function PromptModal({
+  kind,
+  value,
+  onChange,
+  onClose,
+  onSubmit,
+}: {
+  kind: "collection" | "tag";
+  value: string;
+  onChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => Promise<void>;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [failure, setFailure] = useState("");
+  const pending = useRef(false);
+  async function submit() {
+    if (!value.trim() || pending.current) return;
+    pending.current = true;
+    setSubmitting(true);
+    setFailure("");
+    try { await onSubmit(); } catch (error) { setFailure(String(error)); }
+    finally { pending.current = false; setSubmitting(false); }
+  }
+  return (
+    <Dialog className="prompt-modal" labelledBy="prompt-title" onClose={() => { if (!submitting) onClose(); }}>
+      <form onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+        <div className="modal-heading">
+          <div>
+            <div className="eyebrow">NEW {kind === "collection" ? "COLLECTION" : "TAG"}</div>
+            <h2 id="prompt-title">Create a {kind}</h2>
+          </div>
+          <IconButton label="Close dialog" icon="close" size={17} disabled={submitting} onClick={onClose} />
+        </div>
+        {failure && <div className="alert" role="alert">{failure}</div>}
+        <label>
+          {kind === "collection" ? "Collection name" : "Tag name"}
+          <input
+            autoFocus
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={kind === "collection" ? "e.g. Work research" : "e.g. Read later"}
+          />
+        </label>
+        <p className="subtle">
+          {kind === "collection" ? "A new collection starts empty and stays on this device." : "You can connect this tag to bubbles from Details."}
+        </p>
+        <footer>
+          <button type="button" disabled={submitting} onClick={onClose}>Cancel</button>
+          <button className="primary" type="submit" disabled={submitting || !value.trim()}><Icon name="check" size={15} /> Create</button>
+        </footer>
+      </form>
+    </Dialog>
   );
 }
 function ReviewRow({

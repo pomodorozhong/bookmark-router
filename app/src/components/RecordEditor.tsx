@@ -1,6 +1,8 @@
+import { Dialog } from "./Dialog";
 import { useState } from "react";
 import type { MediaKind, Workspace } from "../domain/model";
 import type { Command } from "../domain/commands";
+import { Icon, IconButton } from "./Icon";
 export function RecordEditor({
   workspace,
   id,
@@ -70,14 +72,14 @@ export function RecordEditor({
     }
   }
   return (
-    <div className="modal-backdrop">
-      <section
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edit-title"
-      >
-        <h2 id="edit-title">Edit {bubble ? "bubble" : "tag"}</h2>
+    <Dialog labelledBy="edit-title" onClose={() => { if (!busy) onClose(); }}>
+        <div className="modal-heading">
+          <div>
+            <div className="eyebrow">{bubble ? "BUBBLE" : "TAG"} DETAILS</div>
+            <h2 id="edit-title">Edit {bubble ? "bubble" : "tag"}</h2>
+          </div>
+          <IconButton label="Close editor" icon="close" size={17} disabled={busy} onClick={onClose} />
+        </div>
         {error && (
           <div role="alert" className="alert">
             {error}
@@ -153,17 +155,16 @@ export function RecordEditor({
         )}
         <footer>
           <button disabled={busy} onClick={onClose}>
-            Cancel
+            <Icon name="close" size={15} /> Cancel
           </button>
           <button
             className="primary"
             disabled={busy || !title.trim()}
             onClick={() => void save()}
           >
-            {busy ? "Saving…" : "Save changes"}
+            <Icon name="check" size={15} /> {busy ? "Saving…" : "Save changes"}
           </button>
         </footer>
-      </section>
-    </div>
+    </Dialog>
   );
 }
