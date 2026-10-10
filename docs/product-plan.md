@@ -1,3 +1,5 @@
+> **Superseded October 11, 2026** by [plan.md](plan.md). Kept as history.
+
 # Build an import-first bubble-and-tag product with G6
 
 > **Amendment — October 11, 2026 (plan review).** A review of the plan against the Stage C build found an undocumented second undo system, storage that will not reach the 5,000-bubble target, no schema migrations, unreclaimed media, no way to create single records or retire them, and a release criterion that the user's own collection cannot meet. This amendment adds **Stage C.1 — Foundation corrections** between Checkpoint C and Phase 4 and resolves the open wording below. The user decided the following on October 11, 2026:

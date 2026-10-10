@@ -1,3 +1,5 @@
+> **Superseded October 11, 2026** by [plan.md](plan.md). Kept as history.
+
 # Product review checklist
 
 Follow the [product plan](product-plan.md). **Checkpoints A, B, and B.1 are accepted. Stage C may proceed.** The [UI improvement plan](ui-improvement-plan.md) and its running implementation review are retained as references. See [implementation progress](product-progress.md).

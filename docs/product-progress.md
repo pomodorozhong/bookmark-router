@@ -1,3 +1,5 @@
+> **Superseded October 11, 2026** by [plan.md](plan.md). Kept as history.
+
 # Implementation progress
 
 ## Completed

@@ -1,3 +1,5 @@
+> **Superseded October 11, 2026** by [plan.md](plan.md). Kept as history.
+
 # Stage B.1 — UI improvement before Stage C
 
 Status: implementation revised and U2 approved after user review, October 10, 2026. Stage B and B.1 are accepted; follow-up manual checks remain documented. See the [implementation review and evidence](ui-review/review.md).
