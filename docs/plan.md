@@ -57,7 +57,8 @@ The main screen for job 1. Its shape is decided in the mockup. The likely starti
 
 A browser page cannot read other sites (CORS), so fetching needs a small helper.
 
-- **Helper:** a local Node service started with the app (`npm run dev` starts both). It downloads the page with a timeout and size limit, reads the title, description, and preview image (Open Graph / Twitter / `<title>` / meta description), and downloads the image. It never runs page scripts, and it refuses `localhost` and private-network addresses. It does not work on a static-only deployment unless it is hosted there too.
+- **Helper:** a deterministic local Node service started with the app (`npm run dev` starts both). It downloads the page with a timeout and size limit, reads the title, description, and preview image (Open Graph / Twitter / `<title>` / meta description), and downloads the image. It never runs page scripts, and it refuses `localhost` and private-network addresses. The agent is only a fallback.
+- **GitHub Pages:** the end-game deployment is static and has no fetcher. **Fetch details** is hidden there, and everything else works the same. Decided October 11, 2026.
 - **In the app:** a **Fetch details** action on one bubble, a multi-selection, or a filtered view. Results are reviewed before saving: empty fields can be filled in one step; values that differ from existing ones are shown side by side to choose. Saving appears in Undo.
 - **Images** are stored as local image assets on the bubble (this unfreezes media for images). Raindrop's `cover` URL is used when the page has no image.
 - Failures (timeout, 404, blocked, non-HTML) are recorded on the bubble so triage and filters can find them. This replaces the prototype's link-check warnings for bookmarks that are fetched again.
