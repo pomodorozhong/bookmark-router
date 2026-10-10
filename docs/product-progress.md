@@ -25,7 +25,7 @@ Stage A was approved with in-memory previews. Stage B now persists confirmed ope
 
 ## Remaining
 
-- Stage C (Phase 3): appearance editor/inheritance, confirmed bulk status UI and undo, copy composer, detailed/saved/distance filters, bulk media uploads, full selection and semantic detail.
+- Checkpoint C review feedback: clarify any confusing filter rules, copy output, or media behavior found during the complicated-workflow walkthrough.
 - Phase 4: optional extraction service, missing-data queue, reviewed WebMCP proposals, and browser/agent validation.
 - Phase 5: accessibility/recovery hardening, static-deployment verification, and 1,000/5,000-bubble performance checks.
 
@@ -63,6 +63,21 @@ Stage A is committed as `c31e483` and `0e3fb53`. Stage B is recorded in focused 
 - Physical Mac trackpad pinch/panning remain in the user checklist. Media upload UI and the advanced Stage C tools are intentionally next-stage work.
 
 The user accepted Stage B's functionality on October 10, 2026 and requested a UI improvement stage before Stage C. The [checkpoint B checklist](product-review-guide.md#b--real-import-and-recovery--accepted-october-10-2026) remains the functional regression reference; acceptance does not imply every manual checklist item was individually verified.
+
+## Stage C — Checkpoint C ready for review October 10, 2026
+
+Stage C is implemented as a runnable complicated workflow. Tags support type-inherited color, size, shape, and icon appearance with per-field overrides/reset. Tag-only and tag-plus-linked status changes show reviewed targets, include hidden linked bubbles, commit atomically, and provide revision-checked undo. Multi-selection adds reviewed bulk status changes and local image/video/audio attachments.
+
+Nested All/Any/Not, same-linked-tag, membership, asset, date, missing-field, batch, and shortest-path distance rules share one match pipeline. Saved views retain filters, tag-display hiding, and sort order; Graph and List consume the same results. The copy composer supports field order, separators, plain/Markdown output, placeholders, current-view/all-linked scopes, ordering, and saved presets. It opens with the current default output and a prominent copy action; detailed controls are collapsed, with quick Link only, Title only, Title + link, and Markdown links presets. Bubble Details also has a one-click Copy action. Local assets remain IndexedDB-backed and copy by filename rather than blob URL.
+- Reviewed status changes keep Undo status in the persistent left side of the graph's bottom bar, rather than a transient lower-page toast or top-toolbar action.
+- The selected-node bar is now the single status entry point for tags, individual bubbles, and multi-selection; Details retains information and copy/media actions.
+
+### Checkpoint C verification
+
+- 45 automated tests pass, including nested/same-tag filters, full-graph distance paths, exact copy output, quick copy presets, saved view/preset commands, revision-checked media attachments, and atomic IndexedDB workspace/blob writes.
+- `npm run check` and `npm run build` pass. Vite still reports the expected large G6 bundle warning; performance work remains Phase 5 hardening.
+- Browser walkthrough verified the filter builder, nested groups, distance examples, hidden-tag separation, saved-view update/apply, Graph/List parity, multi-selection status review and toolbar Undo, the immediate-result copy composer with collapsed customization and quick presets, Bubble Details copy feedback, the appearance editor, and the local-media upload surface without selecting a file.
+- The existing local review collection includes a saved `Stage C review` fixture with a nested All/Any/Not rule and one matching bubble; clear it before starting another review task if desired.
 
 ## Checkpoint B feedback — URL warnings and graph titles
 

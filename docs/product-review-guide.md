@@ -129,24 +129,30 @@ The implementer will provide the running build, comparison screenshots, technica
 
 Report **screen/action → expected → actual → impact**; a screenshot or a quick “too dense / too faint / hard to find” note is useful. B.1 is approved; use this checklist for follow-up regression checks while Stage C proceeds.
 
-## C — A complicated workflow — future build
+## C — A complicated workflow — ready for review October 10, 2026
 
-Prepare a processing task and the destination where you will paste its output. The implementer will supply appearance editing, bulk status changes, copy composition, detailed filters, saved views, and media uploads.
+Open the running app at http://127.0.0.1:5199/ and use the existing review collection. A saved `Stage C review` view is available under **Filters** as a concrete nested-filter example; clear the view before starting a fresh task. Prepare a real processing task and the destination where you will paste its output. Allow about 15–20 minutes. The goal is to judge whether the rules are understandable and whether the copied result is ready to use, not to re-check the accepted import foundation.
 
-- [ ] Set a tag type's color, size, shape, and icon. Expect its tags to inherit those defaults.
-- [ ] Override one tag's appearance, then reset the override. Expect inheritance to return.
-- [ ] Change a tag's status using **Tag only**. Expect linked bubbles to keep their statuses.
+- [ ] Open a tag with a type and set the type's color, size, shape, and icon defaults. Expect its tags to inherit those defaults.
+- [ ] Override one tag's appearance field, then uncheck/reset that field. Expect only that field to return to type/default inheritance.
+- [ ] Select a tag and use **Change status** from the selected-node bar. Choose the new status with the segmented control. With **Tag only**, expect linked bubbles to keep their statuses and the tag-only target list to show one record.
 - [ ] Choose **Tag and linked bubbles**. Expect a warning listing every affected bubble and its current status, including hidden bubbles.
 - [ ] Cancel that operation. Expect no status changes. Repeat and confirm; expect exactly the reviewed targets to change.
 - [ ] Undo the bulk status change. Expect previous statuses to return.
-- [ ] Build nested All / Any / Not filters and a same-linked-tag rule. Check whether the results match your intended workflow.
+- [ ] Build nested All / Any / Not filters and a same-linked-tag rule. Check the live count and whether the summary describes your intended workflow.
 - [ ] Try tag-distance filtering and inspect example paths. Expect distances to use the full membership graph, even when some tags are hidden.
 - [ ] Compare graph and list results; save the view and reopen it.
 - [ ] Configure copy fields, order, separators, format, and a template. Expect the preview to match the copied output exactly.
-- [ ] Compare **All linked bubbles** with **Current view** and try a saved copy preset.
+- [ ] Open **Compose copy** from a tag. Expect the current default result and a prominent **Copy text** action immediately; the source-bubble scope should stay visible while the detailed controls remain collapsed under **Customize copy**.
+- [ ] In **Customize copy**, try **Link only**, **Title only**, **Title + link**, and **Markdown links**. Expect the result to update without leaving the composer.
+- [ ] Compare **All linked bubbles** with **Current view**, save a copy preset, reload the composer, and try that preset.
+- [ ] Open **Bubble Details** and choose **Copy**. Expect the bubble's default copy text to reach the clipboard and a visible confirmation.
+- [ ] After a reviewed bulk status change, expect the status feedback and **Undo status** to stay on the left side of the graph's bottom bar until the next status action; after Undo, expect the concise confirmation **Previous statuses restored.** rather than a floating toast.
 - [ ] Paste the result into your actual destination. Check links, missing fields, ordering, and formatting.
 - [ ] Upload image, video, and audio files. Expect usable assets; copied local assets should use filenames, not temporary blob URLs.
-- [ ] Report confusing rules or output. Enrichment work can continue independently.
+- [ ] Report confusing rules or output, including the exact filter summary or copied text that caused trouble. Enrichment work can continue independently.
+
+Report feedback as **task → expected → actual → impact**. For copy issues, include the selected fields, separator, format, template, scope, ordering, and the exact output. For media issues, include kind, filename, and whether the Details preview or backup was affected. Checkpoint C remains open until the confusing rules/output findings are resolved; independent enrichment work can continue after this review.
 
 ## D — Agent assistance — future build
 

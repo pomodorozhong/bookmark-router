@@ -13,6 +13,6 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5199/. The current milestone is checkpoint A: an import and graph design preview. The UI does not persist imports yet.
+Open http://127.0.0.1:5199/. The current milestone is Stage C / Checkpoint C ready for review: Stage B and its UI improvement checkpoint are accepted, and the complicated processing workflow is runnable end to end.
 
 The personal bookmark prototype has been reverted on this branch and remains recoverable from Git history.
