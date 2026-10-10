@@ -1,4 +1,5 @@
 import { tagLabelOutside } from "./graph-labels";
+import { placeNear, type Point } from "./graph-placement";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from "react";
 import {
   Graph,
@@ -62,6 +63,10 @@ export function GraphCanvas({
     >(undefined),
     pins = useRef(new Set<string>()),
     frozen = useRef(false),
+    // Nodes allowed to move while the rest of the layout is frozen.
+    settling = useRef(new Set<string>()),
+    // Fit once the layout settles, until the user moves the view themselves.
+    autoFit = useRef(false),
     dragging = useRef(new Set<string>()),
     saveRef = useRef(onGeometry);
   saveRef.current = onGeometry;
@@ -212,28 +217,34 @@ export function GraphCanvas({
       if (pos) node.style = { ...node.style, x: pos.x, y: pos.y };
     }
     const hasSavedPositions = nodes.some((node) => geometry?.positions[node.id]);
-    if (geometry && hasSavedPositions)
-      for (const [index, node] of nodes.entries()) {
-        if (geometry.positions[node.id]) continue;
-        const m = workspace.memberships.find(
-          (m) => m.bubbleId === node.id || m.tagId === node.id,
-        );
-        const neighbor = nodes.find(
-          (n) => n.id === (node.data?.tag ? m?.bubbleId : m?.tagId) && geometry.positions[n.id],
-        );
-        if (neighbor?.style)
-          node.style = {
-            ...node.style,
-            x: Number(neighbor.style.x) + (100 + 45 * Math.floor(index / 6)) * Math.cos(index * 2.39996),
-            y: Number(neighbor.style.y) + (100 + 45 * Math.floor(index / 6)) * Math.sin(index * 2.39996),
-          };
-      }
+    const unplaced = hasSavedPositions
+      ? nodes.filter((node) => !geometry?.positions[node.id]).map((node) => node.id)
+      : [];
+    if (unplaced.length) {
+      const saved = Object.entries(geometry!.positions);
+      const center: Point = [
+        saved.reduce((sum, [, p]) => sum + p.x, 0) / saved.length,
+        saved.reduce((sum, [, p]) => sum + p.y, 0) / saved.length,
+      ];
+      const start = placeNear(
+        unplaced,
+        new Map(saved.map(([id, p]) => [id, [p.x, p.y] as const])),
+        workspace.memberships,
+        center,
+      );
+      for (const node of nodes)
+        if (start.has(node.id))
+          node.style = { ...node.style, x: start.get(node.id)![0], y: start.get(node.id)![1] };
+    }
+    // Saved nodes stay where the user left them; only unplaced nodes settle.
+    settling.current = new Set(unplaced);
     pins.current = new Set(
       Object.entries(geometry?.positions ?? {})
         .filter(([, p]) => p.pinned)
         .map(([id]) => id),
     );
     frozen.current = hasSavedPositions;
+    autoFit.current = !geometry?.viewport && !hasSavedPositions;
     const sim = forceSimulation<ForceNode>();
     simulation.current = sim;
     // Public d3 simulation option supplies persisted pins without touching G6 internals.
@@ -241,7 +252,7 @@ export function GraphCanvas({
       for (const node of sim.nodes()) {
         if (dragging.current.has(node.id)) continue;
         const datum = graph.current?.getNodeData(node.id);
-        if (frozen.current || pins.current.has(node.id)) {
+        if ((frozen.current && !settling.current.has(node.id)) || pins.current.has(node.id)) {
           node.fx = Number(datum?.style?.x ?? node.x ?? 0);
           node.fy = Number(datum?.style?.y ?? node.y ?? 0);
         } else {
@@ -276,7 +287,7 @@ export function GraphCanvas({
       layout: {
         type: "d3-force",
         forceSimulation: sim,
-        alpha: hasSavedPositions || !nodes.length ? 0 : 1,
+        alpha: hasSavedPositions ? (unplaced.length ? 0.6 : 0) : nodes.length ? 1 : 0,
         center: false,
         animation: !reduced,
         link: { distance: 120, strength: 0.45 },
@@ -330,12 +341,17 @@ export function GraphCanvas({
     // listener. Publish its positions through G6's public data API so explicit
     // re-layout and force dragging actually repaint after a saved layout loads.
     sim.on("tick.workspace", () => {
-      if (canceled || frozen.current || renderedGraph.current !== g) return;
+      if (canceled || (frozen.current && !settling.current.size) || renderedGraph.current !== g) return;
       const ids = new Set(g.getNodeData().map((node) => node.id));
       g.updateNodeData(sim.nodes().filter((node) => ids.has(node.id)).map((node) => ({
         id: node.id, style: { x: node.x ?? 0, y: node.y ?? 0 },
       })));
       void g.draw().catch((error) => { if (!canceled) setError(String(error)); });
+    });
+    sim.on("end.fit", () => {
+      if (canceled || renderedGraph.current !== g || !autoFit.current) return;
+      autoFit.current = false;
+      void g.fitView({}, false).catch((error) => { if (!canceled) setError(String(error)); });
     });
     const surface = container.current;
     const zoomAt = (scale: number, clientX?: number, clientY?: number) => {
@@ -372,6 +388,7 @@ export function GraphCanvas({
     let gestureZoom: number | undefined;
     const gestureStart = (event: Event) => {
       event.preventDefault();
+      autoFit.current = false;
       gestureZoom = g.getZoom();
     };
     const gestureChange = (event: Event) => {
@@ -388,6 +405,9 @@ export function GraphCanvas({
       event.preventDefault();
       gestureZoom = undefined;
     };
+    const userMoved = () => { autoFit.current = false; };
+    surface.addEventListener("pointerdown", userMoved);
+    surface.addEventListener("wheel", userMoved, { passive: true });
     surface.addEventListener("wheel", pinchWheel, {
       passive: false,
       capture: true,
@@ -423,7 +443,8 @@ export function GraphCanvas({
     g.on(GraphEvent.AFTER_ELEMENT_TRANSLATE, drawPins);
     g.on(NodeEvent.DRAG, drawPins);
     g.on(GraphEvent.AFTER_TRANSFORM, () => {
-      if (!canceled) {
+      // Transforms can fire while G6 is still creating its viewport.
+      if (!canceled && renderedGraph.current === g) {
         setZoom(g.getZoom());
         if (labelFrame !== undefined) cancelAnimationFrame(labelFrame);
         labelFrame = requestAnimationFrame(() => {
@@ -484,9 +505,13 @@ export function GraphCanvas({
           ]);
           await g.translateBy([width / 2 - x, height / 2 - y], false);
         } else await g.fitView({}, false);
+        // Show records added since the view was saved, such as a new import.
+        if (unplaced.length && geometry?.viewport) await g.fitView({}, false);
         frozen.current = false;
+        settling.current = new Set();
         if (canceled) return;
         renderedGraph.current = g;
+        setZoom(g.getZoom());
         g.updateNodeData(g.getNodeData().map((n) => ({ id: n.id, style: labelStyle(n, g.getZoom()) })));
         setReady(true);
         refreshPins();
@@ -524,6 +549,8 @@ export function GraphCanvas({
       if (labelFrame !== undefined) cancelAnimationFrame(labelFrame);
       observer.disconnect();
       surface.removeEventListener("wheel", pinchWheel, true);
+      surface.removeEventListener("pointerdown", userMoved);
+      surface.removeEventListener("wheel", userMoved);
       surface.removeEventListener("gesturestart", gestureStart);
       surface.removeEventListener("gesturechange", gestureChange);
       surface.removeEventListener("gestureend", gestureEnd);
@@ -531,6 +558,7 @@ export function GraphCanvas({
       graph.current = null;
       drawPinsRef.current = () => {};
       sim.on("tick.workspace", null);
+      sim.on("end.fit", null);
       sim.stop();
       g.destroy();
     };
@@ -556,17 +584,19 @@ export function GraphCanvas({
     );
     if (removedNodes.length || removedEdges.length)
       g.removeData({ nodes: removedNodes, edges: removedEdges });
+    const [width, height] = g.getSize();
+    const positions = placeNear(
+      added.map((n) => n.id),
+      new Map(currentNodes.map((c) => [c.id, [Number(c.style?.x ?? 0), Number(c.style?.y ?? 0)] as const])),
+      workspace.memberships,
+      g.getCanvasByViewport([width / 2, height / 2]) as Point,
+    );
     if (added.length)
       g.addData({
-        nodes: added.map((n, i) => {
+        nodes: added.map((n) => {
           const tag = "name" in n;
           const a = tag ? appearanceFor(n, workspace) : undefined;
-          const link = workspace.memberships.find(
-            (m) => m.bubbleId === n.id || m.tagId === n.id,
-          );
-          const neighbor = currentNodes.find(
-            (c) => c.id === (tag ? link?.bubbleId : link?.tagId),
-          );
+          const [x, y] = positions.get(n.id)!;
           return {
             id: n.id,
             type:
@@ -581,9 +611,8 @@ export function GraphCanvas({
               tag,
             },
             style: {
-              x: Number(neighbor?.style?.x ?? 120) + 80 + (i % 5) * 50,
-              y:
-                Number(neighbor?.style?.y ?? 120) + 80 + Math.floor(i / 5) * 70,
+              x,
+              y,
               size: a?.size ?? 25,
               fill: a?.color ?? "#fff",
               stroke: a?.color ?? "#94a3b8",
@@ -627,7 +656,10 @@ export function GraphCanvas({
       addedEdges.length ||
       removedEdges.length
     ) {
+      // Existing nodes stay where the user left them; only new nodes settle.
       frozen.current = true;
+      settling.current = new Set(added.map((n) => n.id));
+      if (!currentNodes.length) autoFit.current = true;
       const sim = simulation.current;
       sim?.alpha(0).restart();
       void g
@@ -635,10 +667,11 @@ export function GraphCanvas({
           ...(!Array.isArray(g.getLayout()) ? g.getLayout() : undefined),
           type: "d3-force",
           forceSimulation: sim,
-          alpha: 0,
+          alpha: added.length ? 0.6 : 0,
         })
         .then(() => {
           frozen.current = false;
+          settling.current = new Set();
           persist();
         })
         .catch((e) => setError(String(e)));
@@ -718,6 +751,7 @@ export function GraphCanvas({
   }, [ready, selected, query, matchingBubbleIds, filtering, hiddenTagIds, workspace]);
   async function action(work: (g: Graph) => Promise<unknown>) {
     if (!graph.current || !ready) return;
+    autoFit.current = false;
     try {
       await work(graph.current);
     } catch (e) {
