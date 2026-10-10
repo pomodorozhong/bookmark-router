@@ -86,8 +86,8 @@ export function convertPrototype(data: Prototype, now: string): Backup {
   const meta = { revision: 0, createdAt: now, updatedAt: now };
   const status = (key: string) => statusIds[data.node_progress[key]] ?? "pending";
   const types: TagType[] = [
-    { id: "type:project-idea", name: "Project idea", appearance: { color: "#0f766e", size: 72, shape: "circle" } },
-    { id: "type:proposed-idea", name: "Proposed idea", appearance: { color: "#b45309", size: 64, shape: "circle" } },
+    { id: "type:existing-issue", name: "Existing issue", appearance: { color: "#0f766e", size: 72, shape: "circle" } },
+    { id: "type:proposal-issue", name: "Proposal issue", appearance: { color: "#b45309", size: 64, shape: "circle" } },
     { id: "type:topic", name: "Topic", appearance: { color: "#475569", size: 52, shape: "rounded-square" } },
   ];
   const issueTag = (n: number) => `issue:${n}`;
@@ -98,7 +98,7 @@ export function convertPrototype(data: Prototype, now: string): Backup {
       name: `#${issue.number} ${issue.title}`,
       description: issue.body_snapshot,
       url: issue.url,
-      typeId: "type:project-idea",
+      typeId: "type:existing-issue",
       statusId: status(issueTag(issue.number)),
       appearance: {},
     })),
@@ -108,7 +108,7 @@ export function convertPrototype(data: Prototype, now: string): Backup {
       name: p.title,
       description: [p.rationale, ...p.questions.map((q) => `• ${q}`)].join("\n"),
       url: p.created_issue_url ?? undefined,
-      typeId: "type:proposed-idea",
+      typeId: "type:proposal-issue",
       statusId: status(`proposal:${p.id}`),
       appearance: {},
     })),
@@ -156,7 +156,7 @@ export function convertPrototype(data: Prototype, now: string): Backup {
     for (const id of p.approved_seed_bookmark_ids) link(id, `proposal:${p.id}`);
     for (const id of p.seed_bookmark_ids)
       if (!p.approved_seed_bookmark_ids.includes(id))
-        note(id, "Suggested for proposed idea", p.title);
+        note(id, "Suggested for proposal issue", p.title);
   }
   for (const group of data.duplicate_groups)
     for (const id of group.bookmark_ids)

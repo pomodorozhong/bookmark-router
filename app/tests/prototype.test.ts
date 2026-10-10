@@ -45,12 +45,12 @@ test("prototype conversion keeps decisions as memberships and suggestions as not
   assert.equal(two.source?.fields.tags, "indie-dev");
   const labels = two.notes!.map((n) => n.label);
   assert.ok(labels.includes("Suggested for #7"));
-  assert.ok(labels.includes("Suggested for proposed idea"));
+  assert.ok(labels.includes("Suggested for proposal issue"));
   assert.ok(labels.includes("Link check: Not found"));
   assert.ok(labels.includes("Possible duplicate (keep the other)"));
   assert.ok(!labels.some((l) => l.startsWith("Suggested next")));
   assert.equal(w.tags.find((t) => t.id === "topic:pricing")!.statusId, "dropped");
-  assert.equal(w.tags.find((t) => t.id === "proposal:launch")!.typeId, "type:proposed-idea");
+  assert.equal(w.tags.find((t) => t.id === "proposal:launch")!.typeId, "type:proposal-issue");
 });
 
 test("converted backup restores", () => {

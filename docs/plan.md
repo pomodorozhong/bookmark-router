@@ -19,7 +19,8 @@ From now on the test data is the user's own `bookmarks-working.json` (148 bookma
 | Prototype | App |
 |---|---|
 | bookmarks (title, URL, note/excerpt, cover, Raindrop tags) | bubbles |
-| 15 GitHub issues and 6 proposed issues | tags of type **Project idea** (proposals marked as proposed) |
+| 15 GitHub issues | tags of type **Existing issue** |
+| 6 proposed issues | tags of type **Proposal issue** |
 | 29 categories | tags of type **Topic** |
 | existing references and seed bookmarks | memberships |
 | `node_progress` pending / done / dropped | statuses |
@@ -44,13 +45,13 @@ There are no checkpoint tags, deferred-verification registers, or release gates.
 
 - Write the converter and restore your collection.
 - Fix the bugs found in the Checkpoint C review: the graph is blank until **Fit graph** after an import, and new tags from a second import are placed badly.
-- **You try:** restore your collection; check that bookmarks, project ideas, and topics look right.
+- **You try:** restore your collection; check that bookmarks, issues, and topics look right.
 - **Follow-up — smooth panning with your collection:** measure the lag first; hide bubble titles below a zoom threshold (tag titles and the selected or hovered bubble stay); stop restyling every label on each pan/zoom step.
 - **You try:** pan and zoom around your collection; check the threshold feels right.
 
 ### 1. Triage
 
-The main screen for job 1. Its shape is decided in the mockup. The likely starting point is a queue of pending bookmarks with the current one's details beside it and fast actions: add to a project idea or topic, keep, skip, mark duplicate, defer. Warnings (broken link, possible duplicate) appear inline.
+The main screen for job 1. Its shape is decided in the mockup. The likely starting point is a queue of pending bookmarks with the current one's details beside it and fast actions: add to an existing issue, proposal issue, or topic, keep, skip, mark duplicate, defer. Warnings (broken link, possible duplicate) appear inline.
 
 - Decide in the mockup: which decisions you need (the prototype had keep / attach / skip / duplicate / defer) and how they map to statuses.
 - **You try:** triage 10 real bookmarks and see how long it takes.
@@ -66,26 +67,26 @@ A browser page cannot read other sites (CORS), so fetching needs a small helper.
 - Failures (timeout, 404, blocked, non-HTML) are recorded on the bubble so triage and filters can find them. This replaces the prototype's link-check warnings for bookmarks that are fetched again.
 - **You try:** fetch one bookmark, then 20 at once; accept some changes and reject others; check the images after reload and in a backup.
 
-### 2. Project ideas and tags
+### 2. Issues and tags
 
-- Create and edit tag types (Project idea, Topic, …). This does not exist today.
-- A project-idea view: the group's description and its bookmarks, readable on its own.
+- Create and edit tag types (Existing issue, Proposal issue, Topic, …). This does not exist today.
+- An issue view: the issue's description and its bookmarks, readable on its own.
 - Tag appearance moves into a collapsed **Appearance** section. Overrides must actually change the node: color fills the node instead of only the border; size, shape, and icon render.
-- **You try:** create a type, review one project idea, override one tag's color.
+- **You try:** create a type, review one issue, override one tag's color.
 
 ### 3. Filters, redesigned
 
 Same capabilities, new UI. Mockup options first, built from what you dislike about the current screen. The rule types you need are decided then; distance filters stay only if you want them.
 
-- **You try:** find "pending bookmarks in topic X not yet in any project idea", save it as a view, and reopen it.
+- **You try:** find "pending bookmarks in topic X not yet in any issue", save it as a view, and reopen it.
 
 ### 4. WebMCP for your agent
 
 Starting this round requires naming the browser and agent you will use.
 
-- Tools: **add item**, **update item details** (description, URL, tags, status), **read a project idea** (its bookmarks and their details), plus **search and filter** for finding things.
+- Tools: **add item**, **update item details** (description, URL, tags, status), **read an issue** (its bookmarks and their details), plus **search and filter** for finding things.
 - Writes go through the same domain commands as the UI and appear in Undo. Whether you approve each agent write or review afterwards is decided at the start of the round.
-- **You try:** have your agent add two bookmarks to a project idea and summarize one group.
+- **You try:** have your agent add two bookmarks to an issue and summarize one group.
 
 ### Later, only if needed
 
