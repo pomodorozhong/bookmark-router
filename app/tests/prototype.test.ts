@@ -8,13 +8,13 @@ const bookmark = (id: string, extra: Record<string, unknown> = {}) => ({
   original: { title: `Title ${id}`, note: "", excerpt: `Excerpt ${id}`, url: `https://example.com/${id}`, cover: "", tags: "indie-dev" },
   display_title: `Title ${id}`,
   url: `https://example.com/${id}`,
-  classification: { proposed_category_id: "pricing", approved_category_id: null, reason: "Pricing topic." },
+  classification: { proposed_category_id: "pricing", approved_category_id: null, proposed_secondary_category_ids: [], reason: "Pricing topic." },
   triage: { suggested_next_action: "review" },
   ...extra,
 });
 const fixture: Prototype = {
   metadata: { title: "Tracker" },
-  category_review: { categories: [{ id: "pricing", label: "Pricing", group: "Monetization" }] },
+  category_review: { categories: [{ id: "pricing", label: "Pricing", group: "Monetization" }, { id: "launch", label: "Launch", group: "Growth" }] },
   issue_catalog: [{ number: 7, title: "Pricing", url: "https://github.com/o/r/issues/7", body_snapshot: "Study pricing." }],
   references_for_existing_issues: [
     { bookmark_id: "1", issue_number: 7, label: "Price test", reason: "Concrete experiment.", recommendation: "avoid_duplicate", presence: "reference_present" },
@@ -26,15 +26,22 @@ const fixture: Prototype = {
   duplicate_groups: [{ bookmark_ids: ["1", "2"], proposed_canonical_bookmark_id: "1", reason: "Same post." }],
   bookmarks: [
     bookmark("1", { original: { title: "One", note: "My note", excerpt: "Ex", url: "https://example.com/1", cover: "https://example.com/1.png", tags: "" } }),
-    bookmark("2", { display_title: "", source_review: { historical_link_check: { status: "not_found", note: "404.", observed_on: "2026-09-12" } } }),
+    bookmark("2", { display_title: "", classification: { proposed_category_id: "pricing", approved_category_id: null, proposed_secondary_category_ids: ["launch"], reason: "Pricing topic." }, source_review: { historical_link_check: { status: "not_found", note: "404.", observed_on: "2026-09-12" } } }),
   ],
   node_progress: { "bookmark:1": "done", "issue:7": "done", "topic:pricing": "dropped" },
 };
 
-test("prototype conversion keeps decisions as memberships and suggestions as notes", () => {
+test("prototype conversion links decided and suggested groupings, keeping reasons as notes", () => {
   const { workspace: w } = convertPrototype(fixture, "2026-10-11T00:00:00.000Z");
   const pairs = w.memberships.map((m) => `${m.bubbleId}>${m.tagId}`).sort();
-  assert.deepEqual(pairs, ["bookmark:1>issue:7", "bookmark:1>topic:pricing", "bookmark:2>topic:pricing"]);
+  assert.deepEqual(pairs, [
+    "bookmark:1>issue:7",
+    "bookmark:1>topic:pricing",
+    "bookmark:2>issue:7",
+    "bookmark:2>proposal:launch",
+    "bookmark:2>topic:launch",
+    "bookmark:2>topic:pricing",
+  ]);
   const [one, two] = w.bubbles;
   assert.equal(one.statusId, "done");
   assert.equal(two.statusId, "pending");
@@ -44,8 +51,8 @@ test("prototype conversion keeps decisions as memberships and suggestions as not
   assert.equal(two.missingTitle, true);
   assert.equal(two.source?.fields.tags, "indie-dev");
   const labels = two.notes!.map((n) => n.label);
-  assert.ok(labels.includes("Suggested for #7"));
-  assert.ok(labels.includes("Suggested for proposal issue"));
+  assert.ok(labels.includes("Why #7"));
+  assert.ok(labels.includes("Why this topic"));
   assert.ok(labels.includes("Link check: Not found"));
   assert.ok(labels.includes("Possible duplicate (keep the other)"));
   assert.ok(!labels.some((l) => l.startsWith("Suggested next")));
@@ -56,5 +63,5 @@ test("prototype conversion keeps decisions as memberships and suggestions as not
 test("converted backup restores", () => {
   const restored = prepareRestore(convertPrototype(fixture, "2026-10-11T00:00:00.000Z"));
   assert.equal(restored.workspace.bubbles.length, 2);
-  assert.equal(restored.workspace.bubbles[1].notes?.length, 5);
+  assert.equal(restored.workspace.bubbles[1].notes?.length, 4);
 });

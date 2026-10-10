@@ -1,6 +1,6 @@
 // One-off conversion of the prototype tracker (`bookmarks-working.json`) into a
-// restorable backup. Only decided groupings become memberships; the prototype's
-// suggestions are carried as read-only notes for triage.
+// restorable backup. Decided and suggested groupings both become memberships
+// (user decision, October 11, 2026); each suggestion's reason is kept as a note.
 import {
   emptyWorkspace,
   isWebUrl,
@@ -20,6 +20,8 @@ interface PrototypeBookmark {
   classification: {
     proposed_category_id: string | null;
     approved_category_id: string | null;
+    proposed_secondary_category_ids?: string[];
+    approved_secondary_category_ids?: string[];
     reason?: string;
   };
   source_review?: {
@@ -136,8 +138,10 @@ export function convertPrototype(data: Prototype, now: string): Backup {
     const c = b.classification;
     const topic = c.approved_category_id ?? c.proposed_category_id;
     if (topic) link(b.id, `topic:${topic}`);
-    if (!c.approved_category_id && c.proposed_category_id)
-      note(b.id, "Suggested topic", c.reason ?? "Proposed by the earlier review; not approved.");
+    for (const id of new Set([...(c.approved_secondary_category_ids ?? []), ...(c.proposed_secondary_category_ids ?? [])]))
+      link(b.id, `topic:${id}`);
+    if (!c.approved_category_id && c.proposed_category_id && c.reason)
+      note(b.id, "Why this topic", c.reason);
     for (const target of b.processing?.selected_targets ?? [])
       if (target.issue_number && target.confirmation_url) link(b.id, issueTag(target.issue_number));
     const check = b.source_review?.historical_link_check;
@@ -147,16 +151,12 @@ export function convertPrototype(data: Prototype, now: string): Backup {
       note(b.id, `Suggested next: ${humanize(b.triage.suggested_next_action)}`, b.triage.reason ?? "");
   }
   for (const r of data.references_for_existing_issues) {
-    if (r.presence === "reference_present" || r.presence === "equivalent_reference_present")
-      link(r.bookmark_id, issueTag(r.issue_number));
-    else
-      note(r.bookmark_id, `Suggested for #${r.issue_number}`, `${r.label}: ${r.reason}`);
+    link(r.bookmark_id, issueTag(r.issue_number));
+    note(r.bookmark_id, `Why #${r.issue_number}`, `${r.label}: ${r.reason}`);
   }
   for (const p of data.bookmarks_worth_their_own_issues) {
-    for (const id of p.approved_seed_bookmark_ids) link(id, `proposal:${p.id}`);
-    for (const id of p.seed_bookmark_ids)
-      if (!p.approved_seed_bookmark_ids.includes(id))
-        note(id, "Suggested for proposal issue", p.title);
+    for (const id of new Set([...p.approved_seed_bookmark_ids, ...p.seed_bookmark_ids]))
+      link(id, `proposal:${p.id}`);
   }
   for (const group of data.duplicate_groups)
     for (const id of group.bookmark_ids)
