@@ -26,8 +26,9 @@ Stage A was approved with in-memory previews. Stage B now persists confirmed ope
 ## Remaining
 
 - Checkpoint C review feedback: clarify any confusing filter rules, copy output, or media behavior found during the complicated-workflow walkthrough.
-- Phase 4: optional extraction service, missing-data queue, reviewed WebMCP proposals, and browser/agent validation.
-- Phase 5: accessibility/recovery hardening, static-deployment verification, and 1,000/5,000-bubble performance checks.
+- Stage C.1 (plan amendment, October 11, 2026): one change-set Undo/Redo model with bounds, schema 2 migration, import-history retention, media collection, New bubble, archive/unarchive, collection deletion, outcome counts, 1,000/5,000 storage and filter measurements, and the prototype converter. The user decided undo, lifecycle, conversion, and WebMCP-target questions on October 11. Close the C1 entries in the plan's deferred verification register.
+- Phase 4 (after C1 and once the user names the browser/agent pair): optional extraction service, missing-data queue, reviewed WebMCP proposals, and browser/agent validation.
+- Phase 5: close the remaining deferred verification entries, accessibility/recovery hardening, static-deployment verification, and 1,000/5,000-bubble performance checks.
 
 Stage A is committed as `c31e483` and `0e3fb53`. Stage B is recorded in focused local commits. No deployment, push, or publishing has occurred.
 
@@ -69,7 +70,7 @@ The user accepted Stage B's functionality on October 10, 2026 and requested a UI
 Stage C is implemented as a runnable complicated workflow. Tags support type-inherited color, size, shape, and icon appearance with per-field overrides/reset. Tag-only and tag-plus-linked status changes show reviewed targets, include hidden linked bubbles, commit atomically, and provide revision-checked undo. Multi-selection adds reviewed bulk status changes and local image/video/audio attachments.
 
 Nested All/Any/Not, same-linked-tag, membership, asset, date, missing-field, batch, and shortest-path distance rules share one match pipeline. Saved views retain filters, tag-display hiding, and sort order; Graph and List consume the same results. The copy composer supports field order, separators, plain/Markdown output, placeholders, current-view/all-linked scopes, ordering, and saved presets. It opens with the current default output and a prominent copy action; detailed controls are collapsed, with quick Link only, Title only, Title + link, and Markdown links presets. Bubble Details also has a one-click Copy action. Local assets remain IndexedDB-backed and copy by filename rather than blob URL.
-- Reviewed status changes keep Undo status in the persistent left side of the graph's bottom bar, rather than a transient lower-page toast or top-toolbar action.
+- Reviewed status changes were first undone through a separate Undo status control in the bottom bar. Uncommitted work during review replaced it with a general per-collection Undo; the October 11 plan amendment consolidates these into one undo model (Stage C.1).
 - The selected-node bar is now the single status entry point for tags, individual bubbles, and multi-selection; Details retains information and copy/media actions.
 
 ### Checkpoint C verification
@@ -91,7 +92,7 @@ Nested All/Any/Not, same-linked-tag, membership, asset, date, missing-field, bat
 
 - Missing-title badges use an amber warning tint; Details shows a compact non-link warning.
 - Search hides tags with no matching linked bubbles and restores them when cleared.
-- Pins are explicit through Details; dragging does not pin. Pinned nodes show a red dot.
+- Pins are explicit through Details; dragging does not pin. Pinned nodes showed a red dot (replaced by the flat pushpin in B.1).
 - Fit graph uses asymmetric padding measured from the open Details panel.
 - Browser verified search visibility, manual pin/unpin and marker, drag without pinning, and fit beside Details.
 - Final verification: TypeScript/Vite production build and all 35 tests passed; explicit pins also survived browser reload.

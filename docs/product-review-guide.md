@@ -155,7 +155,33 @@ Open the running app at http://127.0.0.1:5199/ and use the existing review colle
 
 Report feedback as **task → expected → actual → impact**. For copy issues, include the selected fields, separator, format, template, scope, ordering, and the exact output. For media issues, include kind, filename, and whether the Details preview or backup was affected. Checkpoint C remains open until the confusing rules/output findings are resolved; independent enrichment work can continue after this review.
 
+### Changes since ready
+
+- General per-collection Undo replaced the separate Undo status control (uncommitted when this checkpoint was marked ready). Stage C.1 reworks its storage; behavior in this checklist stays the same.
+
+### Decisions made October 11, 2026
+
+- **Undo model:** one linear Undo/Redo for all saved actions; Import history still undoes an older batch. Implemented in C.1.
+- **Record lifecycle:** New bubble and archive/unarchive for bubbles and tags; no deletion of individual records; whole collections can be deleted. Implemented in C.1.
+- **Your collection:** `bookmarks-working.json` is converted once by a separate script; the app does not read the prototype format.
+- **WebMCP target:** chosen at the start of Phase 4.
+
+## C.1 — Foundation corrections — future build
+
+The implementer will supply the converted collection, a measurement report for 1,000 and 5,000 bubbles, and a build with schema 2.
+
+- [ ] Import the converted collection. Expect your bookmarks, categories, and issue groups as bubbles and typed tags, with duplicate groups shown in review.
+- [ ] Create a bubble with **New bubble**, then archive it and a tag. Expect both to disappear from graph, list, and counts, the archived tag's bubbles to remain, and **Show archived** to reveal them muted.
+- [ ] Undo an archive, an edit, a status propagation, and an import in sequence, then Redo two of them. Expect each to reverse exactly once, Redo to reapply in order, and a new edit to clear Redo.
+- [ ] Edit a record in a second tab, then press Undo for an action touching it in the first. Expect a refusal that explains why.
+- [ ] Use Cmd+Z and Shift+Cmd+Z outside a text field; inside a text field expect ordinary text undo.
+- [ ] Back up, restore, and back up again with an image, a video, and an audio file. Expect all three to survive.
+- [ ] Delete a test collection. Expect a backup offer and a typed-name confirmation.
+- [ ] Review the measurement report against the plan's budgets.
+
 ## D — Agent assistance — future build
+
+Entry condition: name the browser build and agent you want supported.
 
 Prepare unresolved records and an import source. The implementer will supply the optional extractor, missing-data queue, and narrow WebMCP adapter for the supported browser/agent combination.
 
@@ -176,5 +202,6 @@ The implementer will supply accessibility, recovery, static-build, and performan
 - [ ] Review recovery instructions and known limitations; identify any release blocker.
 - [ ] Review the reported 1,000-bubble and 5,000-bubble performance findings against your expected collection size.
 - [ ] Confirm that previous checkpoint findings have been resolved or explicitly documented.
+- [ ] Confirm every entry in the plan's deferred verification register is closed: physical trackpad gestures, 200% browser/text zoom, and the remaining viewport combinations.
 
 Publishing requires separate deployment authorization.
