@@ -14,9 +14,14 @@ import { bookmarkSample, readingSample } from "./domain/samples";
 import {
   emptyWorkspace,
   isWebUrl,
+  type CopyPreset,
+  type Filter,
+  type SavedView,
   type Workspace,
   type Geometry,
 } from "./domain/model";
+import { filterBubbles } from "./domain/filters";
+import { composeCopy, defaultCopyOptions } from "./domain/copy";
 import { WorkspaceStore } from "./domain/storage";
 import { ConflictError, type Command } from "./domain/commands";
 import { undoConflicts } from "./domain/import-commands";
@@ -25,6 +30,11 @@ import { RecordEditor } from "./components/RecordEditor";
 import { usePanelFocus } from "./components/usePanelFocus";
 import { Dialog } from "./components/Dialog";
 import { Icon, IconButton, type IconName } from "./components/Icon";
+import { StatusPropagationDialog } from "./components/StatusPropagationDialog";
+import { BulkStatusDialog } from "./components/BulkStatusDialog";
+import { FilterDialog } from "./components/FilterDialog";
+import { CopyComposerDialog } from "./components/CopyComposerDialog";
+import { MediaUploadDialog } from "./components/MediaUploadDialog";
 const store = new WorkspaceStore();
 function activeCollection() {
   try {
@@ -85,6 +95,7 @@ export default function App() {
     >({}),
     [excluded, setExcluded] = useState<Set<number>>(new Set()),
     [selected, setSelected] = useState<string>(),
+    [selectedIds, setSelectedIds] = useState<string[]>([]),
     [query, setQuery] = useState(""),
     [list, setList] = useState(false),
     [inspectorOpen, setInspectorOpen] = useState(false),
@@ -99,6 +110,17 @@ export default function App() {
     [notice, setNotice] = useState(""),
     [promptKind, setPromptKind] = useState<"collection" | "tag">(),
     [promptValue, setPromptValue] = useState("");
+  const [statusDialogTag, setStatusDialogTag] = useState<string>(),
+    [statusUndoId, setStatusUndoId] = useState<string>(),
+    [statusBarMessage, setStatusBarMessage] = useState<string>(),
+    [filterDialogOpen, setFilterDialogOpen] = useState(false),
+    [copyDialogTag, setCopyDialogTag] = useState<string>(),
+    [bulkStatusOpen, setBulkStatusOpen] = useState(false),
+    [mediaDialogOpen, setMediaDialogOpen] = useState(false),
+    [activeFilter, setActiveFilter] = useState<Filter>({ op: "all", rules: [] }),
+    [hiddenTagIds, setHiddenTagIds] = useState<string[]>([]),
+    [viewSort, setViewSort] = useState<SavedView["sort"]>("title"),
+    [activeViewId, setActiveViewId] = useState<string>();
   const [statusMapping, setStatusMapping] = useState<Record<string, string>>(
       {},
     ),
@@ -110,13 +132,6 @@ export default function App() {
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   usePanelFocus(panelOpen && loaded, "#left-panel", 820, () => setPanelOpen(false));
   usePanelFocus(inspectorOpen && screen === "workspace", ".inspector", 600, () => setInspectorOpen(false));
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 820px)");
-    const closeDetails = () => { if (media.matches && panelOpen) setInspectorOpen(false); };
-    closeDetails();
-    media.addEventListener("change", closeDetails);
-    return () => media.removeEventListener("change", closeDetails);
-  }, [panelOpen]);
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
   const submitting = useRef(false),
     workspaceRef = useRef(workspace);
@@ -199,7 +214,19 @@ export default function App() {
     rememberCollection(w.id);
     setCollectionMenuOpen(false);
     setSelected(undefined);
+    setSelectedIds([]);
     setManageMemberships(false);
+    setStatusDialogTag(undefined);
+    setStatusUndoId(undefined);
+    setStatusBarMessage(undefined);
+    setFilterDialogOpen(false);
+    setCopyDialogTag(undefined);
+    setBulkStatusOpen(false);
+    setMediaDialogOpen(false);
+    setActiveFilter({ op: "all", rules: [] });
+    setHiddenTagIds([]);
+    setViewSort("title");
+    setActiveViewId(undefined);
     setQuery("");
     setScreen("workspace");
   }
@@ -207,19 +234,125 @@ export default function App() {
     setWorkspace(w);
     setCollections(await store.list());
   }
-  async function save(command: Command) {
+  async function save(command: Command | Command[]) {
     try {
-      const next = await store.command(
-        workspace.id,
-        workspace.revision,
-        command,
-      );
-      await publish(next);
+      const commands = Array.isArray(command) ? command : [command];
+      let current = workspace;
+      for (const item of commands) {
+        current = await store.command(current.id, current.revision, item);
+        await publish(current);
+        if (item.type === "status.bulk") {
+          setStatusUndoId(current.settings.statusHistory?.at(-1)?.id);
+          setStatusBarMessage("Status updated for reviewed records.");
+        }
+        if (item.type === "status.undo") {
+          setStatusUndoId(undefined);
+          setStatusBarMessage("Previous statuses restored.");
+        }
+      }
     } catch (e) {
       const latest = await store.get(workspace.id);
       if (latest) setWorkspace(latest);
       throw e;
     }
+  }
+  async function undoStatus() {
+    if (!statusUndoId || submitting.current) return;
+    const change = workspace.settings.statusHistory?.find((item) => item.id === statusUndoId);
+    if (!change) {
+      setStatusUndoId(undefined);
+      return;
+    }
+    submitting.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await save({
+        type: "status.undo",
+        changeId: change.id,
+        reviewedRecordRevisions: change.afterRevisions,
+      });
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      submitting.current = false;
+      setBusy(false);
+    }
+  }
+  async function saveView(view: SavedView) {
+    await save({ type: "view.upsert", view });
+    setActiveViewId(view.id);
+    setNotice(`Saved view “${view.name}”.`);
+  }
+  async function deleteView(id: string) {
+    await save({ type: "view.remove", id });
+    if (activeViewId === id) setActiveViewId(undefined);
+    setNotice("Saved view deleted.");
+  }
+  async function savePreset(preset: CopyPreset) {
+    await save({ type: "copy-preset.upsert", preset });
+    setNotice(`Saved copy preset “${preset.name}”.`);
+  }
+  async function deletePreset(id: string) {
+    await save({ type: "copy-preset.remove", id });
+    setNotice("Copy preset deleted.");
+  }
+  async function copyBubble(id: string) {
+    const bubble = workspace.bubbles.find((item) => item.id === id);
+    if (!bubble) return;
+    const output = composeCopy([bubble], workspace, defaultCopyOptions);
+    if (!output) return;
+    try {
+      await navigator.clipboard.writeText(output);
+      setNotice(`Copied “${bubble.title}”.`);
+    } catch {
+      setError("Clipboard access was unavailable. Open the source link or copy the text manually.");
+    }
+  }
+  async function attachMedia(
+    assignments: Array<{
+      bubbleId: string;
+      expectedRecordRevision: number;
+      asset: import("./domain/model").Asset;
+    }>,
+    files: Array<{ id: string; filename: string; mime: string; blob: Blob }>,
+  ) {
+    try {
+      const next = await store.attachMedia(
+        workspace.id,
+        workspace.revision,
+        assignments,
+        files,
+      );
+      await publish(next);
+      setNotice(`Attached ${files.length} local media file${files.length === 1 ? "" : "s"}.`);
+    } catch (e) {
+      const latest = await store.get(workspace.id);
+      if (latest) setWorkspace(latest);
+      throw e;
+    }
+  }
+  function selectRecord(id: string, additive = false) {
+    setSelected(id);
+    setSelectedIds((current) => {
+      if (!additive) return [id];
+      return current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id];
+    });
+    setInspectorOpen(true);
+    setManageMemberships(false);
+  }
+  function toggleBubbleSelection(id: string) {
+    setSelectedIds((current) =>
+      current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id],
+    );
+    setSelected(id);
+  }
+  function clearSelection() {
+    setSelectedIds([]);
   }
   async function createCollection(name: string) {
     if (!name?.trim()) return;
@@ -376,6 +509,40 @@ export default function App() {
   const duplicates =
     preview?.candidates.filter((c) => c.duplicate || c.repeatedRow) ?? [];
   const invalid = preview?.candidates.filter((c) => c.errors.length) ?? [];
+  const matchingBubbles = useMemo(() => {
+    const queryValue = query.trim().toLowerCase();
+    return filterBubbles(workspace, activeFilter).filter((bubble) =>
+      !queryValue ||
+      `${bubble.title} ${bubble.description} ${bubble.url ?? ""}`
+        .toLowerCase()
+        .includes(queryValue),
+    );
+  }, [workspace, activeFilter, query]);
+  const visibleBubbles = useMemo(() => {
+    const sorted = [...matchingBubbles];
+    sorted.sort((left, right) => {
+      if (viewSort === "createdAt") return left.createdAt.localeCompare(right.createdAt);
+      if (viewSort === "status") {
+        const leftStatus = workspace.statuses.find((status) => status.id === left.statusId)?.label ?? "";
+        const rightStatus = workspace.statuses.find((status) => status.id === right.statusId)?.label ?? "";
+        return leftStatus.localeCompare(rightStatus) || left.title.localeCompare(right.title);
+      }
+      return left.title.localeCompare(right.title);
+    });
+    return sorted;
+  }, [matchingBubbles, viewSort, workspace.statuses]);
+  const selectedBubbleIds = selectedIds.filter((id) =>
+    workspace.bubbles.some((bubble) => bubble.id === id),
+  );
+  const selectedNodeIds = selectedIds.filter((id) =>
+    workspace.bubbles.some((bubble) => bubble.id === id) ||
+    workspace.tags.some((tag) => tag.id === id),
+  );
+  const filterActive =
+    activeViewId !== undefined ||
+    hiddenTagIds.length > 0 ||
+    viewSort !== "title" ||
+    !(activeFilter.op === "all" && activeFilter.rules.length === 0);
   const selectedRecord = workspace.bubbles.find((b) => b.id === selected),
     selectedTag = workspace.tags.find((t) => t.id === selected);
   function loadSample(kind: "bookmarks" | "reading") {
@@ -455,7 +622,7 @@ export default function App() {
         aria-label={panelOpen ? "Retract left panel" : "Open left panel"}
         aria-expanded={panelOpen}
         aria-controls="left-panel"
-        onClick={() => { setPanelOpen((v) => !v); if (window.innerWidth <= 820) setInspectorOpen(false); }}
+        onClick={() => setPanelOpen((v) => !v)}
       >
         <Icon name={panelOpen ? "chevron-left" : "menu"} size={18} />
       </button>
@@ -1045,6 +1212,15 @@ export default function App() {
               </div>
               <div className="workspace-actions">
                 <button
+                  className={`toolbar-button ${filterActive ? "active" : ""}`}
+                  aria-label="Filters"
+                  onClick={() => setFilterDialogOpen(true)}
+                  aria-pressed={filterDialogOpen || filterActive}
+                >
+                  <Icon name="filter" size={16} /> <span>Filters</span>
+                  {filterActive && <span className="toolbar-count">{matchingBubbles.length}</span>}
+                </button>
+                <button
                   className="toolbar-button" aria-label="Details"
                   onClick={() => setInspectorOpen((v) => !v)}
                   aria-pressed={inspectorOpen}
@@ -1069,6 +1245,22 @@ export default function App() {
                 </div>
               </div>
             </div>
+            {filterActive && (
+              <div className="active-filter-bar" role="status">
+                <span><Icon name="filter" size={14} /> {activeViewId ? `Saved view: ${workspace.views.find((view) => view.id === activeViewId)?.name ?? "selected"}` : "Custom filter"} · {matchingBubbles.length} matching bubbles</span>
+                <button onClick={() => { setActiveFilter({ op: "all", rules: [] }); setHiddenTagIds([]); setViewSort("title"); setActiveViewId(undefined); setQuery(""); }}>Clear view</button>
+              </div>
+            )}
+            {selectedNodeIds.length > 0 && (
+              <div className="selection-bar" role="toolbar" aria-label="Selected node actions">
+                <strong>{selectedNodeIds.length} selected</strong>
+                <button onClick={() => {
+                  if (selectedBubbleIds.length > 0) setBulkStatusOpen(true);
+                  else if (selectedTag) setStatusDialogTag(selectedTag.id);
+                }}><Icon name="refresh" size={14} /> Change status</button>
+                <button className="text-button" onClick={clearSelection}>Clear selection</button>
+              </div>
+            )}
             <div className={`workspace-grid ${list ? "list-mode" : ""} ${inspectorOpen ? "inspector-open" : ""}`}>
               <div className={list ? "hidden" : "graph-area"}>
                 <GraphCanvas
@@ -1079,12 +1271,16 @@ export default function App() {
                   onPinsChanged={setPinnedIds}
                   workspace={workspace}
                   selected={selected}
-                  onSelect={(id) => {
-                    setSelected(id);
-                    setInspectorOpen(true);
-                    setManageMemberships(false);
-                  }}
-                  query={query}
+                  onSelect={(id) => selectRecord(id)}
+                  query=""
+                  matchingBubbleIds={visibleBubbles.map((bubble) => bubble.id)}
+                  filtering={filterActive || Boolean(query.trim())}
+                  hiddenTagIds={hiddenTagIds}
+                  statusUndoAvailable={Boolean(statusUndoId)}
+                  statusUndoBusy={busy}
+                  statusBarMessage={statusBarMessage}
+                  onUndoStatus={() => void undoStatus()}
+                  onDismissStatusUndo={() => setStatusUndoId(undefined)}
                   geometry={geometry}
                   onGeometry={(g) => {
                     setGeometry(g);
@@ -1100,22 +1296,15 @@ export default function App() {
               </div>
               {list && (
                 <section className="panel list-panel">
-                  {workspace.bubbles
-                    .filter((b) =>
-                      `${b.title} ${b.description} ${b.url ?? ""}`
-                        .toLowerCase()
-                        .includes(query.toLowerCase()),
-                    )
-                    .map((b) => (
+                  {visibleBubbles.map((b) => (
+                    <div className={`list-item-row ${selectedIds.includes(b.id) ? "checked" : ""}`} key={b.id}>
+                      <label className="list-select" aria-label={`Select ${b.title}`}>
+                        <input type="checkbox" checked={selectedIds.includes(b.id)} onChange={() => toggleBubbleSelection(b.id)} />
+                      </label>
                       <button
                         aria-pressed={selected === b.id}
                         className={`list-item ${selected === b.id ? "selected" : ""}`}
-                        key={b.id}
-                        onClick={() => {
-                          setSelected(b.id);
-                          setInspectorOpen(true);
-                          setManageMemberships(false);
-                        }}
+                        onClick={() => selectRecord(b.id)}
                       >
                         <span className="list-item-main">
                           <strong>{b.title}</strong>
@@ -1128,7 +1317,8 @@ export default function App() {
                           }
                         </span>
                       </button>
-                    ))}
+                    </div>
+                  ))}
                   {!workspace.bubbles.length && (
                     <div className="list-empty">
                       <Icon name="collection" size={24} />
@@ -1137,14 +1327,12 @@ export default function App() {
                       <button className="primary" onClick={() => { setScreen("import"); if (window.innerWidth <= 820) setPanelOpen(false); }}>Open Import</button>
                     </div>
                   )}
-                  {workspace.bubbles.length > 0 && !workspace.bubbles.some((b) =>
-                    `${b.title} ${b.description} ${b.url ?? ""}`.toLowerCase().includes(query.toLowerCase()),
-                  ) && (
+                  {workspace.bubbles.length > 0 && !visibleBubbles.length && (
                     <div className="list-empty">
                       <Icon name="search" size={24} />
                       <strong>No matching bubbles</strong>
                       <span>Try a different search or clear the filter.</span>
-                      <button onClick={() => setQuery("")}>Clear search</button>
+                      <button onClick={() => { setQuery(""); setActiveFilter({ op: "all", rules: [] }); setHiddenTagIds([]); setViewSort("title"); setActiveViewId(undefined); }}>Clear filters</button>
                     </div>
                   )}
                 </section>
@@ -1184,6 +1372,23 @@ export default function App() {
                           </span>
                         )}
                       </div>
+                      {selectedTag && (
+                        <div className="detail-actions">
+                          <button className="section-toggle" onClick={() => setCopyDialogTag(selectedTag.id)}>
+                            <Icon name="copy" size={14} /> Compose copy
+                          </button>
+                        </div>
+                      )}
+                      {selectedRecord && (
+                        <div className="detail-actions">
+                          <button className="section-toggle" onClick={() => void copyBubble(selectedRecord.id)}>
+                            <Icon name="copy" size={14} /> Copy
+                          </button>
+                          <button className="section-toggle status-action" onClick={() => { setSelectedIds([selectedRecord.id]); setMediaDialogOpen(true); }}>
+                            <Icon name="upload" size={14} /> Attach media
+                          </button>
+                        </div>
+                      )}
                       <p>{selectedRecord?.description || selectedTag?.description || "No description yet."}</p>
                       {selectedRecord?.asset && <AssetPreview asset={selectedRecord.asset} load={(id) => store.media(id)} />}
                       {(selectedRecord?.url || selectedTag?.url) && isWebUrl((selectedRecord ?? selectedTag)!.url! as string) && (
@@ -1230,7 +1435,7 @@ export default function App() {
                       ) : selectedRecord ? (
                         <div className="connection-chips">
                           {workspace.memberships.filter((m) => m.bubbleId === selectedRecord.id).map((m) => (
-                            <button className="connection-chip" key={m.id} onClick={() => { setSelected(m.tagId); setManageMemberships(false); }}>
+                            <button className="connection-chip" key={m.id} onClick={() => selectRecord(m.tagId)}>
                               <Icon name="tag" size={13} /> {workspace.tags.find((t) => t.id === m.tagId)?.name}
                             </button>
                           ))}
@@ -1240,7 +1445,7 @@ export default function App() {
                         <div className="connection-list">
                           {workspace.memberships.filter((m) => m.tagId === selectedTag!.id).map((m) => {
                             const bubble = workspace.bubbles.find((b) => b.id === m.bubbleId);
-                            return bubble ? <button className="linked-item" title={bubble.title} key={m.id} onClick={() => setSelected(bubble.id)}><span>{bubble.title}</span><Icon name="chevron-right" size={14} /></button> : null;
+                            return bubble ? <button className="linked-item" title={bubble.title} key={m.id} onClick={() => selectRecord(bubble.id)}><span>{bubble.title}</span><Icon name="chevron-right" size={14} /></button> : null;
                           })}
                           {!workspace.memberships.some((m) => m.tagId === selectedTag!.id) && <span className="empty-inline">No linked bubbles yet.</span>}
                         </div>
@@ -1266,6 +1471,59 @@ export default function App() {
           id={editing}
           onSave={save}
           onClose={() => setEditing(undefined)}
+        />
+      )}
+      {statusDialogTag && workspace.tags.some((tag) => tag.id === statusDialogTag) && (
+        <StatusPropagationDialog
+          workspace={workspace}
+          tag={workspace.tags.find((tag) => tag.id === statusDialogTag)!}
+          onSave={save}
+          onClose={() => setStatusDialogTag(undefined)}
+        />
+      )}
+      {filterDialogOpen && (
+        <FilterDialog
+          workspace={workspace}
+          initialFilter={activeFilter}
+          initialHiddenTagIds={hiddenTagIds}
+          initialSort={viewSort}
+          initialViewId={activeViewId}
+          onApply={(filter, hidden, sort, viewId) => {
+            setActiveFilter(filter);
+            setHiddenTagIds(hidden);
+            setViewSort(sort);
+            setActiveViewId(viewId);
+          }}
+          onSaveView={saveView}
+          onDeleteView={deleteView}
+          onClose={() => setFilterDialogOpen(false)}
+        />
+      )}
+      {bulkStatusOpen && selectedBubbleIds.length > 0 && (
+        <BulkStatusDialog
+          workspace={workspace}
+          bubbleIds={selectedBubbleIds}
+          onSave={save}
+          onClose={() => setBulkStatusOpen(false)}
+        />
+      )}
+      {mediaDialogOpen && selectedBubbleIds.length > 0 && (
+        <MediaUploadDialog
+          workspace={workspace}
+          bubbleIds={selectedBubbleIds}
+          onAttach={attachMedia}
+          onClose={() => setMediaDialogOpen(false)}
+        />
+      )}
+      {copyDialogTag && workspace.tags.some((tag) => tag.id === copyDialogTag) && (
+        <CopyComposerDialog
+          workspace={workspace}
+          tagId={copyDialogTag}
+          currentBubbleIds={visibleBubbles.map((bubble) => bubble.id)}
+          presets={workspace.settings.copyPresets ?? []}
+          onSavePreset={savePreset}
+          onDeletePreset={deletePreset}
+          onClose={() => setCopyDialogTag(undefined)}
         />
       )}
       {promptKind && (

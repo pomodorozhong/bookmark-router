@@ -68,10 +68,21 @@ export type Filter =
   | { op: "all" | "any"; rules: Filter[] }
   | { op: "not"; rule: Filter }
   | { op: "text"; value: string }
+  | { op: "url"; value: string; mode: "contains" | "domain" }
   | { op: "status"; ids: string[] }
-  | { op: "tags"; ids: string[] }
+  | { op: "tags"; ids: string[]; mode?: "any" | "all" }
+  | { op: "tag-type"; ids: string[] }
+  | { op: "tag-status"; ids: string[] }
+  | { op: "asset"; present: boolean; kind?: MediaKind }
+  | {
+      op: "date";
+      field: "createdAt" | "updatedAt";
+      from?: string;
+      to?: string;
+    }
   | { op: "distance"; tagIds: string[]; hops: number }
   | { op: "missing"; field: "title" | "description" | "url" | "asset" }
+  | { op: "no-tags" }
   | { op: "batch"; id: string }
   | { op: "same-tag"; name?: string; typeId?: string; statusId?: string };
 export interface SavedView {
@@ -80,6 +91,23 @@ export interface SavedView {
   filter: Filter;
   sort: "title" | "createdAt" | "status";
   hiddenTagIds: string[];
+}
+export type CopyField =
+  | "title"
+  | "url"
+  | "description"
+  | "assetUrl"
+  | "status"
+  | "tags";
+export interface CopyPreset {
+  id: string;
+  name: string;
+  fields: CopyField[];
+  separator: string;
+  format: "plain" | "markdown";
+  template?: string;
+  scope: "all" | "current";
+  sort: "title" | "createdAt" | "status";
 }
 export interface ImportBatch {
   id: string;
@@ -93,6 +121,15 @@ export interface ImportBatch {
   createdTypeIds?: string[];
   createdStatusIds?: string[];
 }
+export interface StatusChange {
+  id: string;
+  createdAt: string;
+  source: "tag" | "selection";
+  targetIds: string[];
+  statusId: string;
+  before: Record<string, { statusId: string; revision: number }>;
+  afterRevisions: Record<string, number>;
+}
 export interface Workspace {
   schemaVersion: 1;
   id: string;
@@ -105,7 +142,11 @@ export interface Workspace {
   memberships: Membership[];
   views: SavedView[];
   batches: ImportBatch[];
-  settings: { extractorUrl?: string };
+  settings: {
+    extractorUrl?: string;
+    statusHistory?: StatusChange[];
+    copyPresets?: CopyPreset[];
+  };
 }
 export interface Geometry {
   workspaceId: string;
@@ -136,7 +177,7 @@ export function emptyWorkspace(name = "My collection"): Workspace {
     memberships: [],
     views: [],
     batches: [],
-    settings: {},
+    settings: { statusHistory: [], copyPresets: [] },
     statuses: [
       { id: "pending", label: "Pending", color: "#64748b", outcome: "active" },
       {
@@ -313,12 +354,48 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
     } else if (f.op === "not") checkFilter(f.rule, depth + 1);
     else if (f.op === "text") {
       if (typeof f.value !== "string") fail("text filter needs a value");
-    } else if (f.op === "status" || f.op === "tags") {
+    } else if (f.op === "url") {
+      if (
+        typeof f.value !== "string" ||
+        !["contains", "domain"].includes(f.mode)
+      )
+        fail("invalid URL filter");
+    } else if (
+      f.op === "status" ||
+      f.op === "tags" ||
+      f.op === "tag-type" ||
+      f.op === "tag-status"
+    ) {
+      const referenceSet =
+        f.op === "status" || f.op === "tag-status"
+          ? statuses
+          : f.op === "tags"
+            ? tagIds
+            : types;
       if (
         !Array.isArray(f.ids) ||
-        f.ids.some((id) => !(f.op === "status" ? statuses : tagIds).has(id))
+        f.ids.some((id) => !referenceSet.has(id)) ||
+        (f.op === "tags" &&
+          f.mode !== undefined &&
+          !["any", "all"].includes(f.mode))
       )
         fail("unknown filter reference");
+    } else if (f.op === "asset") {
+      if (
+        typeof f.present !== "boolean" ||
+        (f.kind !== undefined &&
+          !["image", "video", "audio"].includes(f.kind))
+      )
+        fail("invalid asset filter");
+    } else if (f.op === "date") {
+      if (
+        !["createdAt", "updatedAt"].includes(f.field) ||
+        (f.from !== undefined && !Number.isFinite(Date.parse(f.from))) ||
+        (f.to !== undefined && !Number.isFinite(Date.parse(f.to)))
+      )
+        fail("invalid date filter");
+      if (f.from && f.to && Date.parse(f.from) > Date.parse(f.to))
+        fail("date filter range is reversed");
     } else if (f.op === "distance") {
       if (
         !Array.isArray(f.tagIds) ||
@@ -330,6 +407,8 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
     } else if (f.op === "missing") {
       if (!["title", "description", "url", "asset"].includes(f.field))
         fail("unknown missing-field filter");
+    } else if (f.op === "no-tags") {
+      return;
     } else if (f.op === "batch") {
       if (!w.batches.some((b) => b.id === f.id)) fail("unknown filter batch");
     } else if (f.op === "same-tag") {
@@ -365,4 +444,82 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
   }
   if (!w.settings || typeof w.settings !== "object") fail("missing settings");
   if (w.settings.extractorUrl) urlKey(w.settings.extractorUrl);
+  if (w.settings.copyPresets !== undefined) {
+    if (!Array.isArray(w.settings.copyPresets))
+      fail("copy presets must be an array");
+    const presetIds = new Set<string>();
+    const copyFields = new Set<CopyField>([
+      "title",
+      "url",
+      "description",
+      "assetUrl",
+      "status",
+      "tags",
+    ]);
+    for (const preset of w.settings.copyPresets) {
+      if (
+        !preset ||
+        typeof preset.id !== "string" ||
+        !preset.id ||
+        presetIds.has(preset.id) ||
+        typeof preset.name !== "string" ||
+        !preset.name.trim() ||
+        !Array.isArray(preset.fields) ||
+        !preset.fields.length ||
+        preset.fields.some((field) => !copyFields.has(field)) ||
+        new Set(preset.fields).size !== preset.fields.length ||
+        typeof preset.separator !== "string" ||
+        !["plain", "markdown"].includes(preset.format) ||
+        !["all", "current"].includes(preset.scope) ||
+        !["title", "createdAt", "status"].includes(preset.sort) ||
+        (preset.template !== undefined && typeof preset.template !== "string")
+      )
+        fail("invalid copy preset");
+      presetIds.add(preset.id);
+    }
+  }
+  if (w.settings.statusHistory !== undefined) {
+    if (!Array.isArray(w.settings.statusHistory))
+      fail("status history must be an array");
+    for (const change of w.settings.statusHistory) {
+      if (
+        !change ||
+        typeof change.id !== "string" ||
+        !change.id ||
+        !Number.isFinite(Date.parse(change.createdAt)) ||
+        !["tag", "selection"].includes(change.source) ||
+        !Array.isArray(change.targetIds) ||
+        !change.targetIds.length ||
+        change.targetIds.some((id) => !bubbleIds.has(id) && !tagIds.has(id)) ||
+        !statuses.has(change.statusId) ||
+        !change.before ||
+        !change.afterRevisions
+      )
+        fail("invalid status history entry");
+      const beforeIds = Object.keys(change.before),
+        afterIds = Object.keys(change.afterRevisions);
+      if (
+        beforeIds.length !== change.targetIds.length ||
+        afterIds.length !== change.targetIds.length ||
+        change.targetIds.some(
+          (id) =>
+            !Object.prototype.hasOwnProperty.call(change.before, id) ||
+            !Object.prototype.hasOwnProperty.call(change.afterRevisions, id),
+        )
+      )
+        fail("status history targets do not match revisions");
+      for (const id of change.targetIds) {
+        const before = change.before[id];
+        if (
+          !before ||
+          !statuses.has(before.statusId) ||
+          !Number.isInteger(before.revision) ||
+          before.revision < 0 ||
+          !Number.isInteger(change.afterRevisions[id]) ||
+          change.afterRevisions[id] < before.revision
+        )
+          fail("invalid status history revision");
+      }
+    }
+  }
 }

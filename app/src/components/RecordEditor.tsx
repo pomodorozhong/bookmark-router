@@ -1,6 +1,11 @@
 import { Dialog } from "./Dialog";
 import { useState } from "react";
-import type { MediaKind, Workspace } from "../domain/model";
+import {
+  appearanceFor,
+  type Appearance,
+  type MediaKind,
+  type Workspace,
+} from "../domain/model";
 import type { Command } from "../domain/commands";
 import { Icon, IconButton } from "./Icon";
 export function RecordEditor({
@@ -11,7 +16,7 @@ export function RecordEditor({
 }: {
   workspace: Workspace;
   id: string;
-  onSave: (command: Command) => Promise<void>;
+  onSave: (command: Command | Command[]) => Promise<void>;
   onClose: () => void;
 }) {
   const bubble = workspace.bubbles.find((b) => b.id === id),
@@ -27,6 +32,17 @@ export function RecordEditor({
       bubble?.asset?.source === "remote" ? (bubble.asset.url ?? "") : "",
     ),
     [kind, setKind] = useState(bubble?.asset?.kind ?? "image");
+  const inherited = tag ? appearanceFor(tag, workspace) : undefined;
+  const [appearance, setAppearance] = useState<Appearance>(
+    inherited ?? { color: "#0f766e", size: 64, shape: "circle" },
+  );
+  const [appearanceOverrides, setAppearanceOverrides] = useState({
+    color: tag?.appearance.color !== undefined,
+    size: tag?.appearance.size !== undefined,
+    shape: tag?.appearance.shape !== undefined,
+    icon: tag?.appearance.icon !== undefined,
+  });
+  const [updateTypeDefaults, setUpdateTypeDefaults] = useState(false);
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   async function save() {
@@ -61,9 +77,32 @@ export function RecordEditor({
               url: url.trim() || undefined,
               statusId,
               typeId: typeId || undefined,
+              appearance: {
+                ...(appearanceOverrides.color ? { color: appearance.color } : {}),
+                ...(appearanceOverrides.size ? { size: appearance.size } : {}),
+                ...(appearanceOverrides.shape ? { shape: appearance.shape } : {}),
+                ...(appearanceOverrides.icon && appearance.icon?.trim()
+                  ? { icon: appearance.icon.trim() }
+                  : {}),
+              },
             },
           };
-      await onSave(command);
+      const commands: Command[] = [command];
+      if (tag && updateTypeDefaults && typeId) {
+        commands.push({
+          type: "tag-type.patch",
+          id: typeId,
+          patch: {
+            appearance: {
+              color: appearance.color,
+              size: appearance.size,
+              shape: appearance.shape,
+              ...(appearance.icon?.trim() ? { icon: appearance.icon.trim() } : {}),
+            },
+          },
+        });
+      }
+      await onSave(commands.length === 1 ? commands[0] : commands);
       onClose();
     } catch (e) {
       setError(String(e));
@@ -130,6 +169,128 @@ export function RecordEditor({
               ))}
             </select>
           </label>
+        )}
+        {tag && (
+          <section className="appearance-editor">
+            <div className="section-heading">
+              <div>
+                <h3>Appearance</h3>
+                <p className="subtle">
+                  Unchecked fields inherit from {typeId ? "the tag type" : "the workspace default"}.
+                </p>
+              </div>
+            </div>
+            <label className="appearance-field">
+              <span className="appearance-field-label">
+                <input
+                  type="checkbox"
+                  checked={appearanceOverrides.color}
+                  onChange={(event) =>
+                    setAppearanceOverrides({
+                      ...appearanceOverrides,
+                      color: event.target.checked,
+                    })
+                  }
+                />
+                Color override
+              </span>
+              <input
+                aria-label="Tag color"
+                type="color"
+                value={appearance.color}
+                disabled={!appearanceOverrides.color}
+                onChange={(event) => setAppearance({ ...appearance, color: event.target.value })}
+              />
+            </label>
+            <label className="appearance-field">
+              <span className="appearance-field-label">
+                <input
+                  type="checkbox"
+                  checked={appearanceOverrides.size}
+                  onChange={(event) =>
+                    setAppearanceOverrides({
+                      ...appearanceOverrides,
+                      size: event.target.checked,
+                    })
+                  }
+                />
+                Size override
+              </span>
+              <input
+                aria-label="Tag size"
+                type="range"
+                min="20"
+                max="160"
+                step="1"
+                value={appearance.size}
+                disabled={!appearanceOverrides.size}
+                onChange={(event) => setAppearance({ ...appearance, size: Number(event.target.value) })}
+              />
+              <output>{appearance.size}px</output>
+            </label>
+            <label className="appearance-field">
+              <span className="appearance-field-label">
+                <input
+                  type="checkbox"
+                  checked={appearanceOverrides.shape}
+                  onChange={(event) =>
+                    setAppearanceOverrides({
+                      ...appearanceOverrides,
+                      shape: event.target.checked,
+                    })
+                  }
+                />
+                Shape override
+              </span>
+              <select
+                aria-label="Tag shape"
+                value={appearance.shape}
+                disabled={!appearanceOverrides.shape}
+                onChange={(event) =>
+                  setAppearance({
+                    ...appearance,
+                    shape: event.target.value as Appearance["shape"],
+                  })
+                }
+              >
+                <option value="circle">Circle</option>
+                <option value="rounded-square">Rounded square</option>
+                <option value="diamond">Diamond</option>
+              </select>
+            </label>
+            <label className="appearance-field">
+              <span className="appearance-field-label">
+                <input
+                  type="checkbox"
+                  checked={appearanceOverrides.icon}
+                  onChange={(event) =>
+                    setAppearanceOverrides({
+                      ...appearanceOverrides,
+                      icon: event.target.checked,
+                    })
+                  }
+                />
+                Icon override
+              </span>
+              <input
+                aria-label="Tag icon"
+                placeholder="Optional symbol or icon name"
+                value={appearance.icon ?? ""}
+                disabled={!appearanceOverrides.icon}
+                onChange={(event) => setAppearance({ ...appearance, icon: event.target.value })}
+              />
+            </label>
+            {typeId && (
+              <label className="appearance-type-default">
+                <input
+                  type="checkbox"
+                  checked={updateTypeDefaults}
+                  onChange={(event) => setUpdateTypeDefaults(event.target.checked)}
+                />
+                Also update the {workspace.tagTypes.find((type) => type.id === typeId)?.name ?? "tag"} type default
+              </label>
+            )}
+          </section>
         )}
         {bubble && (
           <>

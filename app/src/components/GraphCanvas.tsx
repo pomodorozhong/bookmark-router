@@ -25,19 +25,35 @@ export function GraphCanvas({
   selected,
   onSelect,
   query,
+  matchingBubbleIds,
+  filtering,
+  hiddenTagIds = [],
   geometry,
   onGeometry,
   onImport, onClearSearch, onShowList,
+  statusUndoAvailable = false,
+  statusUndoBusy = false,
+  statusBarMessage,
+  onUndoStatus,
+  onDismissStatusUndo,
 }: {
   onImport: () => void;
   onClearSearch: () => void;
   onShowList: () => void;
+  statusUndoAvailable?: boolean;
+  statusUndoBusy?: boolean;
+  statusBarMessage?: string;
+  onUndoStatus?: () => void;
+  onDismissStatusUndo?: () => void;
   ref?: Ref<GraphCanvasHandle>;
   onPinsChanged: (ids: string[]) => void;
   workspace: Workspace;
   selected?: string;
   onSelect: (id: string) => void;
   query: string;
+  matchingBubbleIds?: string[];
+  filtering?: boolean;
+  hiddenTagIds?: string[];
   geometry?: Geometry;
   onGeometry: (geometry: Geometry) => void;
 }) {
@@ -169,7 +185,7 @@ export function GraphCanvas({
         return {
           id: tag.id,
           type: a.shape === "rounded-square" ? "rect" : a.shape,
-          data: { label: tag.name, tag: true },
+          data: { label: a.icon ? `${a.icon} ${tag.name}` : tag.name, tag: true },
           style: {
             x: 140 + i * 170,
             y: 200,
@@ -563,7 +579,15 @@ export function GraphCanvas({
             id: n.id,
             type:
               a?.shape === "rounded-square" ? "rect" : (a?.shape ?? "circle"),
-            data: { label: tag ? n.name : n.title, tag },
+            data: {
+              label: tag
+                ? (() => {
+                    const appearance = a!;
+                    return appearance.icon ? `${appearance.icon} ${n.name}` : n.name;
+                  })()
+                : n.title,
+              tag,
+            },
             style: {
               x: Number(neighbor?.style?.x ?? 120) + 80 + (i % 5) * 50,
               y:
@@ -590,7 +614,12 @@ export function GraphCanvas({
     g.updateNodeData([
       ...workspace.tags.map((t) => ({
         id: t.id,
-        data: { label: t.name, tag: true },
+        data: {
+          label: appearanceFor(t, workspace).icon
+            ? `${appearanceFor(t, workspace).icon} ${t.name}`
+            : t.name,
+          tag: true,
+        },
       })),
       ...workspace.bubbles.map((b) => ({ id: b.id, data: { label: b.title } })),
     ]);
@@ -624,26 +653,32 @@ export function GraphCanvas({
     }
     const term = query.toLowerCase();
     const matching = new Set(
-      workspace.bubbles
-        .filter((b) =>
-          `${b.title} ${b.description} ${b.url ?? ""}`
-            .toLowerCase()
-            .includes(term),
-        )
-        .map((b) => b.id),
+      matchingBubbleIds ??
+        workspace.bubbles
+          .filter((b) =>
+            `${b.title} ${b.description} ${b.url ?? ""}`
+              .toLowerCase()
+              .includes(term),
+          )
+          .map((b) => b.id),
     );
     const visibility: Record<string, "visible" | "hidden"> = {};
     for (const b of workspace.bubbles)
       visibility[b.id] = matching.has(b.id) ? "visible" : "hidden";
     const linkedTags = new Set(
       workspace.memberships
-        .filter((m) => matching.has(m.bubbleId))
+        .filter((m) => matching.has(m.bubbleId) && !hiddenTagIds.includes(m.tagId))
         .map((m) => m.tagId),
     );
+    const shouldFilterTags = filtering ?? (matchingBubbleIds === undefined ? Boolean(term) : true);
     for (const tag of workspace.tags)
-      visibility[tag.id] = !term || linkedTags.has(tag.id) ? "visible" : "hidden";
+      visibility[tag.id] = hiddenTagIds.includes(tag.id)
+        ? "hidden"
+        : !shouldFilterTags || linkedTags.has(tag.id)
+          ? "visible"
+          : "hidden";
     for (const m of workspace.memberships)
-      visibility[m.id] = matching.has(m.bubbleId) ? "visible" : "hidden";
+      visibility[m.id] = matching.has(m.bubbleId) && !hiddenTagIds.includes(m.tagId) ? "visible" : "hidden";
     g.updateNodeData(
       workspace.tags.map((tag) => ({
         id: tag.id,
@@ -688,7 +723,7 @@ export function GraphCanvas({
       .catch((e) => {
         if (graph.current === g) setError(String(e));
       });
-  }, [ready, selected, query, workspace]);
+  }, [ready, selected, query, matchingBubbleIds, filtering, hiddenTagIds, workspace]);
   async function action(work: (g: Graph) => Promise<unknown>) {
     if (!graph.current || !ready) return;
     try {
@@ -714,7 +749,8 @@ export function GraphCanvas({
           <button className="primary" onClick={onImport}>Open Import</button>
         </div>
       )}
-      {query && workspace.bubbles.length > 0 && !workspace.bubbles.some((b) => `${b.title} ${b.description} ${b.url ?? ""}`.toLowerCase().includes(query.toLowerCase())) && <div className="canvas-empty"><h2>No matching bubbles</h2><p>Try a different search or clear the filter.</p><button onClick={onClearSearch}>Clear search</button></div>}
+      {workspace.bubbles.length > 0 && matchingBubbleIds !== undefined && matchingBubbleIds.length === 0 && <div className="canvas-empty"><h2>No matching bubbles</h2><p>Try a different search or clear the filter.</p><button onClick={onClearSearch}>Clear search</button></div>}
+      {matchingBubbleIds === undefined && query && workspace.bubbles.length > 0 && !workspace.bubbles.some((b) => `${b.title} ${b.description} ${b.url ?? ""}`.toLowerCase().includes(query.toLowerCase())) && <div className="canvas-empty"><h2>No matching bubbles</h2><p>Try a different search or clear the filter.</p><button onClick={onClearSearch}>Clear search</button></div>}
       {error && (
         <div className="canvas-error" role="alert">
           <strong>The graph couldn’t load</strong>
@@ -724,9 +760,22 @@ export function GraphCanvas({
         </div>
       )}
       <div className="canvas-bottom">
-        <span className="subtle" role="status">
-          {!ready ? status : ""}
-        </span>
+        <div className="canvas-status">
+          {!ready && <span className="subtle" role="status">{status}</span>}
+          {statusBarMessage && (
+            <span className="canvas-status-message" role="status">
+              {statusBarMessage}
+            </span>
+          )}
+          {statusUndoAvailable && onUndoStatus && (
+            <div className="canvas-undo" role="status">
+              <button className="undo-button" disabled={statusUndoBusy} onClick={onUndoStatus}>
+                <Icon name="history" size={15} /> <span>Undo status</span>
+              </button>
+              {onDismissStatusUndo && <IconButton label="Dismiss status undo" icon="close" size={15} className="toolbar-dismiss" onClick={onDismissStatusUndo} />}
+            </div>
+          )}
+        </div>
         <div className="canvas-tools">
           <details className="help-menu"><summary aria-label="Graph help"><Icon name="info" /><span>Help</span></summary><div className="help-popover"><strong>Explore your collection</strong><p>Drag a bubble to move it. Scroll with two fingers to pan; pinch to zoom.</p><p>Select an item for Details. Pin it there to keep its position during layout.</p></div></details>
           <span className="zoom-value">{Math.round(zoom * 100)}%</span>

@@ -29,3 +29,32 @@ test('bubble/tag IDs cannot collide and malformed saved views reject',()=>{
 test('runtime patch cannot replace identity or revision',()=>{
  const w=demoWorkspace();assert.throws(()=>applyCommand(w,0,{type:'bubble.patch',id:'bubble-0',expectedRecordRevision:0,patch:{id:'hijacked'} as never}),/unsupported fields/);
 });
+test('appearance overrides inherit by field and can update type defaults',()=>{
+ const w=demoWorkspace();
+ const tag=w.tags[0];
+ const next=applyCommand(w,0,{type:'tag.patch',id:tag.id,expectedRecordRevision:0,patch:{appearance:{size:110,shape:'diamond'}}});
+ assert.equal(appearanceFor(next.tags[0],next).size,110);
+ assert.equal(appearanceFor(next.tags[0],next).shape,'diamond');
+ assert.equal(appearanceFor(next.tags[0],next).color,tag.appearance.color);
+ const inherited=applyCommand(next,1,{type:'tag.patch',id:tag.id,expectedRecordRevision:1,patch:{appearance:{}}});
+ assert.equal(appearanceFor(inherited.tags[0],inherited).size,64);
+ const typed=applyCommand(inherited,2,{type:'tag-type.patch',id:'topic',patch:{appearance:{shape:'rounded-square',size:88}}});
+ assert.equal(appearanceFor(typed.tags[1],typed).shape,'rounded-square');
+ assert.equal(appearanceFor(typed.tags[1],typed).size,88);
+});
+test('reviewed bulk status changes record an undo and reject later edits',()=>{
+ const w=demoWorkspace();
+ const targets=[w.tags[0],w.bubbles[0]];
+ const changed=applyCommand(w,0,{type:'status.bulk',source:'tag',targetIds:targets.map(r=>r.id),statusId:'done',reviewedRecordRevisions:Object.fromEntries(targets.map(r=>[r.id,r.revision]))});
+ assert.equal(changed.tags[0].statusId,'done');
+ assert.equal(changed.bubbles[0].statusId,'done');
+ const change=changed.settings.statusHistory![0];
+ const undone=applyCommand(changed,1,{type:'status.undo',changeId:change.id,reviewedRecordRevisions:change.afterRevisions});
+ assert.equal(undone.tags[0].statusId,'pending');
+ assert.equal(undone.bubbles[0].statusId,'pending');
+ assert.equal(undone.settings.statusHistory?.length,0);
+ const changedAgain=applyCommand(w,0,{type:'status.bulk',source:'selection',targetIds:['bubble-0'],statusId:'done',reviewedRecordRevisions:{'bubble-0':0}});
+ const record=changedAgain.bubbles[0];
+ record.revision++;
+ assert.throws(()=>applyCommand(changedAgain,1,{type:'status.undo',changeId:changedAgain.settings.statusHistory![0].id,reviewedRecordRevisions:changedAgain.settings.statusHistory![0].afterRevisions}),ConflictError);
+});

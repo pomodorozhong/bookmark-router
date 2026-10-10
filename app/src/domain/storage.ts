@@ -4,7 +4,12 @@ import type { ImportCommitCommand } from "./imports";
 import { makeBackup, prepareRestore } from "./backup";
 import type { Backup } from "./model";
 import { ConflictError, applyCommand, type Command } from "./commands";
-import { validateWorkspace, type Geometry, type Workspace } from "./model";
+import {
+  validateWorkspace,
+  type Asset,
+  type Geometry,
+  type Workspace,
+} from "./model";
 interface ProductDB extends DBSchema {
   workspaces: { key: string; value: Workspace };
   geometry: { key: string; value: Geometry };
@@ -152,6 +157,40 @@ export class WorkspaceStore {
   }
   async media(id: string) {
     return (await this.database).get("media", id);
+  }
+  async attachMedia(
+    id: string,
+    expectedRevision: number,
+    assignments: Array<{
+      bubbleId: string;
+      expectedRecordRevision: number;
+      asset: Asset;
+    }>,
+    files: Array<{ id: string; filename: string; mime: string; blob: Blob }>,
+  ) {
+    const tx = (await this.database).transaction(
+      ["workspaces", "media"],
+      "readwrite",
+    );
+    try {
+      const current = await tx.objectStore("workspaces").get(id);
+      if (!current) throw new ConflictError("Collection no longer exists.");
+      const next = applyCommand(current, expectedRevision, {
+        type: "media.attach",
+        assignments,
+      });
+      for (const file of files)
+        await tx.objectStore("media").put({ ...file, workspaceId: id });
+      await tx.objectStore("workspaces").put(next);
+      await tx.done;
+      return next;
+    } catch (error) {
+      try {
+        tx.abort();
+      } catch {}
+      await tx.done.catch(() => {});
+      throw error;
+    }
   }
   async saveGeometry(geometry: Geometry) {
     return (await this.database).put("geometry", geometry);

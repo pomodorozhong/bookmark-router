@@ -11,10 +11,12 @@ export type IconName =
   | "chevron-right"
   | "close"
   | "collection"
+  | "copy"
   | "download"
   | "edit"
   | "external"
   | "file"
+  | "filter"
   | "fit"
   | "graph"
   | "history"
@@ -50,10 +52,12 @@ const paths: Record<IconName, ReactNode> = {
       <circle cx="12" cy="12" r="2.5" />
     </>
   ),
+  copy: <path d="M8 8h11v12H8zM5 16H4V4h12v1" />,
   download: <path d="M12 4v10m0 0 4-4m-4 4-4-4M5 19.5h14" />,
   edit: <path d="m5 16.5-.8 3.3 3.3-.8L18.7 7.8a1.8 1.8 0 0 0-2.5-2.5L5 16.5Zm9.8-9.8 2.5 2.5" />,
   external: <path d="M13 5h6v6M19 5l-9 9M18 13v5.5H5.5V6H11" />,
   file: <path d="M7 3.5h7l4 4v13H7v-17Zm7 0v4h4M9.5 12h5M9.5 15.5h5" />,
+  filter: <path d="M4 5h16l-6 7v5l-4 2v-7L4 5Z" />,
   fit: <path d="M8 4H4v4m12-4h4v4M8 20H4v-4m12 4h4v-4" />,
   graph: (
     <>
