@@ -1,4 +1,5 @@
-import type { Bookmark, Status, Tag, Workspace } from "./model";
+import { hostOf, matchesFilter as engineMatches } from "./filters";
+import type { Bookmark, Filter, Status, Tag, Workspace } from "./model";
 
 export type TriageTab = "todo" | "done" | "dropped" | "all";
 export interface TriageFilter {
@@ -8,8 +9,95 @@ export interface TriageFilter {
   showEmptyGroups: boolean;
   /** Off hides bookmarks that are in no group of a shown type. */
   showUngrouped: boolean;
+  /** Filter chips; all must match. */
+  rules: Rule[];
 }
-export const emptyTriageFilter: TriageFilter = { text: "", hiddenTypeIds: [], showEmptyGroups: true, showUngrouped: true };
+export const emptyTriageFilter: TriageFilter = { text: "", hiddenTypeIds: [], showEmptyGroups: true, showUngrouped: true, rules: [] };
+
+// A filter chip: a bookmark matches when any of its values does, or, with `not`, when none does.
+export type RuleKind = "status" | "group" | "domain" | "has" | "import" | "added";
+export interface Rule { kind: RuleKind; values: string[]; not: boolean }
+export const ruleKinds: Array<{ kind: RuleKind; label: string }> = [
+  { kind: "status", label: "Status" }, { kind: "group", label: "Group" }, { kind: "domain", label: "Domain" },
+  { kind: "has", label: "Has" }, { kind: "import", label: "Import" }, { kind: "added", label: "Added" },
+];
+const hasValues = ["image", "description", "warning", "no group"] as const;
+
+// "Added" values are local calendar months, "YYYY-MM".
+const monthOf = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+function monthRange(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  return { from: new Date(y, m - 1, 1).toISOString(), to: new Date(new Date(y, m, 1).getTime() - 1).toISOString() };
+}
+
+/** The values a chip of this kind can pick, with their labels. */
+export function ruleOptions(workspace: Workspace, kind: RuleKind): Array<{ value: string; label: string }> {
+  if (kind === "status") return workspace.statuses.map((s) => ({ value: s.id, label: s.label }));
+  if (kind === "group") return workspace.tags.map((t) => ({ value: t.id, label: t.name }));
+  if (kind === "has") return hasValues.map((v) => ({ value: v, label: v }));
+  if (kind === "import") return workspace.batches.map((b) => ({ value: b.id, label: `${b.source} · ${new Date(b.createdAt).toLocaleDateString()}` }));
+  if (kind === "domain") {
+    const counts = new Map<string, number>();
+    for (const b of workspace.bookmarks) { const h = hostOf(b.url); if (h) counts.set(h, (counts.get(h) ?? 0) + 1); }
+    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([h]) => ({ value: h, label: h }));
+  }
+  const months = [...new Set(workspace.bookmarks.map((b) => monthOf(b.createdAt)))].sort().reverse();
+  return months.map((m) => ({ value: m, label: new Date(`${m}-01T12:00:00`).toLocaleDateString(undefined, { year: "numeric", month: "long" }) }));
+}
+
+function leaf(kind: RuleKind, value: string): Filter {
+  if (kind === "domain") return { op: "url", value, mode: "host" };
+  if (kind === "import") return { op: "batch", id: value };
+  if (kind === "added") return { op: "date", field: "createdAt", ...monthRange(value) };
+  if (value === "image") return { op: "asset", present: true, kind: "image" };
+  if (value === "description") return { op: "not", rule: { op: "missing", field: "description" } };
+  return value === "warning" ? { op: "warning" } : { op: "no-tags" };
+}
+/** The chips and search text as one filter for the filter engine, which saved views store. */
+export function compileRules(rules: Rule[], text = ""): Filter {
+  return {
+    op: "all",
+    rules: [
+      ...rules.filter((r) => r.values.length).map((r): Filter => {
+        const one: Filter = r.kind === "status" ? { op: "status", ids: r.values }
+          : r.kind === "group" ? { op: "tags", ids: r.values, mode: "any" }
+          : r.values.length === 1 ? leaf(r.kind, r.values[0]) : { op: "any", rules: r.values.map((v) => leaf(r.kind, v)) };
+        return r.not ? { op: "not", rule: one } : one;
+      }),
+      ...(text.trim() ? [{ op: "text" as const, value: text.trim() }] : []),
+    ],
+  };
+}
+function readLeaf(f: Filter): { kind: RuleKind; values: string[] } | undefined {
+  if (f.op === "status") return { kind: "status", values: f.ids };
+  if (f.op === "tags" && f.mode !== "all") return { kind: "group", values: f.ids };
+  if (f.op === "url" && f.mode === "host") return { kind: "domain", values: [f.value] };
+  if (f.op === "batch") return { kind: "import", values: [f.id] };
+  if (f.op === "date" && f.field === "createdAt" && f.from) return { kind: "added", values: [monthOf(f.from)] };
+  if (f.op === "asset" && f.present && f.kind === "image") return { kind: "has", values: ["image"] };
+  if (f.op === "not" && f.rule.op === "missing" && f.rule.field === "description") return { kind: "has", values: ["description"] };
+  if (f.op === "warning") return { kind: "has", values: ["warning"] };
+  if (f.op === "no-tags") return { kind: "has", values: ["no group"] };
+  if (f.op === "any") {
+    const parts = f.rules.map(readLeaf);
+    if (parts.length && parts.every((p) => p && p.kind === parts[0]!.kind)) return { kind: parts[0]!.kind, values: parts.flatMap((p) => p!.values) };
+  }
+  return undefined;
+}
+/** Chips and search text back from a saved view's filter, or undefined if it is not one the chips can show. */
+export function readRules(filter: Filter): { rules: Rule[]; text: string } | undefined {
+  if (filter.op !== "all") return undefined;
+  const rules: Rule[] = [];
+  let text = "";
+  for (const f of filter.rules) {
+    if (f.op === "text") { text = f.value; continue; }
+    const not = f.op === "not" && !(f.rule.op === "missing");
+    const part = readLeaf(not && f.op === "not" ? f.rule : f);
+    if (!part) return undefined;
+    rules.push({ ...part, not });
+  }
+  return { rules, text };
+}
 type Point = readonly [number, number];
 
 // Tabs follow status outcomes, so collections with their own statuses still work.
@@ -41,18 +129,34 @@ export function matchesFilter(bookmark: Bookmark, workspace: Workspace, filter: 
   return groupsOf(workspace, bookmark.id).some((t) => !filter.hiddenTypeIds.includes(t.typeId ?? "") && t.name.toLowerCase().includes(q));
 }
 
-// Whether a bookmark passes the filter: its text matches, and with showUngrouped
-// off, it belongs to a group of a shown type.
+const matchesRules = (bookmark: Bookmark, workspace: Workspace, filter: TriageFilter) =>
+  !filter.rules.length || engineMatches(compileRules(filter.rules), bookmark, workspace);
+
+// Whether a bookmark passes the filter: its text matches, its chips match, and with
+// showUngrouped off, it belongs to a group of a shown type.
 function passesFilter(bookmark: Bookmark, workspace: Workspace, filter: TriageFilter): boolean {
-  return matchesFilter(bookmark, workspace, filter)
+  return matchesFilter(bookmark, workspace, filter) && matchesRules(bookmark, workspace, filter)
     && (filter.showUngrouped || groupsOf(workspace, bookmark.id).some((t) => !filter.hiddenTypeIds.includes(t.typeId ?? "")));
+}
+
+/** For a chip's menu: how many bookmarks in the tab each value would leave, with the other chips applied. */
+export function ruleValueCounts(workspace: Workspace, filter: TriageFilter, tab: TriageTab, index: number): Map<string, number> {
+  const rule = filter.rules[index];
+  const others = { ...filter, rules: filter.rules.filter((_, i) => i !== index) };
+  const base = workspace.bookmarks.filter((b) => inTab(b, workspace, tab) && passesFilter(b, workspace, others));
+  const counts = new Map<string, number>();
+  for (const { value } of ruleOptions(workspace, rule.kind)) {
+    const f = compileRules([{ kind: rule.kind, values: [value], not: false }]);
+    counts.set(value, base.filter((b) => engineMatches(f, b, workspace)).length);
+  }
+  return counts;
 }
 
 // Bookmarks and groups the graph shows for a filter and queue tab. A group shows when its type
 // is visible and it has a shown bookmark, or its name matches (or, with
 // showEmptyGroups, it has no text filter to fail). The kept bookmarks always show, and
 // their groups of a hidden type peek: they show, with their bookmarks that pass the
-// text filter and tab, as peekTagIds.
+// text filter, chips, and tab, as peekTagIds.
 export function graphVisibility(workspace: Workspace, filter: TriageFilter, tab: TriageTab = "all", keepIds: string[] = []) {
   const typeHidden = (t: Tag) => filter.hiddenTypeIds.includes(t.typeId ?? "");
   const tagsOf = new Map<string, string[]>();
@@ -62,7 +166,7 @@ export function graphVisibility(workspace: Workspace, filter: TriageFilter, tab:
   const peeking = new Set(peekTagIds);
   const bookmarkIds = workspace.bookmarks
     .filter((b) => keepIds.includes(b.id) || (inTab(b, workspace, tab) && (passesFilter(b, workspace, filter)
-      || ((tagsOf.get(b.id) ?? []).some((id) => peeking.has(id)) && matchesFilter(b, workspace, filter)))))
+      || ((tagsOf.get(b.id) ?? []).some((id) => peeking.has(id)) && matchesFilter(b, workspace, filter) && matchesRules(b, workspace, filter)))))
     .map((b) => b.id);
   const shown = new Set(bookmarkIds);
   const q = filter.text.trim().toLowerCase();

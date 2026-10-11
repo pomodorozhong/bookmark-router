@@ -3,12 +3,16 @@ import assert from "node:assert/strict";
 import { emptyWorkspace, type Workspace } from "../src/domain/model";
 import {
   clockwise,
+  compileRules,
   emptyTriageFilter,
   formatCopy,
   graphVisibility,
   reasonFor,
+  readRules,
   relatedOf,
+  ruleValueCounts,
   triageQueue,
+  type Rule,
 } from "../src/domain/triage";
 
 function fixture(): Workspace {
@@ -115,4 +119,28 @@ test("copy templates fill fields and keep unknown placeholders", () => {
   const [a, b] = w.bookmarks;
   assert.equal(formatCopy([a, b], w, "{n}. [{title}]({url}) {domain}", "\n"), "1. [Price test](https://www.example.com/a) example.com\n2. [Keywords](https://b.dev/x) b.dev");
   assert.equal(formatCopy([a], w, "{issues} | {topics} | {status} | {description} | {nope}", ""), "#143 Pricing | SEO | Pending | A pricing experiment | {nope}");
+});
+
+test("filter chips narrow the queue, and a saved view reads back as the same chips", () => {
+  const w = fixture();
+  const ids = (list: { id: string }[]) => list.map((b) => b.id);
+  const rules: Rule[] = [{ kind: "group", values: ["t-seo"], not: false }, { kind: "status", values: ["done"], not: true }];
+  assert.deepEqual(ids(triageQueue(w, { tab: "all", filter: { ...emptyTriageFilter, rules } })), ["a"]);
+  // Exact domains: x.com does not catch dropbox.com, but does catch a subdomain.
+  w.bookmarks[1].url = "https://dropbox.com/x"; w.bookmarks[2].url = "https://m.x.com/post";
+  assert.deepEqual(ids(triageQueue(w, { tab: "all", filter: { ...emptyTriageFilter, rules: [{ kind: "domain", values: ["x.com"], not: false }] } })), ["c"]);
+  // "Has" values: a warning, and no group at all.
+  w.bookmarks[1].notes = [{ label: "Link check", text: "404" }];
+  assert.deepEqual(ids(triageQueue(w, { tab: "all", filter: { ...emptyTriageFilter, rules: [{ kind: "has", values: ["warning", "no group"], not: false }] } })), ["b", "c"]);
+  const all: Rule[] = [...rules, { kind: "has", values: ["description"], not: true }, { kind: "has", values: ["image", "warning"], not: false }, { kind: "added", values: ["2026-10"], not: false }];
+  assert.deepEqual(readRules(compileRules(all, "pricing")), { rules: all, text: "pricing" });
+});
+
+test("a chip's menu counts each value against the other chips", () => {
+  const w = fixture();
+  const filter = { ...emptyTriageFilter, rules: [{ kind: "status" as const, values: [], not: false }, { kind: "group" as const, values: ["t-seo"], not: false }] };
+  const counts = ruleValueCounts(w, filter, "all", 0);
+  assert.equal(counts.get("pending"), 1);
+  assert.equal(counts.get("done"), 1);
+  assert.equal(counts.get("dropped"), 0);
 });
