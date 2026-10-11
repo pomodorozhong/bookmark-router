@@ -1,6 +1,7 @@
 import { Dialog } from "./Dialog";
 import { useState } from "react";
 import { NodePreview } from "./NodePreview";
+import { ColorPicker, PointsPicker, StylePicker } from "./AppearancePickers";
 import {
   appearanceFor,
   defaultAppearance,
@@ -57,13 +58,16 @@ export function RecordEditor({
     color: appearanceOverrides.color ? appearance.color : typeAppearance.color,
     size: appearanceOverrides.size ? appearance.size : typeAppearance.size,
     shape: appearanceOverrides.shape ? appearance.shape : typeAppearance.shape,
+    // Direction belongs to the shape: overriding one overrides both.
+    points: appearanceOverrides.shape ? appearance.points : typeAppearance.points,
     icon: appearanceOverrides.icon ? appearance.icon : typeAppearance.icon,
   };
   const overridden = Object.values(appearanceOverrides).some(Boolean);
   const typeLabel = workspace.tagTypes.find((t) => t.id === typeId)?.name ?? "the default";
   // Checking an override starts from the value it was inheriting.
   const override = (field: keyof typeof appearanceOverrides, on: boolean) => {
-    if (on && !appearanceOverrides[field]) setAppearance({ ...appearance, [field]: effective[field] });
+    if (on && !appearanceOverrides[field])
+      setAppearance({ ...appearance, [field]: effective[field], ...(field === "shape" ? { points: effective.points } : {}) });
     setAppearanceOverrides({ ...appearanceOverrides, [field]: on });
   };
   const [error, setError] = useState(""),
@@ -103,7 +107,7 @@ export function RecordEditor({
               appearance: {
                 ...(appearanceOverrides.color ? { color: appearance.color } : {}),
                 ...(appearanceOverrides.size ? { size: appearance.size } : {}),
-                ...(appearanceOverrides.shape ? { shape: appearance.shape } : {}),
+                ...(appearanceOverrides.shape ? { shape: appearance.shape, points: appearance.points } : {}),
                 ...(appearanceOverrides.icon && appearance.icon?.trim()
                   ? { icon: appearance.icon.trim() }
                   : {}),
@@ -120,6 +124,7 @@ export function RecordEditor({
               color: effective.color,
               size: effective.size,
               shape: effective.shape,
+              points: effective.points,
               ...(effective.icon?.trim() ? { icon: effective.icon.trim() } : {}),
             },
           },
@@ -205,23 +210,18 @@ export function RecordEditor({
             <div className="appearance-body">
             <div className="appearance-fields">
             <p className="subtle">Unchecked fields use {typeId ? `the ${typeLabel} type` : "the workspace default"}.</p>
-            <label className="appearance-field">
-              <span className="appearance-field-label">
+            <div className="appearance-field wide">
+              <label className="appearance-field-label">
                 <input
                   type="checkbox"
                   checked={appearanceOverrides.color}
                   onChange={(event) => override("color", event.target.checked)}
                 />
                 Color override
-              </span>
-              <input
-                aria-label="Tag color"
-                type="color"
-                value={effective.color}
-                disabled={!appearanceOverrides.color}
-                onChange={(event) => setAppearance({ ...appearance, color: event.target.value })}
-              />
-            </label>
+              </label>
+              <ColorPicker label="Tag color" value={effective.color} disabled={!appearanceOverrides.color}
+                onChange={(color) => setAppearance({ ...appearance, color })} />
+            </div>
             <label className="appearance-field">
               <span className="appearance-field-label">
                 <input
@@ -243,31 +243,21 @@ export function RecordEditor({
               />
               <output>{effective.size}px</output>
             </label>
-            <label className="appearance-field">
-              <span className="appearance-field-label">
+            <div className="appearance-field wide">
+              <label className="appearance-field-label">
                 <input
                   type="checkbox"
                   checked={appearanceOverrides.shape}
                   onChange={(event) => override("shape", event.target.checked)}
                 />
-                Shape override
-              </span>
-              <select
-                aria-label="Tag shape"
-                value={effective.shape}
-                disabled={!appearanceOverrides.shape}
-                onChange={(event) =>
-                  setAppearance({
-                    ...appearance,
-                    shape: event.target.value as Appearance["shape"],
-                  })
-                }
-              >
-                <option value="circle">Circle</option>
-                <option value="rounded-square">Rounded square</option>
-                <option value="diamond">Diamond</option>
-              </select>
-            </label>
+                Style and direction override
+              </label>
+              <StylePicker value={effective} disabled={!appearanceOverrides.shape} onChange={(patch) => setAppearance({ ...appearance, ...patch })} />
+              <div className="points-field">
+                <PointsPicker value={effective} disabled={!appearanceOverrides.shape} onChange={(points) => setAppearance({ ...appearance, points })} />
+                <span className="subtle">Which way the end with the hole points. On a diagonal the icon tilts with the tag.</span>
+              </div>
+            </div>
             <label className="appearance-field">
               <span className="appearance-field-label">
                 <input
