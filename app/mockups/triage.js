@@ -32,8 +32,19 @@ function matchesText(b) {
     || [...links.get(b.id)].some((t) => filter.types.has(tags.get(t).typeId) && tags.get(t).name.toLowerCase().includes(q));
 }
 const shownBubble = (b) => matchesText(b) && (filter.decided || b.statusId === "pending" || b.statusId === "in-progress" || b.id === state.current);
-const visible = () => w.bubbles.filter((b) => !state.selection || state.selection.has(b.id)).filter(matchesText).filter((b) => state.tab === "all" || (state.tab === "pending" ? b.statusId === "pending"
-  : state.tab === "later" ? b.statusId === "in-progress" : b.statusId === "done" || b.statusId === "dropped"));
+const visible = () => clockwise(w.bubbles.filter((b) => !state.selection || state.selection.has(b.id)).filter(matchesText).filter((b) => state.tab === "all" || (state.tab === "pending" ? b.statusId === "pending"
+  : state.tab === "later" ? b.statusId === "in-progress" : b.statusId === "done" || b.statusId === "dropped")));
+// A box selection is ordered clockwise from 12 o'clock around the selection's
+// center, so the queue sweeps around the graph and neighbors stay together.
+function clockwise(list) {
+  if (!state.selection || typeof graph === "undefined") return list;
+  const at = new Map([...state.selection].map((id) => [id, graph.getElementPosition(id)]));
+  const cx = [...at.values()].reduce((sum, p) => sum + p[0], 0) / at.size;
+  const cy = [...at.values()].reduce((sum, p) => sum + p[1], 0) / at.size;
+  const angle = (id) => { const [x, y] = at.get(id); return (Math.atan2(x - cx, cy - y) + 2 * Math.PI) % (2 * Math.PI); };
+  const distance = (id) => { const [x, y] = at.get(id); return Math.hypot(x - cx, y - cy); };
+  return [...list].sort((a, b) => angle(a.id) - angle(b.id) || distance(a.id) - distance(b.id));
+}
 const relatedOf = (id) => {
   const via = new Map();
   for (const tagId of links.get(id)) for (const other of members.get(tagId)) if (other !== id) via.set(other, [...(via.get(other) ?? []), tagId]);
