@@ -3,6 +3,7 @@ import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { CopyDialog, type CopyScope } from "./CopyDialog";
 import { RecordEditor } from "./RecordEditor";
 import { TagView } from "./TagView";
+import { FilterChips } from "./FilterChips";
 import { Cover, type LoadMedia } from "./Cover";
 import { Icon, IconButton } from "./Icon";
 import type { Command } from "../domain/commands";
@@ -220,7 +221,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     return () => document.removeEventListener("pointerdown", close);
   }, [moreOpen]);
 
-  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showEmptyGroups || !filter.showUngrouped);
+  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showEmptyGroups || !filter.showUngrouped || filter.rules.length);
   const total = workspace.bookmarks.length || 1;
   return (
     <div className={`triage ${queueOpen ? "" : "queue-closed"}`}>
@@ -312,6 +313,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   </div>
                 )}
               </span>
+              <FilterChips workspace={workspace} filter={filter} tab={tab} onChange={changeFilter} save={(c, label) => save(c, label)} />
             </div>
           </div>
           {toast}
