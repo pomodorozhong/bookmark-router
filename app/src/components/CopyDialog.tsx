@@ -11,7 +11,7 @@ const previewLimit = 40;
 // The template is remembered on this device, not per collection.
 function remembered(): { template: string; separator: string } {
   try {
-    const saved = JSON.parse(localStorage.getItem("bookmark-tag-copy") ?? localStorage.getItem("bubble-tag-copy") ?? "null");
+    const saved = JSON.parse(localStorage.getItem("bookmark-tag-copy") ?? "null");
     if (typeof saved?.template === "string" && typeof saved?.separator === "string") return saved;
   } catch { /* fall back to the first preset */ }
   return copyPresets[0];

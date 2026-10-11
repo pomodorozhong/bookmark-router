@@ -5,7 +5,6 @@ import {
   urlKey,
   isWebUrl,
   storedUrlKey,
-  upgradeWorkspace,
   validateWorkspace,
   type Workspace,
   type Backup,
@@ -202,16 +201,14 @@ export function parseImport(
     };
   }
   const backup = JSON.parse(text) as Backup;
-  // Version 1 backups were written as "bubble-tag", before bookmarks were renamed.
-  const legacy = (backup.format as string) === "bubble-tag" && (backup.version as number) === 1;
   if (
-    !(legacy || (backup.format === "bookmark-tag" && backup.version === 2)) ||
+    backup.format !== "bookmark-tag" ||
+    backup.version !== 2 ||
     !Array.isArray(backup.media)
   )
     throw new Error(
-      "Use a versioned Bookmark & Tag JSON backup. Prototype JSON is not supported.",
+      "Use a versioned Bookmark & Tag JSON backup. Prototype JSON is not supported; for an older Bubble & Tag backup, run npm run upgrade-backup first.",
     );
-  if (legacy) Object.assign(backup, { format: "bookmark-tag", version: 2, workspace: upgradeWorkspace(backup.workspace) });
   validateWorkspace(backup.workspace);
   const mediaIds = new Set<string>();
   for (const media of backup.media) {

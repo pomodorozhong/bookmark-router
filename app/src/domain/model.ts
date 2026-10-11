@@ -241,28 +241,6 @@ export function appearanceFor(tag: Tag, workspace: Workspace): Appearance {
 function fail(message: string): never {
   throw new Error(`Invalid workspace: ${message}`);
 }
-// Collections and backups saved before October 12, 2026 (schema version 1) call bookmarks
-// "bubbles": `bubbles`, and `bubbleId` / `bubbleIds` in memberships and import batches.
-// This renames those fields; anything else passes through unchanged.
-export function upgradeWorkspace<T>(raw: T): T {
-  type Legacy = Record<string, unknown> & { bubbleId?: unknown; bubbleIds?: unknown; beforeMemberships?: unknown };
-  const w = raw as Legacy;
-  if (!w || typeof w !== "object" || w.schemaVersion !== 1) return raw;
-  const membership = ({ bubbleId, ...m }: Legacy) => ({ ...m, bookmarkId: bubbleId });
-  const list = (value: unknown, map: (item: Legacy) => unknown) => (Array.isArray(value) ? value.map(map) : value);
-  const { bubbles, ...rest } = w;
-  return {
-    ...rest,
-    schemaVersion: 2,
-    bookmarks: bubbles,
-    memberships: list(rest.memberships, membership),
-    batches: list(rest.batches, ({ bubbleIds, ...batch }) => ({
-      ...batch,
-      bookmarkIds: bubbleIds,
-      ...(batch.beforeMemberships ? { beforeMemberships: list(batch.beforeMemberships, membership) } : {}),
-    })),
-  } as T;
-}
 export function validateWorkspace(value: unknown): asserts value is Workspace {
   if (!value || typeof value !== "object") fail("expected an object");
   const w = value as Workspace;
