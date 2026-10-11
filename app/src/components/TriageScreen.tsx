@@ -108,9 +108,11 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     setMenuOpen(false);
     if (frame) setFrameRequest(++frameToken.current);
   }
+  // Moving past either end of the queue wraps around to the other.
   function move(step: number) {
+    if (!queue.length) return;
     const i = queue.findIndex((b) => b.id === current?.id);
-    show(queue[Math.max(0, Math.min(queue.length - 1, i + step))]?.id);
+    show(queue[i === -1 ? (step > 0 ? 0 : queue.length - 1) : (i + step + queue.length) % queue.length].id);
   }
   // The bookmark after this one in the queue as it was before a decision.
   const nextAfter = (id: string) => {
@@ -324,7 +326,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
               {tagPanel!.editing
                 ? <RecordEditor key={panelTag.id} inline workspace={workspace} id={panelTag.id} onSave={(c) => save(c)} onNewType={onTagTypes}
                     onClose={() => setTagPanel({ id: panelTag.id, editing: false })} />
-                : <TagView tag={panelTag} workspace={workspace} loadMedia={loadMedia} onOpen={(id) => show(id)}
+                : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
                     onCopy={() => openCopy("selection")} onEdit={() => setTagPanel({ id: panelTag.id, editing: true })} onClose={() => setTagPanel(undefined)} />}
             </div>
           ) : current ? (

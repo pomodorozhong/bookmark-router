@@ -5,8 +5,10 @@ import { appearanceFor, isWebUrl, type Tag, type Workspace } from "../domain/mod
 import { domainOf, reasonFor } from "../domain/triage";
 
 /** A tag (an issue, proposal, or topic) to read on its own: what it is and which bookmarks belong to it. */
-export function TagView({ tag, workspace, loadMedia, onOpen, onCopy, onEdit, onClose }: {
+export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEdit, onClose }: {
   tag: Tag;
+  /** Bookmark IDs in display order, such as the clockwise selection; others follow. */
+  order?: string[];
   workspace: Workspace;
   loadMedia: LoadMedia;
   onOpen: (bubbleId: string) => void;
@@ -17,7 +19,9 @@ export function TagView({ tag, workspace, loadMedia, onOpen, onCopy, onEdit, onC
   const type = workspace.tagTypes.find((t) => t.id === tag.typeId);
   const status = (id: string) => workspace.statuses.find((s) => s.id === id)?.label ?? "";
   const ids = new Set(workspace.memberships.filter((m) => m.tagId === tag.id).map((m) => m.bubbleId));
-  const bookmarks = workspace.bubbles.filter((b) => ids.has(b.id));
+  const rank = new Map(order?.map((id, i) => [id, i]));
+  const bookmarks = workspace.bubbles.filter((b) => ids.has(b.id))
+    .sort((a, b) => (rank.get(a.id) ?? rank.size) - (rank.get(b.id) ?? rank.size));
   const statuses = [...new Set(bookmarks.map((b) => status(b.statusId)))];
   return (
     <div className="tag-view">
