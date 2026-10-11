@@ -45,8 +45,25 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 - Some remote covers fail to load (403, for example Twitter profile images); they stay blank.
 - Hidden nodes hold their place during a reset, so a peeking group or a re-shown bookmark can appear on top of shown nodes or off-screen.
 - The old `bubble-tag-v1` browser database still holds the pre-rename collections; it can be cleared once nothing more is needed from it.
-- Untracked in the repo root, not created by the assistant: `bookmarks-converted_.json`, `bookmarks-visible.json` (both old-format backups); `.claude/launch.json` starts the dev server for the browser preview. The in-app browser pane is too throttled to lay out the graph; headless Chrome over CDP with a restored backup works (localStorage does not survive between headless runs).
+- Untracked in the repo root, not created by the assistant: `bookmarks-converted_.json`, `bookmarks-visible.json` (old-format backups; run `upgrade-backup` before restoring). `bookmarks-converted.json` (git-ignored) was also made before the rename; run `npm run convert` again to get the new format. `.claude/launch.json` starts the dev server for the browser preview.
+- The branch `codex/bubble-tag-product` (its name predates the rename) is 83 commits ahead of `origin/main` and not pushed.
 
 **Next**
-1. User tries round 3 (filter chips and views) and reports anything to fix.
+1. User tries round 3 and reports anything to fix:
+   - Copy for an issue: add Group: #143 Pricing, then Status: Done and Dropped with Not ticked, and press Copy….
+   - Save a view, clear the chips, then pick the view from Views.
+   - Fill gaps: add Has: description with Not ticked, then go through what's left.
 2. Round 4: WebMCP — needs the user's browser and agent pair.
+
+**How the user likes to work**
+- Mockup first for anything visual, published as a clickable Artifact; wait for approval. A mockup must work cleanly (no dead controls or layout bugs) and show the user's own use cases, not abstract options, or it can't be judged.
+- Explain the use case behind a proposal in terms of what the user does in the app; round 3 was unclear until it was put that way.
+- When the user proposes a solution, evaluate it and suggest better options before building; build their proposal only after they pick.
+- Keep the code simple: a one-off command beats permanent in-app machinery for something done a few times (the rename's in-app upgrade was replaced by `npm run upgrade-backup` for this reason).
+- Small rounds, each ending with 2–4 short "You try" tasks; verify on the user's real collection before reporting; conventional commits split by concern.
+- The user runs the dev server themselves at `http://127.0.0.1:5199`; their collections live in that origin's browser storage.
+
+**Verifying on the real collection**
+- The in-app browser pane is too throttled to lay out the graph. Headless Chrome driven over the DevTools protocol (Node's built-in WebSocket, `--remote-debugging-port`, a throwaway `--user-data-dir`) works.
+- To load data: run `npm run convert -- ../bookmarks-working.json node_modules/.tmp-verify/bk.json` in `app/` (Vite serves files under `node_modules/`), then in the page fetch it, set it on the import screen's file input with a `DataTransfer`, choose Workspace JSON → Read source → Confirm restore. Delete the copy afterwards.
+- Use the toolbar's zoom buttons, not wheel events (those pan the saved view away). localStorage does not survive between headless runs, so pick the restored collection from the Collections menu each run, or check reloads within one run.
