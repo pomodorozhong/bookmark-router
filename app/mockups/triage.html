@@ -36,7 +36,14 @@
   .decided { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: #e5ece8; }
   .stage { position: relative; min-width: 0; }
   #graph { position: absolute; inset: 0; }
-  .stage-tools { position: absolute; left: 12px; top: 12px; display: flex; gap: 6px; z-index: 2; }
+  .stage-tools { position: absolute; left: 12px; top: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 2; align-items: center; }
+  .filter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-left: auto; background: #ffffffeb; border: 1px solid var(--line); border-radius: 10px; padding: 4px 6px; }
+  .filter input[type=search] { font: inherit; border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; width: 190px; }
+  .filter label { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); padding: 4px 6px; border-radius: 6px; cursor: pointer; user-select: none; }
+  .filter label:has(input:not(:checked)) { opacity: .5; text-decoration: line-through; }
+  .filter label input { display: none; }
+  .filter .sep { width: 1px; height: 18px; background: var(--line); }
+  .filter .count { font-size: 12px; color: var(--muted); padding: 0 4px; }
   .legend { position: absolute; left: 12px; bottom: 12px; z-index: 2; display: flex; gap: 12px; align-items: center; background: #ffffffe6; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--muted); }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
   .legend .ring { border-radius: 50%; border: 2px solid var(--teal); background: #fff; }
@@ -86,7 +93,7 @@
 </style>
 </head>
 <body>
-<div class="mock-banner">Mockup — nothing is saved. Keys: K keep · X drop · D duplicate · L later · ↑/↓ move · / add to a group · Q show/hide queue</div>
+<div class="mock-banner">Mockup — nothing is saved. Keys: K keep · X drop · D duplicate · L later · ↑/↓ move · / add to a group · F filter · Q show/hide queue · trackpad: two-finger scroll pans, pinch zooms</div>
 <header>
   <h1>Triage</h1>
   <div class="progress"><div class="bar" id="bar"></div><span id="counts"></span></div>
@@ -96,7 +103,16 @@
   <nav class="queue" id="queue"></nav>
   <div class="stage">
     <div id="graph"></div>
-    <div class="stage-tools"><button id="toggle-queue" title="Show/hide queue (Q)">☰ Queue</button><button id="fit" title="See the whole collection">Whole collection</button><button id="focus" title="Back to the current bookmark">Current</button></div>
+    <div class="stage-tools"><button id="toggle-queue" title="Show/hide queue (Q)">☰ Queue</button><button id="fit" title="See the whole collection">Whole collection</button><button id="focus" title="Back to the current bookmark">Current</button>
+      <div class="filter" id="filter">
+        <input type="search" id="filter-text" placeholder="Filter bookmarks and groups…  ( F )" />
+        <label title="Show existing issues"><input type="checkbox" data-type="type:existing-issue" checked /><i class="swatch" style="background:var(--issue)"></i>Existing issues</label>
+        <label title="Show proposal issues"><input type="checkbox" data-type="type:proposal-issue" checked /><i class="swatch" style="background:var(--proposal)"></i>Proposals</label>
+        <label title="Show topics"><input type="checkbox" data-type="type:topic" checked /><i class="swatch" style="background:var(--topic)"></i>Topics</label>
+        <span class="sep"></span>
+        <label title="Show bookmarks already kept or dropped"><input type="checkbox" id="filter-decided" checked />Decided bookmarks</label>
+        <span class="count" id="filter-count"></span>
+      </div></div>
     <div class="legend"><span><i class="ring"></i>Current</span><span><i class="rel"></i>Related (shares a group)</span><span><i style="background:var(--issue)"></i>Existing issue</span><span><i style="background:var(--proposal)"></i>Proposal issue</span><span><i style="background:var(--topic)"></i>Topic</span></div>
   </div>
   <aside class="panel"><div class="detail" id="card"></div><div class="decisions" id="decisions"></div></aside>

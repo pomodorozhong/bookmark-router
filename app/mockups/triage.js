@@ -15,6 +15,7 @@ const links = new Map(w.bubbles.map((b) => [b.id, new Set()]));
 const members = new Map(w.tags.map((t) => [t.id, new Set()]));
 for (const m of w.memberships) { links.get(m.bubbleId).add(m.tagId); members.get(m.tagId).add(m.bubbleId); }
 
+const filter = { text: "", types: new Set(["type:existing-issue", "type:proposal-issue", "type:topic"]), decided: true };
 const state = { tab: "pending", current: undefined, query: "", menuIndex: 0, dupFor: undefined, last: undefined, options: [] };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -22,7 +23,16 @@ const domain = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); 
 const warningsOf = (b) => (b.notes ?? []).filter((n) => /^(Link check|Possible duplicate)/.test(n.label));
 const whyFor = (b, tag) => (b.notes ?? []).find((n) =>
   tag.typeId === "type:topic" ? n.label === "Why this topic" && n.text.includes(`"${tag.name}"`) : n.label === `Why ${tag.name.split(" ")[0]}`)?.text;
-const visible = () => w.bubbles.filter((b) => state.tab === "all" || (state.tab === "pending" ? b.statusId === "pending"
+// The filter narrows both the graph and the queue. Text matches a bookmark's
+// title, URL, or description, or the name of a group it belongs to.
+function matchesText(b) {
+  const q = filter.text.trim().toLowerCase();
+  if (!q) return true;
+  return `${b.title} ${b.url ?? ""} ${b.description}`.toLowerCase().includes(q)
+    || [...links.get(b.id)].some((t) => filter.types.has(tags.get(t).typeId) && tags.get(t).name.toLowerCase().includes(q));
+}
+const shownBubble = (b) => matchesText(b) && (filter.decided || b.statusId === "pending" || b.statusId === "in-progress" || b.id === state.current);
+const visible = () => w.bubbles.filter(matchesText).filter((b) => state.tab === "all" || (state.tab === "pending" ? b.statusId === "pending"
   : state.tab === "later" ? b.statusId === "in-progress" : b.statusId === "done" || b.statusId === "dropped"));
 const relatedOf = (id) => {
   const via = new Map();
@@ -52,10 +62,29 @@ const graph = new Graph({
   node: { style: { labelText: (d) => d.data.label, labelPlacement: "bottom", labelWordWrap: false } },
   layout: { type: "d3-force", link: { distance: 110, strength: 0.4 }, manyBody: { strength: -260 },
     collide: { radius: (d) => (d.data?.tag ? typeSize[tags.get(d.id).typeId] / 2 + 18 : 22) } },
-  behaviors: ["drag-canvas", "zoom-canvas", { type: "auto-adapt-label", padding: 4 }],
+  // Two-finger trackpad scrolling pans; pinching zooms (handled below).
+  behaviors: ["drag-canvas", { type: "scroll-canvas", enable: (e) => !e.ctrlKey }, { type: "auto-adapt-label", padding: 4 }],
 });
 graph.on("node:click", (e) => { if (bubbles.has(e.target.id)) select(e.target.id); });
 await graph.render();
+// Pinch zoom centered on the fingers: Chromium reports a trackpad pinch as a
+// Ctrl-wheel, and Safari as gesture events.
+const surface = $("graph");
+const zoomAt = (zoom, clientX, clientY) => {
+  const rect = surface.getBoundingClientRect();
+  const origin = clientX === undefined ? [rect.width / 2, rect.height / 2] : [clientX - rect.left, clientY - rect.top];
+  void graph.zoomTo(Math.max(0.1, Math.min(4, zoom)), false, origin);
+};
+surface.addEventListener("wheel", (e) => {
+  if (!e.ctrlKey) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const pixels = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? surface.clientHeight : 1);
+  zoomAt(graph.getZoom() * Math.exp(-Math.max(-100, Math.min(100, pixels)) * 0.01), e.clientX, e.clientY);
+}, { passive: false, capture: true });
+let gestureZoom;
+surface.addEventListener("gesturestart", (e) => { e.preventDefault(); gestureZoom = graph.getZoom(); }, { passive: false });
+surface.addEventListener("gesturechange", (e) => { e.preventDefault(); if (gestureZoom !== undefined) zoomAt(gestureZoom * e.scale, e.clientX, e.clientY); }, { passive: false });
+surface.addEventListener("gestureend", (e) => { e.preventDefault(); gestureZoom = undefined; }, { passive: false });
 // Registered after the first render: G6 emits transforms before its viewport exists.
 let labelZoom, labelFrame;
 graph.on("aftertransform", () => {
@@ -100,7 +129,15 @@ function paintGraph(animate) {
     const own = b.id === id, viaGroup = groupIds.has(tagId);
     return { id: edgeId(b.id, tagId), style: { stroke: own ? "#0f766e" : "#a9bdba", lineWidth: own ? 3 : 1.2, opacity: !id || own ? 1 : viaGroup ? 0.45 : 0.06 } };
   })));
-  return graph.draw().then(() => (id && animate ? frame(id) : undefined));
+  const shown = new Set(w.bubbles.filter(shownBubble).map((b) => b.id));
+  const shownTags = new Set(w.tags.filter((t) => filter.types.has(t.typeId)
+    && (!filter.text.trim() || t.name.toLowerCase().includes(filter.text.trim().toLowerCase()) || [...members.get(t.id)].some((m) => shown.has(m)))).map((t) => t.id));
+  const visibility = {};
+  for (const b of w.bubbles) visibility[b.id] = shown.has(b.id) ? "visible" : "hidden";
+  for (const t of w.tags) visibility[t.id] = shownTags.has(t.id) ? "visible" : "hidden";
+  for (const b of w.bubbles) for (const t of links.get(b.id)) visibility[edgeId(b.id, t)] = shown.has(b.id) && shownTags.has(t) ? "visible" : "hidden";
+  $("filter-count").textContent = shown.size === w.bubbles.length && shownTags.size === w.tags.length ? "" : `${shown.size} bookmarks · ${shownTags.size} groups`;
+  return graph.setElementVisibility(visibility, false).then(() => graph.draw()).then(() => (id && animate ? frame(id) : undefined));
 }
 
 // Frame the current bookmark together with all of its groups.
@@ -232,6 +269,9 @@ document.addEventListener("click", (e) => {
   if (t.dataset.dupcancel !== undefined) { state.dupFor = undefined; return renderCard(); }
 });
 document.addEventListener("input", (e) => {
+  if (e.target.id === "filter-text") { filter.text = e.target.value; state.current = undefined; return render(); }
+  if (e.target.dataset?.type) { e.target.checked ? filter.types.add(e.target.dataset.type) : filter.types.delete(e.target.dataset.type); return render(false); }
+  if (e.target.id === "filter-decided") { filter.decided = e.target.checked; return render(false); }
   if (e.target.id !== "add") return;
   state.query = e.target.value; state.menuIndex = 0; state.menuOpen = true;
   renderCard(); keepMenuFocus();
@@ -239,6 +279,7 @@ document.addEventListener("input", (e) => {
 document.addEventListener("focusin", (e) => { if (e.target.id === "add" && !state.menuOpen) { state.menuOpen = true; renderCard(); keepMenuFocus(); } });
 document.addEventListener("mousedown", (e) => { if (state.menuOpen && !e.target.closest?.(".add")) { state.menuOpen = false; state.query = ""; renderCard(); } });
 document.addEventListener("keydown", (e) => {
+  if (e.target.id === "filter-text") { if (e.key === "Escape") { e.target.value = ""; filter.text = ""; e.target.blur(); render(); } return; }
   if (e.target.id === "add") {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); state.menuIndex = Math.max(0, Math.min(state.options.length - 1, state.menuIndex + (e.key === "ArrowDown" ? 1 : -1))); renderCard(); keepMenuFocus(); }
     if (e.key === "Enter" && state.options[state.menuIndex]) { setLink(state.options[state.menuIndex].id, true); state.menuOpen = true; renderCard(); keepMenuFocus(); }
@@ -249,6 +290,7 @@ document.addEventListener("keydown", (e) => {
   const b = bubbles.get(state.current);
   const key = e.key.toLowerCase();
   if (e.key === "/") { e.preventDefault(); $("add")?.focus(); }
+  else if (key === "f") { e.preventDefault(); $("filter-text").focus(); }
   else if (e.key === "ArrowDown") { e.preventDefault(); move(1); }
   else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
   else if (key === "q") $("toggle-queue").click();
