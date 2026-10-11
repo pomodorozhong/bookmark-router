@@ -30,6 +30,26 @@
   main.queue-closed .queue { visibility: hidden; }
   .selection-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 8px 12px 8px 14px; background: #eff4ff; border-bottom: 1px solid #c7d6fb; color: #1e3a8a; font-size: 12.5px; }
   .selection-bar button { padding: 3px 9px; font-size: 12px; }
+  .bar-actions { display: flex; gap: 6px; }
+  .copy-dialog { position: fixed; inset: 0; background: #183e3533; display: grid; place-items: center; z-index: 20; }
+  .copy-dialog[hidden] { display: none; }
+  .copy-box { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow: auto; background: #fff; border-radius: 12px; box-shadow: 0 20px 60px #183e3540; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .copy-head { display: flex; align-items: center; justify-content: space-between; }
+  .copy-head h3 { margin: 0; font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+  .copy-head button { border: 0; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .presets button { padding: 5px 10px; font-size: 13px; }
+  .presets button.on { background: var(--tint); border-color: #a5ccbc; color: #115e59; }
+  .copy-box label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
+  .copy-box textarea { font: 13px ui-monospace, monospace; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; resize: vertical; color: var(--ink); }
+  .copy-box select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); }
+  .copy-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .fields { margin: -4px 0 0; font-size: 12px; color: var(--muted); }
+  .fields code { background: #f0f4f2; border-radius: 4px; padding: 1px 4px; }
+  .preview { margin: 0; max-height: 260px; overflow: auto; background: #f8faf9; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: 12.5px/1.55 ui-monospace, monospace; white-space: pre-wrap; word-break: break-word; }
+  .copy-foot { display: flex; justify-content: space-between; align-items: center; }
+  .copy-foot .keep { background: var(--teal); color: #fff; border-color: var(--teal); padding: 8px 16px; }
+  .subtle { color: var(--muted); font-size: 12px; }
   .queue-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid #edf2ef; border-radius: 0; padding: 9px 14px; background: transparent; }
   .queue-item.on { background: var(--tint); box-shadow: inset 3px 0 var(--teal); }
   .queue-item .t { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; font-size: 13px; }
@@ -82,7 +102,8 @@
   .related button { text-align: left; border: 0; padding: 5px 6px; display: flex; gap: 8px; align-items: baseline; }
   .related .via { color: var(--muted); font-size: 11.5px; margin-left: auto; white-space: nowrap; }
   .related .rt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-  .decisions { border-top: 1px solid var(--line); padding: 12px 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .decisions { border-top: 1px solid var(--line); padding: 12px 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .decisions button[disabled] { opacity: .45; cursor: default; }
   .decisions button { display: flex; flex-direction: column; align-items: center; padding: 7px 4px; }
   .decisions button small { color: var(--muted); font-size: 11px; }
   .decisions .keep { background: var(--teal); color: #fff; border-color: var(--teal); }
@@ -95,7 +116,7 @@
 </style>
 </head>
 <body>
-<div class="mock-banner">Mockup — nothing is saved. Keys: K keep · X drop · D duplicate · L later · ↑/↓ move · / add to a group · F filter · Q show/hide queue · Esc clear selection · drag a box to select (Shift adds) · two-finger scroll pans, pinch zooms</div>
+<div class="mock-banner">Mockup — nothing is saved. Keys: D done · X drop · S deselect · C copy selection · ↑/↓ move · / add to a group · F filter · Q show/hide queue · Esc clear selection · drag a box to select (Shift adds) · two-finger scroll pans, pinch zooms</div>
 <header>
   <h1>Triage</h1>
   <div class="progress"><div class="bar" id="bar"></div><span id="counts"></span></div>
@@ -120,6 +141,7 @@
   <aside class="panel"><div class="detail" id="card"></div><div class="decisions" id="decisions"></div></aside>
 </main>
 <div class="toast" id="toast"></div>
+<div class="copy-dialog" id="copy-dialog" hidden></div>
 <script type="module" src="./triage.js"></script>
 </body>
 </html>

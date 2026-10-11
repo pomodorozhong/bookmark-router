@@ -51,10 +51,14 @@ There are no checkpoint tags, deferred-verification registers, or release gates.
 
 ### 1. Triage
 
-The main screen for job 1. Its shape is decided in the mockup. The likely starting point is a queue of pending bookmarks with the current one's details beside it and fast actions: add to an existing issue, proposal issue, or topic, keep, skip, mark duplicate, defer. Warnings (broken link, possible duplicate) appear inline.
+Triage **replaces the current graph screen** (decided October 11, 2026). The approved direction is the mockup at `app/mockups/triage.html`:
 
-- Decide in the mockup: which decisions you need (the prototype had keep / attach / skip / duplicate / defer) and how they map to statuses.
-- **You try:** triage 10 real bookmarks and see how long it takes.
+- The force-directed graph stays at the center. The current bookmark is framed with all of its groups; bookmarks sharing a group are highlighted as related; everything else fades.
+- Two-finger scrolling pans and pinching zooms. Dragging on the canvas draws a selection box (Shift adds, Esc clears); the queue narrows to the selection, ordered clockwise around its center.
+- A filter bar narrows the graph and the queue by text, group type, and whether decided bookmarks show.
+- Decisions: **Done**, **Drop**, and **Deselect** (removes the bookmark from the selection without deciding it). Each moves to the next bookmark, with Undo. Done does not require a group; a hint shows when there is none.
+- **Copy** (the core feature kept from the old screen): copies the selected bookmarks in queue order through a template with presets and fields (`{title}`, `{url}`, `{groups}`, …), with a live preview.
+- **You try:** triage 10 real bookmarks and copy one selection into a real destination.
 
 ### 1.5. Fetch title, description, and image from the URL
 
