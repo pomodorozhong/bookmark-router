@@ -27,9 +27,11 @@ export type IconName =
   | "list"
   | "menu"
   | "minus"
+  | "more"
   | "plus"
   | "pin"
   | "refresh"
+  | "scope"
   | "search"
   | "tag"
   | "upload"
@@ -75,8 +77,15 @@ const paths: Record<IconName, ReactNode> = {
   list: <path d="M5 6.5h1M9 6.5h10M5 12h1M9 12h10M5 17.5h1M9 17.5h10" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   minus: <path d="M5 12h14" />,
+  more: <path d="M5.5 12h.01M12 12h.01M18.5 12h.01" strokeWidth="2.8" />,
   plus: <path d="M12 5v14M5 12h14" />,
   pin: <path d="m8 4 8 0-1 5 3 3-5 1v7l-1 1-1-1v-7l-5-1 3-3-1-5Z" />,
+  scope: (
+    <>
+      <circle cx="12" cy="12" r="7" />
+      <path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5" />
+    </>
+  ),
   refresh: <path d="M19 8V4l-2.2 2.2A7.5 7.5 0 1 0 19.2 14M19 4l-3 3" />,
   search: <path d="m16.5 16.5 4 4M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" />,
   tag: <path d="M4 5v6l9 9 7-7-9-9H4Zm3.5 3.5h.01" />,
