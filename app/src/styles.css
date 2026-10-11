@@ -423,6 +423,10 @@ th { background: #f4f7f5; color: var(--muted); }
 .triage-group .swatch { margin-top: 5px; }
 .group-name { font-weight: 600; font-size: 13px; }
 .group-type { font-size: 11px; color: var(--muted); margin-left: 6px; }
+/* A group of a hidden type, peeking because the current bookmark is in it (matches its graph node). */
+.triage-group.peek { border-style: dashed; }
+.triage-group.peek .swatch { opacity: .32; }
+.triage-group.peek .group-name { color: var(--muted); }
 .group-why { color: var(--muted); font-size: 12px; margin: 3px 0 0; line-height: 1.45; }
 .group-add { position: relative; margin-top: 8px; }
 .group-add input { width: 100%; padding: 8px 11px; border: 1px dashed #b9cbc2; border-radius: 8px; background: #fbfcfb; font: inherit; }

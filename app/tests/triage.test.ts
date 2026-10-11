@@ -60,6 +60,27 @@ test("graph visibility follows the queue tab and hides unmatched groups", () => 
   assert.deepEqual(graphVisibility(w, emptyTriageFilter, "dropped").bubbleIds, ["c"]);
 });
 
+test("hiding ungrouped bookmarks hides bookmarks in no shown group, in the graph and the queue", () => {
+  const w = fixture();
+  const filter = { ...emptyTriageFilter, hiddenTypeIds: ["topic"], showUngrouped: false };
+  assert.deepEqual(graphVisibility(w, filter).bubbleIds, ["a"]);
+  assert.deepEqual(triageQueue(w, { tab: "all", filter }).map((b) => b.id), ["a"]);
+  assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, showUngrouped: false }).bubbleIds, ["a", "b"]);
+});
+
+test("a kept bookmark's groups of a hidden type peek with their bookmarks", () => {
+  const w = fixture();
+  const filter = { ...emptyTriageFilter, hiddenTypeIds: ["topic"], showUngrouped: false };
+  const v = graphVisibility(w, filter, "all", ["a"]);
+  assert.deepEqual(v.peekTagIds, ["t-seo"]);
+  assert.deepEqual(v.hiddenTagIds, []);
+  assert.deepEqual(v.bubbleIds, ["a", "b"]);
+  // Peeking members still follow the tab, and nothing peeks without a kept bookmark.
+  assert.deepEqual(graphVisibility(w, filter, "todo", ["a"]).bubbleIds, ["a"]);
+  assert.deepEqual(graphVisibility(w, filter).peekTagIds, []);
+  assert.deepEqual(graphVisibility(w, filter).hiddenTagIds, ["t-seo"]);
+});
+
 test("hiding empty groups hides groups with no shown bookmark", () => {
   const w = fixture();
   assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, text: "keywords", showEmptyGroups: false }).hiddenTagIds, ["t-pricing"]);
