@@ -36,6 +36,7 @@ export type Command =
         appearance?: Partial<TagType["appearance"]>;
       };
     }
+  | { type: "tag-type.create"; name: string; appearance: TagType["appearance"] }
   | { type: "tag.create"; name: string; typeId?: string }
   | { type: "membership.set"; bubbleId: string; tagId: string; linked: boolean }
   | {
@@ -125,6 +126,11 @@ export function applyCommand(
     if (command.patch.name !== undefined) type.name = command.patch.name.trim();
     if (command.patch.appearance)
       type.appearance = { ...type.appearance, ...command.patch.appearance };
+  } else if (command.type === "tag-type.create") {
+    const name = command.name.trim();
+    if (!name) throw new Error("Tag type needs a name.");
+    if (w.tagTypes.some((other) => other.name === name)) throw new Error("Choose a new tag type name.");
+    w.tagTypes.push({ id: `type:${crypto.randomUUID()}`, name, appearance: { ...command.appearance } });
   } else if (command.type === "tag.create") {
     const name = command.name.trim();
     if (

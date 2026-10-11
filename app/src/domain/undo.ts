@@ -12,6 +12,7 @@ export function commandLabel(command: Command): string {
     case "bubble.patch": return "Edit bubble";
     case "tag.patch": return "Edit tag";
     case "tag-type.patch": return "Edit tag type";
+    case "tag-type.create": return "Create tag type";
     case "tag.create": return "Create tag";
     case "membership.set": return "Change tag connections";
     case "tag.status":
