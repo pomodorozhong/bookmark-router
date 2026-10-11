@@ -5,7 +5,7 @@ import { Graph } from "@antv/g6";
 const typeColor = { "type:existing-issue": "#0f766e", "type:proposal-issue": "#b45309", "type:topic": "#475569" };
 const typeLabel = { "type:existing-issue": "Existing issue", "type:proposal-issue": "Proposal issue", "type:topic": "Topic" };
 const typeSize = { "type:existing-issue": 72, "type:proposal-issue": 64, "type:topic": 52 };
-const statusLabel = { pending: "Pending", "in-progress": "Later", done: "Kept", dropped: "Dropped" };
+const statusLabel = { pending: "Pending", done: "Done", dropped: "Dropped" };
 
 const backup = await (await fetch("/.runtime/bookmarks-converted.json")).json();
 const w = backup.workspace;
@@ -16,7 +16,7 @@ const members = new Map(w.tags.map((t) => [t.id, new Set()]));
 for (const m of w.memberships) { links.get(m.bubbleId).add(m.tagId); members.get(m.tagId).add(m.bubbleId); }
 
 const filter = { text: "", types: new Set(["type:existing-issue", "type:proposal-issue", "type:topic"]), decided: true };
-const state = { tab: "pending", current: undefined, query: "", menuIndex: 0, dupFor: undefined, last: undefined, options: [] };
+const state = { tab: "pending", current: undefined, query: "", menuIndex: 0, last: undefined, options: [] };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const domain = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u ?? ""; } };
@@ -31,9 +31,8 @@ function matchesText(b) {
   return `${b.title} ${b.url ?? ""} ${b.description}`.toLowerCase().includes(q)
     || [...links.get(b.id)].some((t) => filter.types.has(tags.get(t).typeId) && tags.get(t).name.toLowerCase().includes(q));
 }
-const shownBubble = (b) => matchesText(b) && (filter.decided || b.statusId === "pending" || b.statusId === "in-progress" || b.id === state.current);
-const visible = () => clockwise(w.bubbles.filter((b) => !state.selection || state.selection.has(b.id)).filter(matchesText).filter((b) => state.tab === "all" || (state.tab === "pending" ? b.statusId === "pending"
-  : state.tab === "later" ? b.statusId === "in-progress" : b.statusId === "done" || b.statusId === "dropped")));
+const shownBubble = (b) => matchesText(b) && (filter.decided || b.statusId === "pending" || b.id === state.current);
+const visible = () => clockwise(w.bubbles.filter((b) => !state.selection || state.selection.has(b.id)).filter(matchesText).filter((b) => state.tab === "all" || b.statusId === state.tab));
 // A box selection is ordered clockwise from 12 o'clock around the selection's
 // center, so the queue sweeps around the graph and neighbors stay together.
 function clockwise(list) {
@@ -63,6 +62,12 @@ function selectBox(states, adding) {
   state.current = state.selection && state.selection.has(state.current) ? state.current : undefined;
   // Repaint after brush-select has applied its states; keep the view where the box was drawn.
   setTimeout(() => render(false), 0);
+}
+// Deselect takes one bookmark out of the working set without deciding it.
+function setSelected(id, on) {
+  if (on) state.selection = new Set([...(state.selection ?? []), id]);
+  else { state.selection?.delete(id); if (!state.selection?.size) state.selection = undefined; }
+  void graph.setElementState({ [id]: on ? ["selected"] : [] }, false);
 }
 function clearSelection() {
   state.selection = undefined;
@@ -193,15 +198,15 @@ async function frame(id) {
 
 // ---- Panel ----
 function render(animate = true) {
-  const counts = Object.fromEntries(["pending", "in-progress", "done", "dropped"].map((s) => [s, w.bubbles.filter((b) => b.statusId === s).length]));
+  const counts = Object.fromEntries(["pending", "done", "dropped"].map((s) => [s, w.bubbles.filter((b) => b.statusId === s).length]));
   const total = w.bubbles.length;
-  $("bar").innerHTML = [["done", "#0f766e"], ["dropped", "#9fb1a9"], ["in-progress", "#e7b46a"]].map(([s, c]) => `<span style="width:${(counts[s] / total) * 100}%;background:${c}"></span>`).join("");
-  $("counts").textContent = `${counts.done} kept · ${counts.dropped} dropped · ${counts["in-progress"]} later · ${counts.pending} to triage`;
-  $("tabs").innerHTML = [["pending", `To triage ${counts.pending}`], ["later", `Later ${counts["in-progress"]}`], ["decided", "Decided"], ["all", "All"]]
+  $("bar").innerHTML = [["done", "#0f766e"], ["dropped", "#9fb1a9"]].map(([s, c]) => `<span style="width:${(counts[s] / total) * 100}%;background:${c}"></span>`).join("");
+  $("counts").textContent = `${counts.done} done · ${counts.dropped} dropped · ${counts.pending} to triage`;
+  $("tabs").innerHTML = [["pending", `To triage ${counts.pending}`], ["done", `Done ${counts.done}`], ["dropped", `Dropped ${counts.dropped}`], ["all", "All"]]
     .map(([k, l]) => `<button class="${state.tab === k ? "on" : ""}" data-tab="${k}">${l}</button>`).join("");
   const list = visible();
   if (!state.current || !bubbles.has(state.current)) state.current = list[0]?.id;
-  const selectionBar = state.selection ? `<div class="selection-bar"><span><strong>${state.selection.size}</strong> selected in the graph${list.length !== state.selection.size ? ` · ${list.length} in this tab` : ""}</span><button id="clear-selection" title="Clear selection (Esc)">Clear</button></div>` : "";
+  const selectionBar = state.selection ? `<div class="selection-bar"><span title="Selected in the graph · in this tab"><strong>${state.selection.size}</strong> selected${list.length !== state.selection.size ? ` · ${list.length} here` : ""}</span><span class="bar-actions"><button id="copy" title="Copy the selected bookmarks (C)">Copy…</button><button id="clear-selection" title="Clear selection (Esc)">Clear</button></span></div>` : "";
   $("queue").innerHTML = selectionBar + list.map((b) => `<button class="queue-item ${b.id === state.current ? "on" : ""}" data-id="${b.id}"><span class="t">${esc(b.title)}</span><span class="d">${warningsOf(b).length ? '<i class="warn-dot" title="Has a warning"></i>' : ""}${esc(domain(b.url))}${b.statusId !== "pending" ? `<span class="decided">${statusLabel[b.statusId]}</span>` : ""}<span style="margin-left:auto">${links.get(b.id).size}</span></span></button>`).join("")
     || '<p style="padding:16px;color:var(--muted)">Nothing here.</p>';
   document.querySelector(".queue-item.on")?.scrollIntoView({ block: "nearest" });
@@ -229,19 +234,17 @@ function renderCard() {
       <div class="group-list">${groups.map((t) => `<div class="group"><i class="swatch" style="background:${typeColor[t.typeId]}"></i><div><span class="name">${esc(t.name)}</span><span class="type">${typeLabel[t.typeId]}</span>${whyFor(b, t) ? `<div class="why">${esc(whyFor(b, t))}</div>` : ""}</div><button data-remove="${t.id}" title="Remove from this group">✕</button></div>`).join("") || '<p style="color:var(--muted);margin:0">Not in any group yet.</p>'}</div>
       <div class="add"><input id="add" placeholder="Add to an issue or topic…  ( / )" value="${esc(state.query)}" autocomplete="off" />${state.menuOpen ? menu(b) : ""}</div>
     </section>
-    ${state.dupFor === b.id ? dupPicker(b) : ""}
     <section>
       <h3>Related bookmarks (${related.length})</h3>
       <div class="related">${related.slice(0, 12).map(([id, via]) => `<button data-id="${id}"><span class="rt">${esc(bubbles.get(id).title)}</span><span class="via">via ${esc(tags.get(via[0]).name.slice(0, 24))}${via.length > 1 ? ` +${via.length - 1}` : ""}</span></button>`).join("") || '<p style="color:var(--muted);margin:0">Shares no group with another bookmark.</p>'}</div>
       ${related.length > 12 ? `<p style="color:var(--muted);font-size:12px;margin:6px 0 0">and ${related.length - 12} more, highlighted in the graph</p>` : ""}
     </section>`;
-  const noGroups = groups.length === 0;
+  const inSelection = !!state.selection?.has(b.id);
   $("decisions").innerHTML = `
-    ${noGroups ? '<span class="hint">Add a group before keeping</span>' : ""}
-    <button class="keep" data-decide="done" ${noGroups ? "disabled" : ""}>Keep<small>K</small></button>
+    ${groups.length ? "" : '<span class="hint">Not in any group yet</span>'}
+    <button class="keep" data-decide="done">Done<small>D</small></button>
     <button data-decide="dropped">Drop<small>X</small></button>
-    <button data-dup>Duplicate…<small>D</small></button>
-    <button data-decide="in-progress">Later<small>L</small></button>`;
+    <button data-deselect ${inSelection ? "" : 'disabled title="Only for bookmarks in a box selection"'}>Deselect<small>S</small></button>`;
 }
 
 function menu(b) {
@@ -254,23 +257,33 @@ function menu(b) {
   }).join("") || '<div class="label">No match</div>'}</div>`;
 }
 
-function dupPicker(b) {
-  const others = (b.notes ?? []).filter((n) => n.label.startsWith("Possible duplicate")).map((n) => n.text.split(" — ")[0]);
-  return `<div class="dup"><strong>Duplicate of…</strong><div style="color:var(--muted);margin-top:4px">${others.length ? "Suggested: " + others.map(esc).join(", ") : "No suggestion; the real build lets you search."}</div>
-    <div style="display:flex;gap:8px;margin-top:10px"><button data-decide="dropped">Drop as duplicate</button><button data-dupcancel>Cancel</button></div></div>`;
-}
-
 // ---- Actions ----
-function select(id) { state.current = id; state.query = ""; state.menuOpen = false; state.dupFor = undefined; render(); }
-function decide(status) {
+function select(id) { state.current = id; state.query = ""; state.menuOpen = false; render(); }
+// Done, Drop, and Deselect all move on to the next bookmark in the queue.
+function advance(from) {
   const list = visible();
-  const index = list.findIndex((b) => b.id === state.current);
+  const index = from.findIndex((b) => b.id === state.current);
+  state.menuOpen = false; state.query = "";
+  state.current = (from[index + 1] ?? from[index - 1])?.id;
+  if (!list.some((b) => b.id === state.current)) state.current = list[0]?.id;
+}
+function decide(status) {
+  const before = visible();
   const b = bubbles.get(state.current);
-  state.last = { id: b.id, status: b.statusId };
+  state.last = { kind: "status", id: b.id, status: b.statusId };
   b.statusId = status;
-  state.dupFor = undefined; state.menuOpen = false; state.query = "";
-  state.current = (list[index + 1] ?? list[index - 1])?.id;
+  advance(before);
   toast(`${statusLabel[status]}: ${b.title.slice(0, 50)}`);
+  render();
+}
+function deselect() {
+  const before = visible();
+  const id = state.current;
+  if (!state.selection?.has(id)) return;
+  state.last = { kind: "deselect", id };
+  setSelected(id, false);
+  advance(before);
+  toast(`Deselected: ${bubbles.get(id).title.slice(0, 50)}`);
   render();
 }
 function toast(text) {
@@ -290,11 +303,86 @@ function setLink(tagId, on) {
   state.query = "";
   render();
 }
+// ---- Copy ----
+// Copies the selected bookmarks, in queue order, through a template. The last
+// template is remembered on this device.
+const presets = [
+  ["Markdown list", "- [{title}]({url})", "\n"],
+  ["Title + link", "{title}\n{url}", "\n\n"],
+  ["Links only", "{url}", "\n"],
+  ["Titles only", "{title}", "\n"],
+  ["With groups", "- [{title}]({url}) — {groups}", "\n"],
+];
+const fields = {
+  title: (b) => b.title, url: (b) => b.url ?? "", domain: (b) => domain(b.url),
+  description: (b) => b.description.replace(/\s+/g, " ").trim(), status: (b) => statusLabel[b.statusId],
+  groups: (b) => [...links.get(b.id)].map((t) => tags.get(t).name).join(", "),
+  issues: (b) => [...links.get(b.id)].map((t) => tags.get(t)).filter((t) => t.typeId !== "type:topic").map((t) => t.name).join(", "),
+  topics: (b) => [...links.get(b.id)].map((t) => tags.get(t)).filter((t) => t.typeId === "type:topic").map((t) => t.name).join(", "),
+};
+const savedCopy = (() => { try { return JSON.parse(localStorage.getItem("triage-copy") ?? "null"); } catch { return null; } })();
+const copy = { template: savedCopy?.template ?? presets[0][1], separator: savedCopy?.separator ?? presets[0][2], scope: "all" };
+const copyOpen = () => !$("copy-dialog").hidden;
+function copyItems() {
+  const selected = clockwise(w.bubbles.filter((b) => state.selection?.has(b.id)));
+  return copy.scope === "queue" ? visible() : selected;
+}
+function copyText(n = Infinity) {
+  return copyItems().slice(0, n).map((b, i) => copy.template.replace(/\{(\w+)\}/g, (m, k) => (k === "n" ? String(i + 1) : fields[k] ? fields[k](b) : m))).join(copy.separator);
+}
+function renderCopy() {
+  const items = copyItems();
+  $("copy-dialog").innerHTML = `<div class="copy-box" role="dialog" aria-label="Copy selected bookmarks">
+    <div class="copy-head"><h3>Copy ${items.length} bookmark${items.length === 1 ? "" : "s"}</h3><button id="copy-close" title="Close (Esc)">✕</button></div>
+    <div class="presets">${presets.map(([name, t, sep]) => `<button data-preset="${esc(name)}" class="${copy.template === t && copy.separator === sep ? "on" : ""}">${esc(name)}</button>`).join("")}</div>
+    <label>Template<textarea id="copy-template" rows="2" spellcheck="false">${esc(copy.template)}</textarea></label>
+    <p class="fields">Fields: ${Object.keys(fields).concat("n").map((k) => `<code>{${k}}</code>`).join(" ")}</p>
+    <div class="copy-row">
+      <label>Between items<select id="copy-separator">${[["\n", "New line"], ["\n\n", "Blank line"], [", ", "Comma"], [" ", "Space"]].map(([v, l]) => `<option value="${esc(JSON.stringify(v))}" ${copy.separator === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label>Bookmarks<select id="copy-scope"><option value="all" ${copy.scope === "all" ? "selected" : ""}>All selected (${clockwise(w.bubbles.filter((b) => state.selection?.has(b.id))).length})</option><option value="queue" ${copy.scope === "queue" ? "selected" : ""}>Only this tab (${visible().length})</option></select></label>
+    </div>
+    <pre class="preview">${esc(copyText(40))}${items.length > 40 ? "\n…" : ""}</pre>
+    <div class="copy-foot"><span class="subtle">Clockwise order, as in the queue</span><button id="copy-go" class="keep">Copy text</button></div>
+  </div>`;
+}
+function openCopy() { $("copy-dialog").hidden = false; renderCopy(); $("copy-go").focus(); }
+function closeCopy() { $("copy-dialog").hidden = true; }
+function saveCopy() { try { localStorage.setItem("triage-copy", JSON.stringify({ template: copy.template, separator: copy.separator })); } catch {} }
+$("copy-dialog").addEventListener("click", async (e) => {
+  if (e.target.id === "copy-dialog" || e.target.id === "copy-close") return closeCopy();
+  const preset = e.target.closest("[data-preset]")?.dataset.preset;
+  if (preset) { const [, t, sep] = presets.find(([n]) => n === preset); copy.template = t; copy.separator = sep; saveCopy(); return renderCopy(); }
+  if (e.target.id === "copy-go") {
+    const text = copyText();
+    try { await navigator.clipboard.writeText(text); } catch { window.__lastCopy = text; }
+    window.__lastCopy = text;
+    closeCopy();
+    $("toast").innerHTML = `Copied ${copyItems().length} bookmarks`; $("toast").style.display = "flex";
+    clearTimeout(toast.t); toast.t = setTimeout(() => ($("toast").style.display = "none"), 2500);
+  }
+});
+$("copy-dialog").addEventListener("input", (e) => {
+  if (e.target.id === "copy-template") { copy.template = e.target.value; saveCopy(); }
+  if (e.target.id === "copy-separator") { copy.separator = JSON.parse(e.target.value); saveCopy(); }
+  if (e.target.id === "copy-scope") copy.scope = e.target.value;
+  document.querySelector("#copy-dialog .preview").textContent = copyText(40) + (copyItems().length > 40 ? "\n…" : "");
+  document.querySelectorAll("[data-preset]").forEach((b) => { const [, t, sep] = presets.find(([n]) => n === b.dataset.preset); b.classList.toggle("on", copy.template === t && copy.separator === sep); });
+  if (e.target.id === "copy-scope") renderCopy();
+});
+document.addEventListener("keydown", (e) => { if (copyOpen() && e.key === "Escape") closeCopy(); });
+
 function keepMenuFocus() { const i = $("add"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
 
 document.addEventListener("click", (e) => {
   const t = e.target.closest?.("button"); if (!t) return;
-  if (t.id === "undo") { const b = bubbles.get(state.last.id); b.statusId = state.last.status; $("toast").style.display = "none"; return select(b.id); }
+  if (t.id === "undo") {
+    const b = bubbles.get(state.last.id);
+    if (state.last.kind === "deselect") setSelected(b.id, true); else b.statusId = state.last.status;
+    $("toast").style.display = "none";
+    return select(b.id);
+  }
+  if (t.id === "copy") return openCopy();
+  if (t.dataset.deselect !== undefined) return deselect();
   if (t.id === "clear-selection") return clearSelection();
   if (t.id === "fit") return void graph.fitView({}, { duration: 300 });
   if (t.id === "focus") return void (state.current && frame(state.current));
@@ -304,8 +392,6 @@ document.addEventListener("click", (e) => {
   if (t.dataset.remove) return setLink(t.dataset.remove, false);
   if (t.dataset.add) { state.menuOpen = false; return setLink(t.dataset.add, true); }
   if (t.dataset.decide) return decide(t.dataset.decide);
-  if (t.dataset.dup !== undefined) { state.dupFor = state.current; return renderCard(); }
-  if (t.dataset.dupcancel !== undefined) { state.dupFor = undefined; return renderCard(); }
 });
 document.addEventListener("input", (e) => {
   if (e.target.id === "filter-text") { filter.text = e.target.value; state.current = undefined; return render(); }
@@ -318,6 +404,7 @@ document.addEventListener("input", (e) => {
 document.addEventListener("focusin", (e) => { if (e.target.id === "add" && !state.menuOpen) { state.menuOpen = true; renderCard(); keepMenuFocus(); } });
 document.addEventListener("mousedown", (e) => { if (state.menuOpen && !e.target.closest?.(".add")) { state.menuOpen = false; state.query = ""; renderCard(); } });
 document.addEventListener("keydown", (e) => {
+  if (copyOpen()) return;
   if (e.target.id === "filter-text") { if (e.key === "Escape") { e.target.value = ""; filter.text = ""; e.target.blur(); render(); } return; }
   if (e.target.id === "add") {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); state.menuIndex = Math.max(0, Math.min(state.options.length - 1, state.menuIndex + (e.key === "ArrowDown" ? 1 : -1))); renderCard(); keepMenuFocus(); }
@@ -334,10 +421,10 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
   else if (key === "q") $("toggle-queue").click();
   else if (e.key === "Escape" && state.selection) clearSelection();
+  else if (key === "c" && state.selection) openCopy();
   else if (!b) return;
-  else if (key === "k" && links.get(b.id).size) decide("done");
+  else if (key === "d") decide("done");
   else if (key === "x") decide("dropped");
-  else if (key === "d") { state.dupFor = b.id; renderCard(); }
-  else if (key === "l") decide("in-progress");
+  else if (key === "s") deselect();
 });
 render();
