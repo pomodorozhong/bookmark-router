@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { tagGeometry } from "../src/components/tag-shapes";
+import { initialOf, tagGeometry } from "../src/components/tag-shapes";
 import { emptyWorkspace, validateWorkspace } from "../src/domain/model";
 
 const close = (actual: readonly number[], expected: number[]) =>
@@ -32,4 +32,11 @@ test("workspaces accept tag styles and directions, and reject unknown directions
   validateWorkspace(w);
   (w.tagTypes[0].appearance as { points: string }).points = "north";
   assert.throws(() => validateWorkspace(w), /unknown tag direction/);
+});
+
+test("a tag without an icon shows its name's initial, after any issue number", () => {
+  assert.equal(initialOf("#141 App Store Optimization (ASO)"), "A");
+  assert.equal(initialOf("pricing and packaging"), "P");
+  assert.equal(initialOf("創業筆記"), "創");
+  assert.equal(initialOf(""), "");
 });
