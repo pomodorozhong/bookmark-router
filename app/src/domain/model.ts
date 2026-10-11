@@ -1,9 +1,15 @@
 export type Outcome = "active" | "completed" | "discarded";
 export type MediaKind = "image" | "video" | "audio";
+export type TagStyle = "price-tag" | "rounded-tag" | "shipping-tag" | "hang-tag";
+/** Which way a tag style's hole end points. */
+export type Direction = "up" | "up-right" | "right" | "down-right" | "down" | "down-left" | "left" | "up-left";
 export interface Appearance {
   color: string;
+  /** A circle's width, or a tag style's longer side. */
   size: number;
-  shape: "circle" | "rounded-square" | "diamond";
+  shape: "circle" | "rounded-square" | "diamond" | TagStyle;
+  /** For tag styles; unset uses the style's own direction. */
+  points?: Direction;
   icon?: string;
 }
 export interface Status {
@@ -287,9 +293,14 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
       fail("tag size must be between 20 and 160");
     if (
       a.shape !== undefined &&
-      !["circle", "rounded-square", "diamond"].includes(a.shape)
+      !["circle", "rounded-square", "diamond", "price-tag", "rounded-tag", "shipping-tag", "hang-tag"].includes(a.shape)
     )
       fail("unknown tag shape");
+    if (
+      a.points !== undefined &&
+      !["up", "up-right", "right", "down-right", "down", "down-left", "left", "up-left"].includes(a.points)
+    )
+      fail("unknown tag direction");
     if (a.color !== undefined && !/^#[\da-f]{6}$/i.test(a.color))
       fail("appearance color must be six-digit hex");
   };
