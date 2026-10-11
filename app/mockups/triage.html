@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Triage mockup</title>
+<style>
+  :root {
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; color: #243b35; background: #f6f8f7;
+    --ink: #243b35; --muted: #536b62; --line: #dce5e0; --teal: #0f766e; --tint: #e8f3ee;
+    --amber: #b45309; --amber-bg: #fff7e8; --issue: #0f766e; --proposal: #b45309; --topic: #475569;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; display: flex; flex-direction: column; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 8px; padding: 7px 12px; }
+  button:hover { background: #f4f8f6; }
+  .mock-banner { background: #183e35; color: #e8f3ee; padding: 6px 20px; font-size: 12px; }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: #fff; }
+  header h1 { font-size: 18px; margin: 0; }
+  .progress { flex: 1; display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
+  .bar { flex: 1; max-width: 320px; height: 6px; border-radius: 3px; background: #e5ece8; overflow: hidden; display: flex; }
+  .bar span { height: 100%; }
+  .tabs { display: flex; gap: 4px; padding: 3px; background: #f0f4f2; border-radius: 8px; }
+  .tabs button { border: 0; background: transparent; padding: 5px 10px; color: var(--muted); }
+  .tabs button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px #183e3514; }
+  main { flex: 1; display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+  .queue { border-right: 1px solid var(--line); overflow: auto; background: #fbfcfb; }
+  .queue-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid #edf2ef; border-radius: 0; padding: 10px 16px; background: transparent; }
+  .queue-item.on { background: var(--tint); box-shadow: inset 3px 0 var(--teal); }
+  .queue-item .t { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+  .queue-item .d { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .warn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); display: inline-block; }
+  .decided { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: #e5ece8; }
+  .detail { overflow: auto; padding: 24px 32px 120px; }
+  .card { max-width: 860px; margin: 0 auto; }
+  .top { display: grid; grid-template-columns: 1fr 200px; gap: 24px; align-items: start; }
+  .top.no-image { grid-template-columns: 1fr; }
+  h2 { font-size: 22px; line-height: 1.3; margin: 0 0 8px; }
+  .url { color: var(--teal); text-decoration: none; font-size: 13px; word-break: break-all; }
+  .cover { width: 200px; aspect-ratio: 1.6; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); background: #eef3f0; }
+  .desc { color: #334d45; line-height: 1.6; margin: 14px 0; white-space: pre-line; }
+  .raindrop { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; }
+  .raindrop span.chip { background: #eef2f0; border-radius: 10px; padding: 2px 8px; }
+  .warnings { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+  .warning { background: var(--amber-bg); border: 1px solid #f2d7a6; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+  .warning strong { color: var(--amber); display: block; margin-bottom: 2px; }
+  section.groups { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 18px; }
+  section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+  .group-list { display: flex; flex-direction: column; gap: 8px; }
+  .group { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; margin-top: 4px; }
+  .group .name { font-weight: 600; }
+  .group .type { font-size: 11px; color: var(--muted); margin-left: 6px; font-weight: 400; }
+  .group .why { color: var(--muted); font-size: 12.5px; margin-top: 3px; line-height: 1.45; }
+  .group button { border: 0; padding: 2px 6px; color: var(--muted); }
+  .add { position: relative; margin-top: 10px; }
+  .add input { width: 100%; font: inherit; padding: 9px 12px; border: 1px dashed #b9cbc2; border-radius: 8px; background: #fbfcfb; }
+  .menu { position: absolute; z-index: 5; left: 0; right: 0; top: 100%; margin-top: 4px; max-height: 300px; overflow: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 28px #183e3520; }
+  .menu .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 8px 12px 4px; }
+  .menu button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; border: 0; border-radius: 0; padding: 7px 12px; }
+  .menu button.hl { background: var(--tint); }
+  .decisions { position: fixed; left: 300px; right: 0; bottom: 0; display: flex; justify-content: center; gap: 10px; padding: 14px 20px; background: #fff; border-top: 1px solid var(--line); }
+  .decisions button { display: flex; flex-direction: column; align-items: center; min-width: 120px; padding: 8px 14px; }
+  .decisions button small { color: var(--muted); font-size: 11px; }
+  .decisions .keep { background: var(--teal); color: #fff; border-color: var(--teal); }
+  .decisions .keep small { color: #cfe8df; }
+  .nav { display: flex; gap: 6px; margin-right: auto; }
+  .hint { color: var(--amber); font-size: 12px; align-self: center; }
+  .toast { position: fixed; bottom: 86px; left: calc(300px + (100vw - 300px) / 2); transform: translateX(-50%); background: #183e35; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; display: none; gap: 12px; }
+  .toast button { background: transparent; border: 0; color: #9fe0c8; padding: 0; }
+  .dup { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; }
+  .notes { margin-top: 12px; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="mock-banner">Mockup — clicks change only this page. Nothing is saved. Keyboard: K keep · X drop · D duplicate · L later · ↑/↓ move · / add to a group</div>
+<header>
+  <h1>Triage</h1>
+  <div class="progress"><div class="bar" id="bar"></div><span id="counts"></span></div>
+  <div class="tabs" id="tabs"></div>
+</header>
+<main>
+  <nav class="queue" id="queue"></nav>
+  <div class="detail"><div class="card" id="card"></div></div>
+</main>
+<div class="decisions" id="decisions"></div>
+<div class="toast" id="toast"></div>
+<script type="module">
+const typeColor = { "type:existing-issue": "var(--issue)", "type:proposal-issue": "var(--proposal)", "type:topic": "var(--topic)" };
+const typeLabel = { "type:existing-issue": "Existing issue", "type:proposal-issue": "Proposal issue", "type:topic": "Topic" };
+const statusLabel = { pending: "Pending", "in-progress": "Later", done: "Kept", dropped: "Dropped" };
+const backup = await (await fetch("/.runtime/bookmarks-converted.json")).json();
+const w = backup.workspace;
+const tags = new Map(w.tags.map((t) => [t.id, t]));
+const links = new Map(w.bubbles.map((b) => [b.id, new Set()]));
+for (const m of w.memberships) links.get(m.bubbleId).add(m.tagId);
+const state = { tab: "pending", current: undefined, query: "", menuIndex: 0, dupFor: undefined, last: undefined };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const domain = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u ?? ""; } };
+const warningsOf = (b) => (b.notes ?? []).filter((n) => /^(Link check|Possible duplicate|Suggested next)/.test(n.label));
+const whyFor = (b, tag) => {
+  // The topic reason names the primary topic only; secondary topics have none.
+  const n = (b.notes ?? []).find((n) => (tag.typeId === "type:topic" ? n.label === "Why this topic" && n.text.includes(`"${tag.name}"`) : n.label === `Why ${tag.name.split(" ")[0]}`));
+  return n?.text;
+};
+const visible = () => w.bubbles.filter((b) => state.tab === "all" || (state.tab === "pending" ? b.statusId === "pending" : state.tab === "later" ? b.statusId === "in-progress" : b.statusId === "done" || b.statusId === "dropped"));
+
+function render() {
+  const counts = Object.fromEntries(["pending", "in-progress", "done", "dropped"].map((s) => [s, w.bubbles.filter((b) => b.statusId === s).length]));
+  const total = w.bubbles.length;
+  $("bar").innerHTML = [["done", "var(--teal)"], ["dropped", "#9fb1a9"], ["in-progress", "#e7b46a"]].map(([s, c]) => `<span style="width:${(counts[s] / total) * 100}%;background:${c}"></span>`).join("");
+  $("counts").textContent = `${counts.done} kept · ${counts.dropped} dropped · ${counts["in-progress"]} later · ${counts.pending} to triage`;
+  $("tabs").innerHTML = [["pending", `To triage ${counts.pending}`], ["later", `Later ${counts["in-progress"]}`], ["decided", "Decided"], ["all", "All"]].map(([k, l]) => `<button class="${state.tab === k ? "on" : ""}" data-tab="${k}">${l}</button>`).join("");
+  const list = visible();
+  if (!state.current || !w.bubbles.some((b) => b.id === state.current)) state.current = list[0]?.id;
+  $("queue").innerHTML = list.map((b) => `<button class="queue-item ${b.id === state.current ? "on" : ""}" data-id="${b.id}"><span class="t">${esc(b.title)}</span><span class="d">${warningsOf(b).some((n) => !n.label.startsWith("Suggested")) ? '<i class="warn-dot" title="Has a warning"></i>' : ""}${esc(domain(b.url))}${b.statusId !== "pending" ? `<span class="decided">${statusLabel[b.statusId]}</span>` : ""}<span style="margin-left:auto">${links.get(b.id).size} groups</span></span></button>`).join("") || '<p style="padding:16px;color:var(--muted)">Nothing here.</p>';
+  renderCard();
+}
+
+function renderCard() {
+  const b = w.bubbles.find((x) => x.id === state.current);
+  if (!b) { $("card").innerHTML = '<p style="color:var(--muted)">All done in this view.</p>'; $("decisions").innerHTML = ""; return; }
+  const cover = b.asset?.url;
+  const raindropTags = (b.source?.fields?.tags ?? "").split(",").map((t) => t.trim()).filter((t) => t && t !== "indie-dev");
+  const groups = [...links.get(b.id)].map((id) => tags.get(id)).sort((a, c) => a.typeId.localeCompare(c.typeId));
+  const warnings = warningsOf(b).filter((n) => !n.label.startsWith("Suggested next") || !warningsOf(b).some((x) => x.label.startsWith("Link check")));
+  $("card").innerHTML = `
+    <div class="top ${cover ? "" : "no-image"}">
+      <div>
+        <h2>${esc(b.title)}</h2>
+        ${b.url ? `<a class="url" href="${esc(b.url)}" target="_blank" rel="noreferrer">${esc(domain(b.url))} ↗</a>` : '<span class="url">No URL</span>'}
+      </div>
+      ${cover ? `<img class="cover" src="${esc(cover)}" alt="" onerror="this.remove()" />` : ""}
+    </div>
+    <p class="desc">${esc(b.description) || '<span style="color:var(--muted)">No description.</span>'}</p>
+    ${raindropTags.length ? `<div class="raindrop">Raindrop tags ${raindropTags.map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>` : ""}
+    ${warnings.length ? `<div class="warnings">${warnings.map((n) => `<div class="warning"><strong>${esc(n.label)}</strong>${esc(n.text)}</div>`).join("")}</div>` : ""}
+    <section class="groups">
+      <h3>Groups (${groups.length})</h3>
+      <div class="group-list">${groups.map((t) => `<div class="group"><i class="swatch" style="background:${typeColor[t.typeId]}"></i><div><span class="name">${esc(t.name)}</span><span class="type">${typeLabel[t.typeId]}</span>${whyFor(b, t) ? `<div class="why">${esc(whyFor(b, t))}</div>` : ""}</div><button data-remove="${t.id}" title="Remove from this group">✕</button></div>`).join("") || '<p style="color:var(--muted);margin:0">Not in any group yet.</p>'}</div>
+      <div class="add"><input id="add" placeholder="Add to an issue or topic…  ( / )" value="${esc(state.query)}" autocomplete="off" />${state.query !== undefined && document.activeElement?.id === "add" ? menu(b) : ""}</div>
+    </section>
+    ${state.dupFor === b.id ? dupPicker(b) : ""}`;
+  const noGroups = groups.length === 0;
+  $("decisions").innerHTML = `
+    <div class="nav"><button data-move="-1" title="Previous (↑)">↑</button><button data-move="1" title="Next (↓)">↓</button></div>
+    ${noGroups ? '<span class="hint">Add a group before keeping</span>' : ""}
+    <button class="keep" data-decide="done" ${noGroups ? "disabled style='opacity:.5'" : ""}>Keep<small>K · grouped and done</small></button>
+    <button data-decide="dropped">Drop<small>X · not useful</small></button>
+    <button data-dup>Duplicate…<small>D · drop, keep the other</small></button>
+    <button data-decide="in-progress">Later<small>L · decide another time</small></button>`;
+}
+
+function menu(b) {
+  const q = state.query.toLowerCase();
+  const options = w.tags.filter((t) => !links.get(b.id).has(t.id) && t.name.toLowerCase().includes(q));
+  state.options = options;
+  const groups = ["type:existing-issue", "type:proposal-issue", "type:topic"].map((type) => [type, options.filter((t) => t.typeId === type)]).filter(([, l]) => l.length);
+  let i = -1;
+  return `<div class="menu">${groups.map(([type, l]) => `<div class="label">${typeLabel[type]}</div>${l.map((t) => { i++; return `<button data-add="${t.id}" class="${i === state.menuIndex ? "hl" : ""}"><i class="swatch" style="background:${typeColor[type]}"></i>${esc(t.name)}</button>`; }).join("")}`).join("") || '<div class="label">No match</div>'}</div>`;
+}
+
+function dupPicker(b) {
+  const others = (b.notes ?? []).filter((n) => n.label.startsWith("Possible duplicate")).map((n) => n.text.split(" — ")[0]);
+  return `<div class="dup"><strong>Duplicate of…</strong><div class="notes">${others.length ? "Suggested: " + others.map(esc).join(", ") : "No suggestion; pick from search in the real build."}</div>
+    <div style="display:flex;gap:8px;margin-top:10px"><button data-decide="dropped">Drop as duplicate${others.length ? " of “" + esc(others[0].slice(0, 40)) + "”" : ""}</button><button data-dupcancel>Cancel</button></div></div>`;
+}
+
+function decide(status) {
+  const list = visible();
+  const index = list.findIndex((b) => b.id === state.current);
+  const b = w.bubbles.find((x) => x.id === state.current);
+  state.last = { id: b.id, status: b.statusId };
+  b.statusId = status;
+  state.dupFor = undefined;
+  state.current = (list[index + 1] ?? list[index - 1])?.id;
+  toast(`${statusLabel[status]}: ${b.title.slice(0, 50)}`);
+  render();
+}
+function toast(text) {
+  $("toast").innerHTML = `${esc(text)} <button id="undo">Undo</button>`;
+  $("toast").style.display = "flex";
+  clearTimeout(toast.t); toast.t = setTimeout(() => ($("toast").style.display = "none"), 4000);
+}
+function move(step) {
+  const list = visible();
+  const i = list.findIndex((b) => b.id === state.current);
+  state.current = list[Math.max(0, Math.min(list.length - 1, i + step))]?.id;
+  state.query = ""; state.dupFor = undefined;
+  render();
+  document.querySelector(".queue-item.on")?.scrollIntoView({ block: "nearest" });
+}
+function addGroup(id) { links.get(state.current).add(id); state.query = ""; renderCard(); }
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.id === "undo") { const b = w.bubbles.find((x) => x.id === state.last.id); b.statusId = state.last.status; state.current = b.id; $("toast").style.display = "none"; return render(); }
+  if (t.dataset.tab) { state.tab = t.dataset.tab; state.current = undefined; return render(); }
+  if (t.dataset.id) { state.current = t.dataset.id; state.query = ""; state.dupFor = undefined; return render(); }
+  if (t.dataset.remove) { links.get(state.current).delete(t.dataset.remove); return render(); }
+  if (t.dataset.add) return addGroup(t.dataset.add);
+  if (t.dataset.decide) return decide(t.dataset.decide);
+  if (t.dataset.dup !== undefined) { state.dupFor = state.current; return renderCard(); }
+  if (t.dataset.dupcancel !== undefined) { state.dupFor = undefined; return renderCard(); }
+  if (t.dataset.move) return move(Number(t.dataset.move));
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "add") return;
+  state.query = e.target.value; state.menuIndex = 0;
+  renderCard();
+  const input = $("add"); input.focus(); input.setSelectionRange(input.value.length, input.value.length);
+});
+document.addEventListener("focusin", (e) => { if (e.target.id === "add" && !document.querySelector(".menu")) { renderCard(); const i = $("add"); i.focus(); } });
+document.addEventListener("keydown", (e) => {
+  if (e.target.id === "add") {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); state.menuIndex = Math.max(0, Math.min((state.options?.length ?? 1) - 1, state.menuIndex + (e.key === "ArrowDown" ? 1 : -1))); renderCard(); const i = $("add"); i.focus(); }
+    if (e.key === "Enter" && state.options?.[state.menuIndex]) { addGroup(state.options[state.menuIndex].id); const i = $("add"); i.focus(); }
+    if (e.key === "Escape") { state.query = ""; e.target.blur(); renderCard(); }
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const b = w.bubbles.find((x) => x.id === state.current);
+  if (e.key === "/") { e.preventDefault(); $("add")?.focus(); }
+  else if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); move(1); }
+  else if (e.key === "ArrowUp" || e.key === "k" && false) { e.preventDefault(); move(-1); }
+  else if (e.key.toLowerCase() === "k" && b && links.get(b.id).size) decide("done");
+  else if (e.key.toLowerCase() === "x" && b) decide("dropped");
+  else if (e.key.toLowerCase() === "d" && b) { state.dupFor = b.id; renderCard(); }
+  else if (e.key.toLowerCase() === "l" && b) decide("in-progress");
+});
+render();
+</script>
+</body>
+</html>
