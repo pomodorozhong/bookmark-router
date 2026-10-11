@@ -1,4 +1,4 @@
-import { bubbleImageMinZoom, bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
+import { bubbleImageMinZoom, bubbleLabelMinZoom } from "./graph-labels";
 import { placeNear, type Point } from "./graph-placement";
 import "./focus-adapt-label";
 import "./tag-node";
@@ -143,7 +143,6 @@ export function GraphCanvas({
   pinsChangedRef.current = onPinsChanged;
   const pinLayer = useRef<HTMLDivElement>(null);
   const drawPinsRef = useRef<() => void>(() => {});
-  const outsideLabels = useRef(new Map<string, boolean>());
   const hovered = useRef<string | undefined>(undefined);
   const onBoxSelectRef = useRef(onBoxSelect);
   onBoxSelectRef.current = onBoxSelect;
@@ -191,7 +190,6 @@ export function GraphCanvas({
     })();
     return undefined;
   }
-  const textMetrics = useRef<CanvasRenderingContext2D | null>(null);
   function labelStyle(node: NodeData, scale: number): NonNullable<NodeData["style"]> {
     if (!node.data?.tag) {
       const { related, box } = emphasisRef.current;
@@ -221,12 +219,7 @@ export function GraphCanvas({
       iconHeight: diameter,
       labelFontSize: 13 / scale, labelOffsetY: 6 / scale, labelWordWrap: true, labelMaxWidth: 180 / scale, labelMaxLines: 1 };
     }
-    const context = textMetrics.current ??= document.createElement("canvas").getContext("2d");
-    if (context) context.font = '600 13px sans-serif';
-    const title = String(node.data.label ?? "");
-    const width = context?.measureText(title).width ?? title.length * 7;
-    const outside = tagLabelOutside(Number(node.style?.size ?? 65), scale, width, outsideLabels.current.get(node.id));
-    outsideLabels.current.set(node.id, outside);
+    // A tag's title always sits below it, never inside the tag.
     return {
       labelFontSize: 13 / scale,
       labelFontFamily: "sans-serif",
@@ -234,17 +227,17 @@ export function GraphCanvas({
       labelMaxWidth: 220 / scale,
       labelMaxLines: 1,
       labelFontWeight: 600,
-      labelPlacement: outside ? "bottom" : "center",
-      labelOffsetY: outside ? 6 / scale : 0,
-      labelFill: outside ? "#294d41" : "#fff",
-      labelBackground: outside,
+      labelPlacement: "bottom",
+      labelOffsetY: 6 / scale,
+      labelFill: "#294d41",
+      labelBackground: true,
       labelBackgroundFill: "#f8faf9",
       labelBackgroundOpacity: .94,
       labelBackgroundRadius: 3 / scale,
       // Zoomed-out tag titles cover nearby bubbles; let hover and clicks reach them.
       labelPointerEvents: "none",
       labelBackgroundPointerEvents: "none",
-      labelPadding: outside ? [2 / scale, 3 / scale] : 0,
+      labelPadding: [2 / scale, 3 / scale],
     };
   }
   function refreshPins() {
@@ -382,7 +375,6 @@ export function GraphCanvas({
     let canceled = false,
       timer: ReturnType<typeof setInterval> | undefined,
       labelFrame: number | undefined;
-    outsideLabels.current.clear();
     renderedGraph.current = null;
     setReady(false);
     setError("");
@@ -398,8 +390,8 @@ export function GraphCanvas({
             x: 140 + i * 170,
             y: 200,
             ...node.style,
-            labelFill: "#fff",
-            labelPlacement: "center",
+            labelFill: "#294d41",
+            labelPlacement: "bottom",
             labelFontWeight: 600,
           },
         };
@@ -862,8 +854,8 @@ export function GraphCanvas({
               y,
               ...(a ? tagNode(a).style : { size: 25, fill: "#fff", stroke: "#94a3b8" }),
               lineWidth: 2,
-              labelFill: tag ? "#fff" : "#475569",
-              labelPlacement: tag ? "center" : "bottom",
+              labelFill: tag ? "#294d41" : "#475569",
+              labelPlacement: "bottom",
             },
           };
         }),
