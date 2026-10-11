@@ -10,7 +10,7 @@ Status: implementation revised and U2 approved after user review, October 10, 20
 
 ## Review basis
 
-Reviewed the running app at 1280 × 720 with an existing seven-bubble, three-tag collection, a pinned bubble, and its open Details panel. Inspected the list DOM and the source for import, editing, history, recovery, graph rendering, and responsive styles. Findings below distinguish observed visuals from source findings; narrow-screen behavior and contrast ratios still need measurement during implementation. No collection content was edited for this audit.
+Reviewed the running app at 1280 × 720 with an existing seven-bookmark, three-tag collection, a pinned bookmark, and its open Details panel. Inspected the list DOM and the source for import, editing, history, recovery, graph rendering, and responsive styles. Findings below distinguish observed visuals from source findings; narrow-screen behavior and contrast ratios still need measurement during implementation. No collection content was edited for this audit.
 
 ## Findings and priorities
 
@@ -18,7 +18,7 @@ P1 is the core workspace pass; P2 completes consistency across existing workflow
 
 | Priority | Issue and evidence | Planned correction |
 |---|---|---|
-| P1 | **Pin looks detached and flat.** Live view shows a red dot floating to the right of the bubble. `GraphCanvas.tsx` renders the text glyph `●` as a generic right-top badge. | Draw a small dimensional red pushpin whose needle visibly enters the upper-right rim. Anchor it to node geometry and control its screen size. |
+| P1 | **Pin looks detached and flat.** Live view shows a red dot floating to the right of the bookmark. `GraphCanvas.tsx` renders the text glyph `●` as a generic right-top badge. | Draw a small dimensional red pushpin whose needle visibly enters the upper-right rim. Anchor it to node geometry and control its screen size. |
 | P1 | **Tag text during zoom needs correction.** Explicit follow-up from the user. The renderer currently counter-scales label font and padding and suppresses crowded labels; the exact visual failure still needs reproduction across zoom levels. | Keep tag titles centered and readable at constant screen font size, with correctly sized backgrounds and clearance; make hide/restore behavior stable during zoom. |
 | P1 | **Sidebar order obscures scope.** Collection selector is below samples; New tag sits under Collections & recovery; counts appear twice. Observed live and in `App.tsx`. | Order collection context before navigation, then creation and recovery. Move samples into Import. Show counts once. |
 | P1 | **Icons have inconsistent shape and alignment.** Navigation, close, collapse, zoom, source cards, and success marks use unrelated text glyphs. CSS varies padding, font sizes, and dimensions. | Use one SVG icon family and shared button components with fixed icon boxes, consistent stroke weight, and explicit centering. |
@@ -46,7 +46,7 @@ Starting tokens for visual review: 4/8/12/16/24/32px spacing; 14px normal body a
 Top to bottom:
 
 1. Compact brand and aligned collapse control.
-2. Current collection selector with adjacent New collection icon and a single bubble/tag count beneath it. The selector supplies the name; do not reintroduce the removed workspace title, tagline, or review badge.
+2. Current collection selector with adjacent New collection icon and a single bookmark/tag count beneath it. The selector supplies the name; do not reintroduce the removed workspace title, tagline, or review badge.
 3. Primary navigation: Collection and Import, using icons with labels and a clear active state.
 4. Collection action: New tag, presented as creation rather than navigation.
 5. Lower utility group: Import history, Download backup, and a Restore backup entry that opens the existing JSON import flow. Explain that restore creates a new collection there.
@@ -76,7 +76,7 @@ Do not hide ambiguous or consequential actions behind unexplained symbols. Graph
 
 Keep search at top left, then Graph/List and Details at top right. Put zoom and Fit in a compact bottom control group. Move Re-layout and Reset positions to a labeled layout menu; reset still describes clearing pins before confirmation. Show a short loading message only while needed and actionable graph errors with list access.
 
-Details gets a header with record type, accessible full title, and aligned Edit, Pin, and Close actions; then status/source/description/media; then connections. Linked tags are readable chips, with an explicit Manage tags control revealing membership checkboxes in the same section. Tag details use the same structure for linked bubbles. Keep normal titles compact and provide a keyboard/touch-accessible way to read long titles, beyond hover-only `title` text.
+Details gets a header with record type, accessible full title, and aligned Edit, Pin, and Close actions; then status/source/description/media; then connections. Linked tags are readable chips, with an explicit Manage tags control revealing membership checkboxes in the same section. Tag details use the same structure for linked bookmarks. Keep normal titles compact and provide a keyboard/touch-accessible way to read long titles, beyond hover-only `title` text.
 
 Graph retains its closable overlay inspector. Desktop list reserves width for the inspector so rows remain readable. At narrow widths use a dismissible drawer/sheet with deliberate focus behavior; navigation and Details must not stack into inaccessible overlapping panels.
 
@@ -90,7 +90,7 @@ Use short and long tag names, crowded neighboring tags, and selected/unselected 
 
 | Step | Deliverable | Dependency | Completion condition |
 |---|---|---|---|
-| **1. Visual design and checkpoint U1** | Static high-fidelity HTML/CSS mockup of the populated workspace, selected pinned bubble, open Details, collapsed navigation, and a narrow-screen variant; include a pin close-up and representative icon/button states. | This plan is selected for execution. | User can judge sidebar order, density, pin placement/depth, and control clarity from a concrete artifact. Record and resolve material visual feedback before applying the design across the app. |
+| **1. Visual design and checkpoint U1** | Static high-fidelity HTML/CSS mockup of the populated workspace, selected pinned bookmark, open Details, collapsed navigation, and a narrow-screen variant; include a pin close-up and representative icon/button states. | This plan is selected for execution. | User can judge sidebar order, density, pin placement/depth, and control clarity from a concrete artifact. Record and resolve material visual feedback before applying the design across the app. |
 | **2. Foundations and core workspace** | Shared icons/buttons/tokens; consolidated styles; rebuilt sidebar/top controls; pin renderer; tag text during zoom; Details hierarchy; cleaner canvas chrome. | U1 visual direction accepted. | The original four complaints, the tag-text zoom follow-up, and all P1 findings are resolved in the running workspace. Selection, geometry, viewport, pin persistence, and force dragging behave as in Stage B. |
 | **3. Consistency across existing workflows** | List layout and selection, empty/search states, import hierarchy, editor/creation/history/undo dialogs, feedback placement, narrow layouts. | Shared components and shell from step 2. | Existing Stage B tasks use the same typography, spacing, icons, states, and action hierarchy; no inaccessible/covered controls in the viewport matrix. |
 | **4. Verification and checkpoint U2** | Runnable build, comparison screenshots, completed technical checks, and the short review checklist. | Steps 2–3 complete. | User verifies visual quality and everyday operation; material feedback is resolved. B.1 is then complete and Stage C resumes. |
@@ -103,7 +103,7 @@ U2 required roughly 10–15 minutes with the running app. The implementer suppli
 
 - Capture comparison views at 1440 × 900, 1280 × 720, 768 × 1024, and 390 × 844; include both panels open/closed, graph/list, import with fixed footer, and dialogs. Also check 200% browser text/zoom accessibility without confusing it with graph zoom.
 - Confirm icon optical centering, consistent hit areas, keyboard focus, tooltips on focus, pressed/selected semantics, readable text/contrast, dialog focus containment/return, Escape dismissal, and reduced motion. Measure contrast against agreed accessibility targets during implementation.
-- Check pin attachment on bubbles and existing tag shapes at graph zoom extremes and normal zoom; verify no title/halo collisions or detached marker while dragging. For future shapes not yet reachable through the UI, use renderer fixtures.
+- Check pin attachment on bookmarks and existing tag shapes at graph zoom extremes and normal zoom; verify no title/halo collisions or detached marker while dragging. For future shapes not yet reachable through the UI, use renderer fixtures.
 - Verify tag text at 15%, 35%, 100%, 200%, and 400% graph zoom in both directions: consistent screen font size, centering, appropriate background, no clipping, stable collision suppression/restoration, and correct rendering after reload at saved zoom.
 - Confirm sidebar/Details toggles, selection, graph/list switching, search, pan, pinch, and zoom preserve settled world positions. Re-layout respects pins; reset remains explicitly confirmed; reload preserves positions and pins.
 - Run `npm run check`, `npm test`, and `npm run build` in `app/` after implementation. Use targeted interaction tests for changed state/focus behavior; use screenshots and visual inspection for alignment, hierarchy, and depth instead of CSS-value unit tests.

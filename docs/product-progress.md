@@ -6,7 +6,7 @@
 
 - Full approved plan saved in [product-plan.md](product-plan.md), with [checkpoint guide](product-review-guide.md).
 - User amended the location: replace the prototype in `app/`, rather than build in `product/`.
-- Prototype squash merge `eadbd86` reverted by `90c8540` on `codex/bubble-tag-product`. Nothing pushed.
+- Prototype squash merge `eadbd86` reverted by `90c8540` on `codex/bookmark-tag-product`. Nothing pushed.
 - Existing prototype export edits preserved in the Git stash named `preserve prototype export edits before replacement` and `/private/tmp/bookmark-prototype-preserved` (binary patch, untracked source files, prototype archive, working dataset, and ignored app files).
 - Phase 1 foundations: typed entities and backup/filter/geometry contracts; invariant validation; revision-checked domain commands; transactional IndexedDB storage with a versioned initial schema and separate geometry; worker-based import parsing.
 - Runnable checkpoint A: source selection, field mapping, invalid/duplicate/missing-field review, merge proposals, and an in-memory graph preview. Includes bookmark and URL-less reading/writing workflows.
@@ -28,9 +28,9 @@ Stage A was approved with in-memory previews. Stage B now persists confirmed ope
 ## Remaining
 
 - Checkpoint C review feedback: clarify any confusing filter rules, copy output, or media behavior found during the complicated-workflow walkthrough.
-- Stage C.1 (plan amendment, October 11, 2026): one change-set Undo/Redo model with bounds, schema 2 migration, import-history retention, media collection, New bubble, archive/unarchive, collection deletion, outcome counts, 1,000/5,000 storage and filter measurements, and the prototype converter. The user decided undo, lifecycle, conversion, and WebMCP-target questions on October 11. Close the C1 entries in the plan's deferred verification register.
+- Stage C.1 (plan amendment, October 11, 2026): one change-set Undo/Redo model with bounds, schema 2 migration, import-history retention, media collection, New bookmark, archive/unarchive, collection deletion, outcome counts, 1,000/5,000 storage and filter measurements, and the prototype converter. The user decided undo, lifecycle, conversion, and WebMCP-target questions on October 11. Close the C1 entries in the plan's deferred verification register.
 - Phase 4 (after C1 and once the user names the browser/agent pair): optional extraction service, missing-data queue, reviewed WebMCP proposals, and browser/agent validation.
-- Phase 5: close the remaining deferred verification entries, accessibility/recovery hardening, static-deployment verification, and 1,000/5,000-bubble performance checks.
+- Phase 5: close the remaining deferred verification entries, accessibility/recovery hardening, static-deployment verification, and 1,000/5,000-bookmark performance checks.
 
 Stage A is committed as `c31e483` and `0e3fb53`. Stage B is recorded in focused local commits. No deployment, push, or publishing has occurred.
 
@@ -38,7 +38,7 @@ Stage A is committed as `c31e483` and `0e3fb53`. Stage B is recorded in focused 
 
 - Expanded the graph to the full available workspace, with a closable overlay inspector and optional expanded view.
 - Fixed the import action bar to the viewport bottom at every step, including the final preview action.
-- Clip long detail headings and linked-bubble titles with ellipses and expose full text on hover.
+- Clip long detail headings and linked-bookmark titles with ellipses and expose full text on hover.
 - Selected tags receive an outline/halo and their memberships are highlighted, without re-layout.
 - Added pointer-centered trackpad pinch zoom: Chromium Ctrl-wheel and Safari gesture handling, independent of ordinary scroll panning. This supersedes the original pinch-zoom exclusion. Physical Mac pinch testing remains a user review task.
 
@@ -46,14 +46,14 @@ Stage A is committed as `c31e483` and `0e3fb53`. Stage B is recorded in focused 
 
 - Refined control placement: search is back at the top; Graph/List and Details are at the top right. The retractable panel retains navigation and collection information.
 
-- Simplified the workspace summary to bubble/tag counts only; removed its preview heading, collection name, tagline, and design-review badge at user request.
+- Simplified the workspace summary to bookmark/tag counts only; removed its preview heading, collection name, tagline, and design-review badge at user request.
 
 ## Phase 2 — functionally accepted October 10, 2026
 
 - Transactional import confirmation, unknown status/type mapping or explicit creation, explicit invalid-row exclusion, duplicate Skip/Keep/Merge choices, and frozen revision checks. Duplicate submission is guarded; stale confirmation refreshes review.
 - Persistent collections start empty; sample buttons only load sources. Collection creation/selection and browser reload are integrated with IndexedDB.
-- Bubble/tag editors retain failed drafts; edits, independent statuses, tag creation, and memberships use revision-checked commands.
-- Import history previews undo targets and protects bubbles edited since import. Merged values and memberships are restored; imported taxonomy is kept for reuse and saved references.
+- Bookmark/tag editors retain failed drafts; edits, independent statuses, tag creation, and memberships use revision-checked commands.
+- Import history previews undo targets and protects bookmarks edited since import. Merged values and memberships are restored; imported taxonomy is kept for reuse and saved references.
 - Full JSON backup/restore bundles local media (including media retained by undo snapshots), validates encoding/references/geometry, remaps local media IDs, and restores into a new collection atomically. Remote media stays referenced. Image/video/audio previews support restored assets.
 - G6 geometry and viewport save separately from content. Saved coordinates/pins are restored without renewed motion; deliberate re-layout respects pins. Structural changes use frozen placement; styles/search/selection/pan/zoom do not restart physics. Public d3-force simulation injection handles persisted pins without using G6 internals.
 
@@ -61,7 +61,7 @@ Stage A is committed as `c31e483` and `0e3fb53`. Stage B is recorded in focused 
 
 - 35 tests cover the existing foundations plus import/merge/undo, protected membership edits, invalid selected rows, stale/double submissions, unknown mappings, bundled-media round trips, undo snapshot media, and quota/restore failure rollback.
 - TypeScript and production build pass. G6's large bundle warning remains a release-hardening item.
-- Browser: imported bookmark sample with a merge; edited description and status; reloaded and verified those values; reviewed and executed undo keeping the edited bubble; downloaded a backup and restored that actual file into another collection.
+- Browser: imported bookmark sample with a merge; edited description and status; reloaded and verified those values; reviewed and executed undo keeping the edited bookmark; downloaded a backup and restored that actual file into another collection.
 - Browser: restored the bundled-media fixture and displayed its image; dragged a tag with responding neighbor; restored saved viewport after reload. Fixed a viewport coordinate-space issue and a graph initialization race during collection switching.
 - Physical Mac trackpad pinch/panning remain in the user checklist. Media upload UI and the advanced Stage C tools are intentionally next-stage work.
 
@@ -69,22 +69,22 @@ The user accepted Stage B's functionality on October 10, 2026 and requested a UI
 
 ## Stage C — Checkpoint C ready for review October 10, 2026
 
-Stage C is implemented as a runnable complicated workflow. Tags support type-inherited color, size, shape, and icon appearance with per-field overrides/reset. Tag-only and tag-plus-linked status changes show reviewed targets, include hidden linked bubbles, commit atomically, and provide revision-checked undo. Multi-selection adds reviewed bulk status changes and local image/video/audio attachments.
+Stage C is implemented as a runnable complicated workflow. Tags support type-inherited color, size, shape, and icon appearance with per-field overrides/reset. Tag-only and tag-plus-linked status changes show reviewed targets, include hidden linked bookmarks, commit atomically, and provide revision-checked undo. Multi-selection adds reviewed bulk status changes and local image/video/audio attachments.
 
-Nested All/Any/Not, same-linked-tag, membership, asset, date, missing-field, batch, and shortest-path distance rules share one match pipeline. Saved views retain filters, tag-display hiding, and sort order; Graph and List consume the same results. The copy composer supports field order, separators, plain/Markdown output, placeholders, current-view/all-linked scopes, ordering, and saved presets. It opens with the current default output and a prominent copy action; detailed controls are collapsed, with quick Link only, Title only, Title + link, and Markdown links presets. Bubble Details also has a one-click Copy action. Local assets remain IndexedDB-backed and copy by filename rather than blob URL.
+Nested All/Any/Not, same-linked-tag, membership, asset, date, missing-field, batch, and shortest-path distance rules share one match pipeline. Saved views retain filters, tag-display hiding, and sort order; Graph and List consume the same results. The copy composer supports field order, separators, plain/Markdown output, placeholders, current-view/all-linked scopes, ordering, and saved presets. It opens with the current default output and a prominent copy action; detailed controls are collapsed, with quick Link only, Title only, Title + link, and Markdown links presets. Bookmark Details also has a one-click Copy action. Local assets remain IndexedDB-backed and copy by filename rather than blob URL.
 - Reviewed status changes were first undone through a separate Undo status control in the bottom bar. Uncommitted work during review replaced it with a general per-collection Undo; the October 11 plan amendment consolidates these into one undo model (Stage C.1).
-- The selected-node bar is now the single status entry point for tags, individual bubbles, and multi-selection; Details retains information and copy/media actions.
+- The selected-node bar is now the single status entry point for tags, individual bookmarks, and multi-selection; Details retains information and copy/media actions.
 
 ### Checkpoint C verification
 
 - 45 automated tests pass, including nested/same-tag filters, full-graph distance paths, exact copy output, quick copy presets, saved view/preset commands, revision-checked media attachments, and atomic IndexedDB workspace/blob writes.
 - `npm run check` and `npm run build` pass. Vite still reports the expected large G6 bundle warning; performance work remains Phase 5 hardening.
-- Browser walkthrough verified the filter builder, nested groups, distance examples, hidden-tag separation, saved-view update/apply, Graph/List parity, multi-selection status review and toolbar Undo, the immediate-result copy composer with collapsed customization and quick presets, Bubble Details copy feedback, the appearance editor, and the local-media upload surface without selecting a file.
-- The existing local review collection includes a saved `Stage C review` fixture with a nested All/Any/Not rule and one matching bubble; clear it before starting another review task if desired.
+- Browser walkthrough verified the filter builder, nested groups, distance examples, hidden-tag separation, saved-view update/apply, Graph/List parity, multi-selection status review and toolbar Undo, the immediate-result copy composer with collapsed customization and quick presets, Bookmark Details copy feedback, the appearance editor, and the local-media upload surface without selecting a file.
+- The existing local review collection includes a saved `Stage C review` fixture with a nested All/Any/Not rule and one matching bookmark; clear it before starting another review task if desired.
 
 ## Checkpoint B feedback — URL warnings and graph titles
 
-- Bubble/tag URLs accept unrecognized text instead of blocking imports or editor saves. Import review and details highlight these values in amber; only HTTP(S) values become source links. Duplicate matching/merging and backup/restore preserve unrecognized text.
+- Bookmark/tag URLs accept unrecognized text instead of blocking imports or editor saves. Import review and details highlight these values in amber; only HTTP(S) values become source links. Duplicate matching/merging and backup/restore preserve unrecognized text.
 - Media URLs and malformed source rows retain structural validation.
 - Graph titles use a fixed screen font size with G6 collision suppression. Selected records and tags get display priority; visibility recalculates during zooming, dragging, filtering, and selection without re-layout.
 - Added an import/persistence/deduplication/merge/restore test for malformed and JavaScript-scheme URL text; updated existing URL expectations to match the new product rule.
@@ -93,7 +93,7 @@ Nested All/Any/Not, same-linked-tag, membership, asset, date, missing-field, bat
 ### Stage B interaction refinements
 
 - Missing-title badges use an amber warning tint; Details shows a compact non-link warning.
-- Search hides tags with no matching linked bubbles and restores them when cleared.
+- Search hides tags with no matching linked bookmarks and restores them when cleared.
 - Pins are explicit through Details; dragging does not pin. Pinned nodes showed a red dot (replaced by the flat pushpin in B.1).
 - Fit graph uses asymmetric padding measured from the open Details panel.
 - Browser verified search visibility, manual pin/unpin and marker, drag without pinning, and fit beside Details.
