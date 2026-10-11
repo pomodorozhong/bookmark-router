@@ -21,25 +21,30 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 
 - **Round 2 follow-up — hidden groups and selection order, October 12, 2026:** hiding a tag type used to hide only that type's group nodes, and the current bookmark's related bookmarks still showed through a hidden group with no link drawn. Following the approved mockups (https://claude.ai/artifact/FYdtnwzotTPKTnQevKKsNq, https://claude.ai/artifact/8AYAKHREwicpmjysvFfq48): **Ungrouped bookmarks** hides bookmarks in no group of a shown type, in the graph and the queue (your collection, with Proposal issue and Topic hidden: 148 → 47). The current bookmark's groups of a hidden type **peek**: they show with a faded fill and dashed outline (style C, user's choice), with dashed links and their bookmarks (still following the tab and text filter), and the groups panel marks them "hidden". Peeking groups appear where they last sat; nothing re-lays out (user decision). Empty groups and Ungrouped bookmarks moved into a hamburger **More** menu at the end of the filter bar, with a dot while either is off; the bar now fits on one line at 1440 px, and the search placeholder is "Filter… (F)". Clicking a group orders its bookmarks clockwise around the group itself, starting at the edge of the cluster when more than 90° of the ring is empty (otherwise 12 o'clock); the issue view lists them in the same order. J/K and the arrow keys wrap past either end of the queue. Verified in headless Chrome with the converted collection; 66 tests pass. Not verified by eye: the cluster-edge start on a lopsided group (the check ran at 15% zoom).
 
+- **Round 2 follow-up — tag styles and the rename, October 12, 2026:** following the approved mockup (https://claude.ai/artifact/ECiVsc5BL5R7WtfwhKoF4B): four flat tag styles (price, rounded, shipping, hang), each pointing any of eight ways, with the hole cut through; a style's size is its longer side. The icon tilts 45° on a diagonal tag and stays upright otherwise; a tag's title always sits below it, never inside (user rule). Links end on the tag's outline, not its bounding box. Converted collections give Existing issue a price tag, Proposal issue a rounded tag, and Topic a hang tag. Both editors pick color from 11 presets (custom last), style from buttons, and direction from a 3×3 compass. Tried and reverted: showing the title's initial inside tags without an icon (too busy). **Rename (user decision):** "bubble" is now "bookmark" everywhere, code and saved format included, and the app is **Bookmark & Tag**. The saved format is version 2; the app does not read version 1 (user: an in-app upgrade was too complex), its browser database is now `bookmark-tag`, and `npm run upgrade-backup` converts old `bubble-tag` backups. The user moved their collection over with a backup from 3ce0b00. 69 tests pass.
+- **Round 2 approved — October 12, 2026.** Round 3 (the rest of the filters redesign) starts with mockup options.
+
 ## Status at the end of the October 12, 2026 session
 
-**Where things stand.** Rounds 0 and 1 are approved; round 1.5 is skipped. Round 2 is built, with the October 12 follow-up above; the user is trying it with [round-2-test-guide.md](round-2-test-guide.md).
+**Where things stand.** Rounds 0, 1, and 2 are approved; round 1.5 is skipped. Round 3 is next.
 
 **Decisions made this session**
 - Peeking groups stay where they last sat; the layout never re-runs for them. Placing them beside the current bookmark is a later option if they land off-screen or on top of other nodes.
 - Peeking style C (faded fill, dashed outline); the queue follows Ungrouped bookmarks.
 - Empty groups and Ungrouped bookmarks live in a hamburger More menu, not in the bar.
 - A clicked group's bookmarks go clockwise around the group, starting at the cluster's edge when more than 90° of the ring is empty (the threshold is a guess; lower it if lopsided groups still start at 12 o'clock).
+- Tags: four styles in eight directions; titles always below the tag; no automatic initials.
+- The app is Bookmark & Tag and says "bookmark", never "bubble". Old data goes through `npm run upgrade-backup`, not an in-app upgrade.
 
 **Open items**
-- Not verified on real hardware: the system clipboard for Copy.
+- Not verified on real hardware: the system clipboard for Copy, and the Custom color swatch's system picker.
 - At phone width the header is crowded (progress text wraps) and tapping a tag was not verified there.
 - Titles of non-focused bookmarks can be partly covered by nearby nodes when zoomed in; zooming above 60% still stutters slightly.
 - Some remote covers fail to load (403, for example Twitter profile images); they stay blank.
 - Hidden nodes hold their place during a reset, so a peeking group or a re-shown bookmark can appear on top of shown nodes or off-screen.
-- Untracked in the repo root, not created by the assistant: `bookmarks-converted_.json`, `bookmarks-visible.json`; `.claude/launch.json` starts the dev server for the browser preview. The in-app browser pane is too throttled to lay out the graph; headless Chrome over CDP with the converted collection restored works.
+- The old `bubble-tag-v1` browser database still holds the pre-rename collections; it can be cleared once nothing more is needed from it.
+- Untracked in the repo root, not created by the assistant: `bookmarks-converted_.json`, `bookmarks-visible.json` (both old-format backups); `.claude/launch.json` starts the dev server for the browser preview. The in-app browser pane is too throttled to lay out the graph; headless Chrome over CDP with a restored backup works (localStorage does not survive between headless runs).
 
 **Next**
-1. User finishes the round 2 try ([round-2-test-guide.md](round-2-test-guide.md)) and reports anything to fix.
-2. Round 3: the rest of the filters redesign (for example status filters and saved filter setups), starting from mockup options. Today's More menu and peeking groups are its starting point.
-3. Round 4: WebMCP — needs the user's browser and agent pair.
+1. Round 3: the rest of the filters redesign (for example status filters and saved filter setups), starting from mockup options. The More menu and peeking groups are its starting point.
+2. Round 4: WebMCP — needs the user's browser and agent pair.
