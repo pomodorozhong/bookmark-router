@@ -990,7 +990,7 @@ export function GraphCanvas({
           {feedback}
         </div>
         <div className="canvas-tools">
-          <details className="help-menu"><summary aria-label="Graph help"><Icon name="info" /><span>Help</span></summary><div className="help-popover"><strong>Explore your collection</strong><p>Drag a bubble to move it. Scroll with two fingers to pan; pinch to zoom.</p><p>Click a bookmark to triage it; click empty space to clear it. Drag on empty space to box-select.</p></div></details>
+          <details className="help-menu"><summary aria-label="Graph help"><Icon name="info" /><span>Help</span></summary><div className="help-popover"><strong>Explore your collection</strong><p>Drag a bubble to move it. Scroll with two fingers to pan; pinch to zoom.</p><p>Click a bookmark to triage it; click empty space to clear it. Click a tag, or drag on empty space, to select bookmarks.</p></div></details>
           <span className="zoom-value">{Math.round(zoom * 100)}%</span>
           <div className="layout-menu">
             <button

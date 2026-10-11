@@ -388,7 +388,11 @@ th { background: #f4f7f5; color: var(--muted); }
 .queue-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px 6px 14px; background: #f4f7f5; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
 .queue-bar.selection { background: #eff4ff; border-color: #c7d6fb; color: #1e3a8a; }
 .queue-bar button { min-height: 28px; padding: 3px 9px; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
-.queue-bar-actions { display: flex; gap: 6px; }
+.queue-bar-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.queue-bar.selection { flex-wrap: wrap; }
+.queue-bar-label.full { flex-basis: 100%; }
+.queue-bar-label.full + .queue-bar-actions { margin-left: auto; }
+.queue-bar-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .queue-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid #edf2ef; border-radius: 0; padding: 9px 14px; background: transparent; }
 .queue-item:hover { background: #f1f6f3; }
 .queue-item.current { background: var(--tint); box-shadow: inset 3px 0 var(--teal); }

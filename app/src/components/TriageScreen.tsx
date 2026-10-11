@@ -60,6 +60,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [filter, setFilter] = useState<TriageFilter>(emptyTriageFilter);
   // The box selection, in the clockwise order captured when it was drawn.
   const [selection, setSelection] = useState<string[]>();
+  // The tag whose bookmarks make up the selection, when it came from clicking a tag.
+  const [selectionTagId, setSelectionTagId] = useState<string>();
   const [currentId, setCurrentId] = useState<string>();
   const [queueOpen, setQueueOpen] = useState(() => window.innerWidth > 1000);
   const [groupQuery, setGroupQuery] = useState("");
@@ -73,6 +75,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const filterInput = useRef<HTMLInputElement>(null);
   const groupInput = useRef<HTMLInputElement>(null);
 
+  const selectionTag = selection && workspace.tags.find((t) => t.id === selectionTagId);
   const selectionSet = useMemo(() => (selection ? new Set(selection) : undefined), [selection]);
   const queue = useMemo(() => {
     const list = triageQueue(workspace, { tab, filter, selection: selectionSet });
@@ -164,7 +167,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       setFrameRequest(++frameToken.current);
     });
   }
-  function boxSelect(ids: string[], adding: boolean) {
+  function boxSelect(ids: string[], adding: boolean, tagId?: string) {
+    setSelectionTagId(tagId);
     const base = adding ? selection ?? [] : [];
     const merged = [...new Set([...base, ...ids])];
     if (!merged.length) { setSelection(undefined); return; }
@@ -234,8 +238,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         <nav className="triage-queue" aria-label="Bookmarks to triage">
           {selection ? (
             <div className="queue-bar selection" role="status">
-              <span><strong>{selection.length}</strong> selected{queue.length !== selection.length ? ` · ${queue.length} here` : ""}</span>
+              <span className={`queue-bar-label ${selectionTag ? "full" : ""}`}><strong>{selection.length}</strong> {selectionTag ? <>in <span title={selectionTag.name}>{selectionTag.name}</span></> : "selected"}{queue.length !== selection.length ? ` · ${queue.length} here` : ""}</span>
               <span className="queue-bar-actions">
+                {selectionTag && <button onClick={() => onEdit(selectionTag.id)}><Icon name="edit" size={13} /> Edit tag</button>}
                 <button onClick={() => openCopy("selection")}><Icon name="copy" size={13} /> Copy…</button>
                 <button onClick={() => setSelection(undefined)} title="Clear selection (Esc)">Clear</button>
               </span>
@@ -296,7 +301,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             onSelect={(id) => {
               if (!id) show(undefined, false);
               else if (workspace.bubbles.some((b) => b.id === id)) show(id);
-              else onEdit(id);
+              else boxSelect(workspace.memberships.filter((m) => m.tagId === id).map((m) => m.bubbleId), false, id);
             }}
             query=""
             matchingBubbleIds={visibility.bubbleIds}
