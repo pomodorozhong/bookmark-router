@@ -423,7 +423,7 @@ th { background: #f4f7f5; color: var(--muted); }
 .triage-progress { flex: 1; display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; min-width: 0; }
 .triage-bar { flex: 1; max-width: 260px; height: 6px; border-radius: 3px; background: #e5ece8; overflow: hidden; display: flex; }
 .triage-bar span { height: 100%; }
-.triage-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 280px minmax(0, 1fr) 400px; }
+.triage-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 280px minmax(0, 1fr) 400px; grid-template-rows: minmax(0, 1fr); }
 .triage.queue-closed .triage-body { grid-template-columns: 0 minmax(0, 1fr) 400px; }
 .triage-queue { border-right: 1px solid var(--line); overflow: auto; background: #fbfcfb; min-width: 0; }
 .triage.queue-closed .triage-queue { visibility: hidden; border: 0; }

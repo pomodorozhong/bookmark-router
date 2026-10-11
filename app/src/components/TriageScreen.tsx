@@ -173,6 +173,12 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       return b && inTab(b, workspace, tab);
     }), false);
   }
+  // A filter change keeps the current bookmark unless it no longer matches.
+  function changeFilter(next: TriageFilter) {
+    setFilter(next);
+    if (current && !triageQueue(workspace, { tab, filter: next, selection: selectionSet }).some((b) => b.id === current.id))
+      show(undefined, false);
+  }
   function openCopy(scope?: CopyScope) {
     setCopyScope(scope ?? (selection ? "selection" : "list"));
   }
@@ -259,17 +265,17 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             <div className={`triage-filter ${filtering ? "active" : ""}`}>
               <Icon name="filter" size={15} />
               <input ref={filterInput} type="search" aria-label="Filter bookmarks and groups" placeholder="Filter bookmarks and groups… (F)" value={filter.text}
-                onChange={(e) => { setFilter({ ...filter, text: e.target.value }); show(undefined, false); }}
-                onKeyDown={(e) => { if (e.key === "Escape") { setFilter({ ...filter, text: "" }); e.currentTarget.blur(); } }} />
+                onChange={(e) => changeFilter({ ...filter, text: e.target.value })}
+                onKeyDown={(e) => { if (e.key === "Escape") { changeFilter({ ...filter, text: "" }); e.currentTarget.blur(); } }} />
               {workspace.tagTypes.map((type) => (
                 <label key={type.id} className="type-toggle">
                   <input type="checkbox" checked={!filter.hiddenTypeIds.includes(type.id)}
-                    onChange={(e) => setFilter({ ...filter, hiddenTypeIds: e.target.checked ? filter.hiddenTypeIds.filter((id) => id !== type.id) : [...filter.hiddenTypeIds, type.id] })} />
+                    onChange={(e) => changeFilter({ ...filter, hiddenTypeIds: e.target.checked ? filter.hiddenTypeIds.filter((id) => id !== type.id) : [...filter.hiddenTypeIds, type.id] })} />
                   <i className="swatch" style={{ background: type.appearance.color }} />{type.name}
                 </label>
               ))}
               <label className="type-toggle">
-                <input type="checkbox" checked={filter.showDecided} onChange={(e) => setFilter({ ...filter, showDecided: e.target.checked })} />
+                <input type="checkbox" checked={filter.showDecided} onChange={(e) => changeFilter({ ...filter, showDecided: e.target.checked })} />
                 Decided
               </label>
               {filtering && <span className="filter-count">{visibility.bubbleIds.length} shown</span>}
@@ -292,7 +298,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             geometry={geometry}
             onGeometry={onGeometry}
             onImport={onImport}
-            onClearSearch={() => setFilter(emptyTriageFilter)}
+            onClearSearch={() => changeFilter(emptyTriageFilter)}
             onPinsChanged={() => {}}
             loadMedia={loadMedia}
             feedback={feedback}

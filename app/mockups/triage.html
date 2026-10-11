@@ -24,7 +24,7 @@
   .tabs { display: flex; gap: 4px; padding: 3px; background: #f0f4f2; border-radius: 8px; }
   .tabs button { border: 0; background: transparent; padding: 5px 10px; color: var(--muted); }
   .tabs button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px #183e3514; }
-  main { flex: 1; display: grid; grid-template-columns: 260px 1fr 420px; min-height: 0; }
+  main { flex: 1; display: grid; grid-template-columns: 260px 1fr 420px; grid-template-rows: minmax(0, 1fr); min-height: 0; }
   main.queue-closed { grid-template-columns: 0 1fr 420px; }
   .queue { border-right: 1px solid var(--line); overflow: auto; background: #fbfcfb; }
   main.queue-closed .queue { visibility: hidden; }
@@ -119,7 +119,7 @@
 </style>
 </head>
 <body>
-<div class="mock-banner">Mockup — nothing is saved. Keys: D done · X drop · S deselect · C copy · ↑/↓ move · / add to a group · F filter · Q show/hide queue · Esc clear selection · drag a box to select (Shift adds) · two-finger scroll pans, pinch zooms</div>
+<div class="mock-banner">Mockup — superseded by the app at <a href="/" style="color:#9fe0c8">/</a>. Nothing is saved. Keys: D done · X drop · S deselect · C copy · ↑/↓ move · / add to a group · F filter · Q show/hide queue · Esc clear selection · drag a box to select (Shift adds) · two-finger scroll pans, pinch zooms</div>
 <header>
   <h1>Triage</h1>
   <div class="progress"><div class="bar" id="bar"></div><span id="counts"></span></div>

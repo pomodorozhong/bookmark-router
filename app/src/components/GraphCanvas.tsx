@@ -1,4 +1,4 @@
-import { bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
+import { bubbleImageMinZoom, bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
 import { placeNear, type Point } from "./graph-placement";
 import "./focus-adapt-label";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from "react";
@@ -158,8 +158,8 @@ export function GraphCanvas({
       const { related, box } = emphasisRef.current;
       const shown = scale >= bubbleLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current
         || (related.has(node.id) && related.size <= emphasisLabelLimit) || (box.has(node.id) && box.size <= emphasisLabelLimit);
-      // Images only when zoomed in; at hover or selection while zoomed out they are too small to read.
-      const image = scale >= bubbleLabelMinZoom ? bubbleImage(bubblesRef.current.get(node.id)) : undefined;
+      // Images show with the title once the bubble is big enough to read; far out they are too small.
+      const image = shown && scale >= bubbleImageMinZoom ? bubbleImage(bubblesRef.current.get(node.id)) : undefined;
       // The 2px outline is centered on the edge; tucking the image 0.5px under
       // it fills the inner circle without a seam.
       const diameter = Number(node.style?.size ?? 25) - 1;
