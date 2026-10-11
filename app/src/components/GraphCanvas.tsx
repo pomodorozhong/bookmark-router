@@ -1,7 +1,7 @@
 import { bubbleImageMinZoom, bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
 import { placeNear, type Point } from "./graph-placement";
 import "./focus-adapt-label";
-import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from "react";
 import {
   CanvasEvent,
   Graph,
@@ -59,7 +59,10 @@ export function GraphCanvas({
   loadMedia,
   boxSelection,
   onBoxSelect,
+  tools,
 }: {
+  /** Extra buttons placed before the fit button in the bottom bar. */
+  tools?: ReactNode;
   /** Bookmarks in the current box selection. */
   boxSelection?: ReadonlySet<string>;
   /** Called when a box is drawn on empty canvas; `adding` when Shift was held. */
@@ -1024,6 +1027,7 @@ export function GraphCanvas({
               </div>
             )}
           </div>
+          {tools}
           <IconButton
             label="Whole collection"
             icon="fit"
