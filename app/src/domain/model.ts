@@ -81,7 +81,8 @@ export type Filter =
   | { op: "all" | "any"; rules: Filter[] }
   | { op: "not"; rule: Filter }
   | { op: "text"; value: string }
-  | { op: "url"; value: string; mode: "contains" | "domain" }
+  /** "host" matches the hostname (without www.) or a subdomain of it exactly. */
+  | { op: "url"; value: string; mode: "contains" | "domain" | "host" }
   | { op: "status"; ids: string[] }
   | { op: "tags"; ids: string[]; mode?: "any" | "all" }
   | { op: "tag-type"; ids: string[] }
@@ -96,6 +97,8 @@ export type Filter =
   | { op: "distance"; tagIds: string[]; hops: number }
   | { op: "missing"; field: "title" | "description" | "url" | "asset" }
   | { op: "no-tags" }
+  /** A failed link check or a possible duplicate, noted at import. */
+  | { op: "warning" }
   | { op: "batch"; id: string }
   | { op: "same-tag"; name?: string; typeId?: string; statusId?: string };
 export interface SavedView {
@@ -392,7 +395,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
     } else if (f.op === "url") {
       if (
         typeof f.value !== "string" ||
-        !["contains", "domain"].includes(f.mode)
+        !["contains", "domain", "host"].includes(f.mode)
       )
         fail("invalid URL filter");
     } else if (
@@ -442,7 +445,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
     } else if (f.op === "missing") {
       if (!["title", "description", "url", "asset"].includes(f.field))
         fail("unknown missing-field filter");
-    } else if (f.op === "no-tags") {
+    } else if (f.op === "no-tags" || f.op === "warning") {
       return;
     } else if (f.op === "batch") {
       if (!w.batches.some((b) => b.id === f.id)) fail("unknown filter batch");

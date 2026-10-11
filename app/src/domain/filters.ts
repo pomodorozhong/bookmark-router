@@ -5,6 +5,15 @@ export interface DistanceMatch {
   path: string[];
 }
 
+/** The hostname without www., or "" when the bookmark has no web URL. */
+export function hostOf(url?: string): string {
+  return url && isWebUrl(url) ? new URL(url).hostname.toLowerCase().replace(/^www\./, "") : "";
+}
+/** Import notes that need a look: a failed link check or a possible duplicate. */
+export function hasWarning(bookmark: Bookmark): boolean {
+  return Boolean(bookmark.notes?.some((n) => /^(Link check|Possible duplicate)/.test(n.label)));
+}
+
 function linkedTags(bookmark: Bookmark, workspace: Workspace) {
   const tagIds = workspace.memberships
     .filter((membership) => membership.bookmarkId === bookmark.id)
@@ -69,6 +78,10 @@ function matchesLeaf(
   if (filter.op === "url") {
     const value = filter.value.trim().toLowerCase();
     if (!value) return true;
+    if (filter.mode === "host") {
+      const host = hostOf(bookmark.url);
+      return host === value || host.endsWith(`.${value}`);
+    }
     if (filter.mode === "domain" && isWebUrl(bookmark.url ?? "")) {
       return new URL(bookmark.url!).hostname.toLowerCase().includes(value);
     }
@@ -116,6 +129,7 @@ function matchesLeaf(
           : !bookmark.asset;
   }
   if (filter.op === "no-tags") return tags.length === 0;
+  if (filter.op === "warning") return hasWarning(bookmark);
   if (filter.op === "batch") return bookmark.importBatchId === filter.id;
   if (filter.op === "same-tag") {
     return tags.some(
@@ -174,6 +188,7 @@ export function filterSummary(filter: Filter, workspace: Workspace): string {
   if (filter.op === "date") return `${filter.field === "createdAt" ? "Created" : "Updated"} in selected range`;
   if (filter.op === "distance") return `Within ${filter.hops} hop${filter.hops === 1 ? "" : "s"} of ${filter.tagIds.map((id) => tagName(id, workspace)).join(", ")}`;
   if (filter.op === "missing") return `Missing ${filter.field}`;
+  if (filter.op === "warning") return "Has a warning";
   if (filter.op === "no-tags") return "No linked tags";
   if (filter.op === "batch") return `Import: ${workspace.batches.find((batch) => batch.id === filter.id)?.source ?? "selected batch"}`;
   if (filter.op === "same-tag")
