@@ -402,6 +402,18 @@ th { background: #f4f7f5; color: var(--muted); }
 .type-toggle input { position: absolute; opacity: 0; pointer-events: none; }
 .type-toggle:has(input:focus-visible) { outline: 2px solid var(--teal); }
 .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+.filter-more { position: relative; }
+.filter-more-button { position: relative; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
+.filter-more-button:hover, .filter-more-button[aria-expanded=true] { background: var(--tint); color: var(--teal); }
+.filter-more-button:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+/* Shows that Empty groups or Ungrouped bookmarks is hiding something while the menu is closed. */
+.filter-more-dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 2px #fff; }
+.filter-more-popover { position: absolute; top: calc(100% + 8px); right: 0; width: 240px; padding: 6px; display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 10px; background: white; box-shadow: var(--shadow); z-index: 20; }
+.filter-more-popover h4 { margin: 4px 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.filter-check { display: grid; grid-template-columns: 16px 1fr; gap: 2px 8px; align-items: start; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--ink); }
+.filter-check:hover { background: #f3f7f5; }
+.filter-check input { margin: 2px 0 0; accent-color: var(--teal); }
+.filter-check small { grid-column: 2; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
 .triage-panel { border-left: 1px solid var(--line); background: white; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .triage-detail { flex: 1; overflow: auto; padding: 18px 20px 12px; }
 .triage-top { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
