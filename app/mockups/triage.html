@@ -31,6 +31,9 @@
   .selection-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 8px 12px 8px 14px; background: #eff4ff; border-bottom: 1px solid #c7d6fb; color: #1e3a8a; font-size: 12.5px; }
   .selection-bar button { padding: 3px 9px; font-size: 12px; }
   .bar-actions { display: flex; gap: 6px; }
+  .list-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 6px 12px 6px 14px; background: #f4f7f5; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+  .list-bar button { padding: 3px 9px; font-size: 12px; }
+  .copy-one { margin-left: 10px; padding: 2px 9px; font-size: 12px; vertical-align: 1px; }
   .copy-dialog { position: fixed; inset: 0; background: #183e3533; display: grid; place-items: center; z-index: 20; }
   .copy-dialog[hidden] { display: none; }
   .copy-box { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow: auto; background: #fff; border-radius: 12px; box-shadow: 0 20px 60px #183e3540; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
@@ -116,7 +119,7 @@
 </style>
 </head>
 <body>
-<div class="mock-banner">Mockup — nothing is saved. Keys: D done · X drop · S deselect · C copy selection · ↑/↓ move · / add to a group · F filter · Q show/hide queue · Esc clear selection · drag a box to select (Shift adds) · two-finger scroll pans, pinch zooms</div>
+<div class="mock-banner">Mockup — nothing is saved. Keys: D done · X drop · S deselect · C copy · ↑/↓ move · / add to a group · F filter · Q show/hide queue · Esc clear selection · drag a box to select (Shift adds) · two-finger scroll pans, pinch zooms</div>
 <header>
   <h1>Triage</h1>
   <div class="progress"><div class="bar" id="bar"></div><span id="counts"></span></div>

@@ -206,7 +206,8 @@ function render(animate = true) {
     .map(([k, l]) => `<button class="${state.tab === k ? "on" : ""}" data-tab="${k}">${l}</button>`).join("");
   const list = visible();
   if (!state.current || !bubbles.has(state.current)) state.current = list[0]?.id;
-  const selectionBar = state.selection ? `<div class="selection-bar"><span title="Selected in the graph · in this tab"><strong>${state.selection.size}</strong> selected${list.length !== state.selection.size ? ` · ${list.length} here` : ""}</span><span class="bar-actions"><button id="copy" title="Copy the selected bookmarks (C)">Copy…</button><button id="clear-selection" title="Clear selection (Esc)">Clear</button></span></div>` : "";
+  const listBar = `<div class="list-bar"><span>${list.length} in this list</span><button id="copy" title="Copy the bookmarks in this list (C)">Copy…</button></div>`;
+  const selectionBar = state.selection ? `<div class="selection-bar"><span title="Selected in the graph · in this tab"><strong>${state.selection.size}</strong> selected${list.length !== state.selection.size ? ` · ${list.length} here` : ""}</span><span class="bar-actions"><button id="copy" title="Copy the selected bookmarks (C)">Copy…</button><button id="clear-selection" title="Clear selection (Esc)">Clear</button></span></div>` : listBar;
   $("queue").innerHTML = selectionBar + list.map((b) => `<button class="queue-item ${b.id === state.current ? "on" : ""}" data-id="${b.id}"><span class="t">${esc(b.title)}</span><span class="d">${warningsOf(b).length ? '<i class="warn-dot" title="Has a warning"></i>' : ""}${esc(domain(b.url))}${b.statusId !== "pending" ? `<span class="decided">${statusLabel[b.statusId]}</span>` : ""}<span style="margin-left:auto">${links.get(b.id).size}</span></span></button>`).join("")
     || '<p style="padding:16px;color:var(--muted)">Nothing here.</p>';
   document.querySelector(".queue-item.on")?.scrollIntoView({ block: "nearest" });
@@ -223,7 +224,8 @@ function renderCard() {
   const related = [...relatedOf(b.id)].sort((a, c) => c[1].length - a[1].length);
   $("card").innerHTML = `
     <div class="top ${cover ? "" : "no-image"}">
-      <div><h2>${esc(b.title)}</h2>${b.url ? `<a class="url" href="${esc(b.url)}" target="_blank" rel="noreferrer">${esc(domain(b.url))} ↗</a>` : '<span class="url">No URL</span>'}</div>
+      <div><h2>${esc(b.title)}</h2>${b.url ? `<a class="url" href="${esc(b.url)}" target="_blank" rel="noreferrer">${esc(domain(b.url))} ↗</a>` : '<span class="url">No URL</span>'}
+        <button class="copy-one" id="copy-current" title="Copy this bookmark with your template">Copy</button></div>
       ${cover ? `<img class="cover" src="${esc(cover)}" alt="" onerror="this.remove()" />` : ""}
     </div>
     <p class="desc">${esc(b.description) || '<span style="color:var(--muted)">No description.</span>'}</p>
@@ -321,11 +323,12 @@ const fields = {
   topics: (b) => [...links.get(b.id)].map((t) => tags.get(t)).filter((t) => t.typeId === "type:topic").map((t) => t.name).join(", "),
 };
 const savedCopy = (() => { try { return JSON.parse(localStorage.getItem("triage-copy") ?? "null"); } catch { return null; } })();
-const copy = { template: savedCopy?.template ?? presets[0][1], separator: savedCopy?.separator ?? presets[0][2], scope: "all" };
+const copy = { template: savedCopy?.template ?? presets[0][1], separator: savedCopy?.separator ?? presets[0][2], scope: "selection" };
 const copyOpen = () => !$("copy-dialog").hidden;
+const selectedItems = () => clockwise(w.bubbles.filter((b) => state.selection?.has(b.id)));
+const currentItems = () => (bubbles.has(state.current) ? [bubbles.get(state.current)] : []);
 function copyItems() {
-  const selected = clockwise(w.bubbles.filter((b) => state.selection?.has(b.id)));
-  return copy.scope === "queue" ? visible() : selected;
+  return copy.scope === "selection" ? selectedItems() : copy.scope === "current" ? currentItems() : visible();
 }
 function copyText(n = Infinity) {
   return copyItems().slice(0, n).map((b, i) => copy.template.replace(/\{(\w+)\}/g, (m, k) => (k === "n" ? String(i + 1) : fields[k] ? fields[k](b) : m))).join(copy.separator);
@@ -339,13 +342,20 @@ function renderCopy() {
     <p class="fields">Fields: ${Object.keys(fields).concat("n").map((k) => `<code>{${k}}</code>`).join(" ")}</p>
     <div class="copy-row">
       <label>Between items<select id="copy-separator">${[["\n", "New line"], ["\n\n", "Blank line"], [", ", "Comma"], [" ", "Space"]].map(([v, l]) => `<option value="${esc(JSON.stringify(v))}" ${copy.separator === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-      <label>Bookmarks<select id="copy-scope"><option value="all" ${copy.scope === "all" ? "selected" : ""}>All selected (${clockwise(w.bubbles.filter((b) => state.selection?.has(b.id))).length})</option><option value="queue" ${copy.scope === "queue" ? "selected" : ""}>Only this tab (${visible().length})</option></select></label>
+      <label>Bookmarks<select id="copy-scope">${[
+        ["selection", `Selected (${selectedItems().length})`, !state.selection],
+        ["queue", `This list (${visible().length})`, false],
+        ["current", "Current bookmark", !currentItems().length],
+      ].map(([v, l, off]) => `<option value="${v}" ${copy.scope === v ? "selected" : ""} ${off ? "disabled" : ""}>${l}</option>`).join("")}</select></label>
     </div>
     <pre class="preview">${esc(copyText(40))}${items.length > 40 ? "\n…" : ""}</pre>
-    <div class="copy-foot"><span class="subtle">Clockwise order, as in the queue</span><button id="copy-go" class="keep">Copy text</button></div>
+    <div class="copy-foot"><span class="subtle">${copy.scope === "current" ? "" : "Same order as the queue"}</span><button id="copy-go" class="keep">Copy text</button></div>
   </div>`;
 }
-function openCopy() { $("copy-dialog").hidden = false; renderCopy(); $("copy-go").focus(); }
+function openCopy(scope) {
+  copy.scope = scope ?? (state.selection ? "selection" : "queue");
+  $("copy-dialog").hidden = false; renderCopy(); $("copy-go").focus();
+}
 function closeCopy() { $("copy-dialog").hidden = true; }
 function saveCopy() { try { localStorage.setItem("triage-copy", JSON.stringify({ template: copy.template, separator: copy.separator })); } catch {} }
 $("copy-dialog").addEventListener("click", async (e) => {
@@ -382,6 +392,7 @@ document.addEventListener("click", (e) => {
     return select(b.id);
   }
   if (t.id === "copy") return openCopy();
+  if (t.id === "copy-current") return openCopy("current");
   if (t.dataset.deselect !== undefined) return deselect();
   if (t.id === "clear-selection") return clearSelection();
   if (t.id === "fit") return void graph.fitView({}, { duration: 300 });
@@ -421,7 +432,7 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
   else if (key === "q") $("toggle-queue").click();
   else if (e.key === "Escape" && state.selection) clearSelection();
-  else if (key === "c" && state.selection) openCopy();
+  else if (key === "c") openCopy();
   else if (!b) return;
   else if (key === "d") decide("done");
   else if (key === "x") decide("dropped");
