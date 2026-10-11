@@ -267,7 +267,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         <div className="triage-stage">
           <div className="triage-tools">
             <button onClick={() => setQueueOpen((v) => !v)} aria-pressed={queueOpen} title="Show or hide the queue (Q)"><Icon name="list" size={17} strokeWidth={2} /> Queue</button>
-            <button onClick={() => current && graphRef.current?.frame([current.id, ...groups.map((g) => g.id)])} disabled={!current} title="Center on the current bookmark"><Icon name="scope" size={17} strokeWidth={2} /> Current</button>
             <div className={`triage-filter ${filtering ? "active" : ""}`}>
               <Icon name="filter" size={15} />
               <input ref={filterInput} type="search" aria-label="Filter bookmarks and groups" placeholder="Filter bookmarks and groups… (F)" value={filter.text}
@@ -305,6 +304,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             filtering={Boolean(filter.text.trim())}
             hiddenTagIds={visibility.hiddenTagIds}
             boxSelection={selectionSet}
+            tools={<IconButton label="Center on the current bookmark" icon="scope" disabled={!current} onClick={() => current && graphRef.current?.frame([current.id, ...groups.map((g) => g.id)])} />}
             onBoxSelect={boxSelect}
             geometry={geometry}
             onGeometry={onGeometry}
