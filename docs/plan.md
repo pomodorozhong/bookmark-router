@@ -102,9 +102,9 @@ Starting this round requires naming the browser and agent you will use.
 | Feature | Decision |
 |---|---|
 | Graph view, import wizard, backup/restore, current Undo | Keep. Fix bugs as they are found. |
-| Copy composer | Freeze: keep the one-click Copy and quick presets; no more template work. |
+| Copy composer | Rebuilt in round 1 as triage selection copy (templates, presets, preview). The old composer goes with the old graph screen. |
 | Media upload | Freeze, except image assets from round 1.5. |
-| Bulk status propagation | Keep; revisit in round 1 if triage replaces it. |
+| Bulk status propagation | Revisit in round 1: triage replaces the old graph screen. |
 | C.1 undo rework (change sets, Redo, schema 2) | Cut. Current undo stays until it causes a real problem. |
 | New bubble, archive | Moved into rounds 1/4 (WebMCP needs add item; triage may need archive). |
 | 1,000/5,000 measurements, release review | Cut. |
