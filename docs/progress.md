@@ -17,29 +17,30 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 - **Round 1 follow-up — tabs drive the graph, October 11, 2026:** To triage, Done, Dropped, and All now filter the graph as well as the queue (with your collection: 116, 30, 2, and 148 bookmarks shown). The Decided filter toggle is removed because the tabs cover it. The user reports trackpad pan and pinch pass, and that their local fetcher works.
 - **Round 1 follow-up — tab reset and tag editing, October 11, 2026:** changing the queue tab turns Empty groups off and runs Reset positions; a reset now lays out only the shown nodes (hidden ones hold still and exert no force) and frames them when it settles (Done: 27% zoom instead of the 15% minimum). Clicking a tag selects its bookmarks and opens the tag editor in the detail panel; the selection bar's Edit tag button is gone.
 - **Round 1 approved — October 11, 2026.** Round 1.5 is skipped: the user already has a local fetcher that works. Round 2 (issues and tags) starts with a mockup: https://claude.ai/artifact/UDiy6z6zQ66wVKwwxn3CpH.
+- **Round 2 built — October 11, 2026:** following the approved mockup (https://claude.ai/artifact/UDiy6z6zQ66wVKwwxn3CpH). Clicking a tag opens an issue view in the detail panel: type, status, link, rendered description, and its bookmarks with the reason each belongs (click one to open it); **Copy…** and **Edit** sit under the title. The editor's **Appearance** is collapsed, with a live node preview and inherited values. **Tag types…** (⋯ menu, or **New type…** in the editor's type list) lists types with their nodes and creates or edits them; types are never deleted (user decision). Tag nodes now redraw when their appearance changes: color fills the node, size and shape apply, and the icon sits inside. Also fixed: cached covers that stayed hidden. Verified in headless Chrome with the converted collection (issue #141: 7 bookmarks; overrides to purple, diamond, ★ redraw the node; a new type adds a filter toggle). 64 tests pass. How to try it: [round-2-test-guide.md](round-2-test-guide.md).
 
 ## Status at the end of the October 11, 2026 session
 
-**Where things stand.** Round 0 is approved. Round 1 (triage) is built and the user's first feedback is fixed: bottom overflow (it was the mockup page), the filter no longer moves the current bookmark, images show from 40% zoom, the sidebar is replaced by header menus, and toolbar icons are in. Round 1 still needs the user's "You try": triage 10 real bookmarks and paste one copied selection into a real destination.
+**Where things stand.** Rounds 0 and 1 are approved; round 1.5 is skipped (the user has a working local fetcher). Round 2 (issues and tags) is built and committed and waits for the user's "You try" in [round-2-test-guide.md](round-2-test-guide.md).
 
 **Decisions made this session**
-- The product name stays **Bubble & Tag**; the logo is "Web" (one tag joined to three bubbles). Name alternatives explored and declined: Asterism, Seedbed, Orbit, Umbel, Ripple, Venn.
-- The fetcher (round 1.5) is a local-only deterministic helper; GitHub Pages ships without it, and the agent is only a fallback.
-- Converted suggestions are plain links; no deletion of bubbles or tags (collections can be deleted since the follow-up above); high-zoom panning cost is acceptable.
-- Menu wording: **Add bubble…** (the Import screen) and **Add tag…**.
+- The product name stays **Bubble & Tag**; the logo is "Web" (one tag joined to three bubbles).
+- Collections can be deleted (reversing the earlier rule); bubbles, tags, and tag types cannot.
+- Round 1.5 (fetcher) is skipped: the user already has a local fetcher that works.
+- The queue tabs drive the graph; changing tabs hides empty groups and resets the layout, fitting the shown nodes at once. The Decided filter toggle is gone.
+- One toast with Undo for every saved change; Undo also in the header and on ⌘Z.
+- Clicking a tag selects its bookmarks and opens the issue view; Edit opens the editor in the same panel.
+- Converted suggestions are plain links; high-zoom panning cost is acceptable.
 
 **Open items**
 - Not verified on real hardware: the system clipboard for Copy (trackpad pan and pinch passed the user's test).
-- Titles of non-focused bubbles can be partly covered by nearby nodes when zoomed in; hover or select to read them.
-- Zooming in above 60% still stutters slightly while titles resize.
-- Some Raindrop covers are remote and fail to load (403); round 1.5 downloads images locally.
-- **Add bubble…** keeps a half-finished import source from earlier (existing behavior, so work is not lost).
-- Untracked in the repo root: `bookmarks-converted_.json` (not created by the assistant) and `.claude/launch.json` (starts the dev server for the browser preview).
-- The dev server on port 5199 was restarted from the preview launcher after it stopped; `npm run dev` in `app/` works as before.
+- At 1200 px the filter bar can wrap to two lines; at phone width the header is crowded (progress text wraps) and tapping a tag was not verified there.
+- Titles of non-focused bubbles can be partly covered by nearby nodes when zoomed in; zooming above 60% still stutters slightly.
+- Some remote covers fail to load (403, for example Twitter profile images); they stay blank.
+- Hidden nodes hold their place during a reset, so switching back to All re-lays out the whole collection.
+- Untracked in the repo root, not created by the assistant: `bookmarks-converted_.json`, `bookmarks-visible.json`; `.claude/launch.json` starts the dev server for the browser preview.
 
 **Next**
-1. User tries round 1 and reports anything to fix.
-2. Round 1.5: local fetcher for title, description, and image (mockup first).
-3. Round 2: issues and tags — create tag types, an issue view, collapsed appearance settings that actually change the node.
-4. Round 3: filters redesign (the triage filter bar is the starting point).
-5. Round 4: WebMCP — needs the user's browser and agent pair.
+1. User tries round 2 ([round-2-test-guide.md](round-2-test-guide.md)) and reports anything to fix.
+2. Round 3: filters redesign (the triage filter bar is the starting point; mockup options first).
+3. Round 4: WebMCP — needs the user's browser and agent pair.
