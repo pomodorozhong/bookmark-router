@@ -93,6 +93,8 @@ test("clockwise ordering starts at 12 o'clock and sweeps right", () => {
   const at: Record<string, [number, number]> = { left: [-10, 0], top: [0, -10], bottom: [0, 10], right: [10, 0] };
   const items = Object.keys(at).map((id) => ({ id }));
   assert.deepEqual(clockwise(items, (id) => at[id]).map((i) => i.id), ["top", "right", "bottom", "left"]);
+  // Around a given center, such as a clicked group below them all.
+  assert.deepEqual(clockwise(items, (id) => at[id], [0, 20]).map((i) => i.id), ["bottom", "top", "right", "left"]);
 });
 
 test("related bookmarks share a group; reasons match their group", () => {

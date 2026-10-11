@@ -75,14 +75,16 @@ export function graphVisibility(workspace: Workspace, filter: TriageFilter, tab:
   return { bubbleIds, hiddenTagIds, peekTagIds };
 }
 
-// A box selection is ordered clockwise from 12 o'clock around its center (screen
-// coordinates, y down), nearer first on ties, so the queue sweeps around the graph.
-export function clockwise<T extends { id: string }>(items: T[], positionOf: (id: string) => Point | undefined): T[] {
+// A box selection is ordered clockwise from 12 o'clock around `center`, or its own
+// center (screen coordinates, y down), nearer first on ties, so the queue sweeps around the graph.
+export function clockwise<T extends { id: string }>(items: T[], positionOf: (id: string) => Point | undefined, center?: Point): T[] {
   const placed = items.map((item) => ({ item, at: positionOf(item.id) }));
   const known = placed.filter((p) => p.at);
   if (!known.length) return items;
-  const cx = known.reduce((sum, p) => sum + p.at![0], 0) / known.length;
-  const cy = known.reduce((sum, p) => sum + p.at![1], 0) / known.length;
+  const [cx, cy] = center ?? [
+    known.reduce((sum, p) => sum + p.at![0], 0) / known.length,
+    known.reduce((sum, p) => sum + p.at![1], 0) / known.length,
+  ];
   const angle = (at: Point) => (Math.atan2(at[0] - cx, cy - at[1]) + 2 * Math.PI) % (2 * Math.PI);
   const distance = (at: Point) => Math.hypot(at[0] - cx, at[1] - cy);
   return [...known.sort((a, b) => angle(a.at!) - angle(b.at!) || distance(a.at!) - distance(b.at!)), ...placed.filter((p) => !p.at)].map((p) => p.item);

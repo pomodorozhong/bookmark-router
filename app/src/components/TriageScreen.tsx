@@ -157,7 +157,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     const base = adding ? selection ?? [] : [];
     const merged = [...new Set([...base, ...ids])];
     if (!merged.length) { setSelection(undefined); return; }
-    const ordered = clockwise(merged.map((id) => ({ id })), (id) => graphRef.current?.positionOf(id)).map((b) => b.id);
+    // A clicked group's bookmarks go around the group itself.
+    const positionOf = (id: string) => graphRef.current?.positionOf(id);
+    const ordered = clockwise(merged.map((id) => ({ id })), positionOf, tagId ? positionOf(tagId) : undefined).map((b) => b.id);
     setSelection(ordered);
     if (!ordered.includes(current?.id ?? "")) show(ordered.find((id) => {
       const b = workspace.bubbles.find((x) => x.id === id);
