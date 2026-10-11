@@ -134,3 +134,19 @@ test("media uploads commit the workspace and blob in one IndexedDB transaction",
   assert.equal((await store.media("audio-0"))?.workspaceId, workspace.id);
   await store.close();
 });
+
+test("removing a collection deletes its positions and media but keeps other collections", async () => {
+  const store = new WorkspaceStore(`stage-c-${crypto.randomUUID()}`);
+  const doomed = demoWorkspace(), kept = { ...demoWorkspace(), id: "kept" };
+  await store.create(doomed);
+  await store.create(kept);
+  await store.attachMedia(doomed.id, doomed.revision,
+    [{ bubbleId: "bubble-0", expectedRecordRevision: 0, asset: { source: "local", kind: "audio", blobId: "audio-0", filename: "a.wav" } }],
+    [{ id: "audio-0", filename: "a.wav", mime: "audio/wav", blob: new Blob(["a"]) }]);
+  await store.saveGeometry({ workspaceId: doomed.id, positions: {} });
+  await store.remove(doomed.id);
+  assert.deepEqual((await store.list()).map((w) => w.id), ["kept"]);
+  assert.equal(await store.media("audio-0"), undefined);
+  assert.equal(await store.getGeometry(doomed.id), undefined);
+  await store.close();
+});

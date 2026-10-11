@@ -1,0 +1,360 @@
+<title>Undo and Delete Mockup</title>
+<style>
+  /* Layout: the triage screen at reduced fidelity, with the proposals live on it and notes below. Single light look, matching the app. */
+  :root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --ink: #243b35; --muted: #536b62; --line: #dce5e0; --teal: #0f766e; --tint: #e8f3ee;
+    --bg: #f6f8f7; --card: #ffffff; --toast: #183e35; --toast-ink: #eef7f3; --toast-link: #9fe0c8;
+    --danger: #b42318; --danger-bg: #fdf1ef; --issue: #0f766e; --proposal: #b45309; --topic: #475569;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-size: 14px; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 6px; }
+  button:hover:not(:disabled) { background: #f0f5f2; border-color: #b7ccc1; }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible { outline: 3px solid #2e9586; outline-offset: 2px; }
+  .primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .primary:hover:not(:disabled) { background: #115e59; color: #fff; }
+  .danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .danger:hover:not(:disabled) { background: #912018; color: #fff; }
+  svg { flex-shrink: 0; }
+
+  .wrap { padding: 16px; padding-block: 16px 48px; max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
+  .banner { background: var(--toast); color: var(--toast-ink); border-radius: 10px; padding: 10px 16px; font-size: 13px; line-height: 1.5; }
+  .banner strong { color: #fff; }
+
+  /* App frame */
+  .app { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card); height: 560px; display: grid; grid-template-rows: auto 1fr; }
+  header { display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-bottom: 1px solid var(--line); min-width: 0; }
+  .coll-btn { border-color: transparent; font-weight: 600; font-size: 15px; min-width: 0; }
+  .coll-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+  .progress { flex: 1; display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; min-width: 0; }
+  .bar { width: 180px; height: 6px; border-radius: 3px; background: #e5ece8; overflow: hidden; display: flex; flex-shrink: 0; }
+  .bar span { height: 100%; }
+  .tabs { display: flex; gap: 2px; padding: 3px; background: #f0f4f2; border-radius: 8px; }
+  .tabs button { border: 0; background: transparent; padding: 5px 10px; font-size: 13px; color: var(--muted); }
+  .tabs button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px #183e351a; }
+  .undo-btn { position: relative; }
+  .undo-btn kbd { font: 11px ui-monospace, monospace; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+  .new { position: absolute; top: -7px; right: -7px; width: 14px; height: 14px; border-radius: 50%; background: #f59e0b; border: 2px solid var(--card); }
+
+  .body { display: grid; grid-template-columns: 310px 1fr 300px; min-height: 0; }
+  .queue { border-right: 1px solid var(--line); overflow: hidden; }
+  /* Every row reserves the thumbnail slot, so titles line up whether or not a bookmark has an image. */
+  .queue .qi { display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .queue .qi > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .queue .qi small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+  .queue .qi.cur { background: var(--tint); box-shadow: inset 3px 0 var(--teal); }
+  .thumb { width: 56px; height: 40px; border-radius: 8px; overflow: hidden; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .stage { position: relative; background: #f3f7f5; overflow: hidden; }
+  .stage svg.graph { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .tools-bottom { position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; justify-content: flex-end; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+  .tools-bottom button { padding: 6px 9px; font-size: 12.5px; }
+  .panel { border-left: 1px solid var(--line); display: grid; grid-template-rows: 1fr auto; min-height: 0; }
+  .panel .detail { padding: 16px; overflow: hidden; }
+  .panel h2 { font-size: 16px; margin: 0 0 6px; line-height: 1.3; }
+  .panel p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 8px 0; }
+  .decisions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+  .decisions button { flex-direction: column; justify-content: center; gap: 0; padding: 8px 4px; }
+  .decisions small { font-size: 11px; opacity: .7; }
+
+  /* Proposed toast: one at a time, bottom center of the graph, never over the panel */
+  .toast { position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 24px); background: var(--toast); color: var(--toast-ink); padding: 9px 10px 9px 14px; border-radius: 10px; font-size: 13px; box-shadow: 0 8px 28px #183e3540; }
+  .toast .msg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toast .msg b { color: #fff; font-weight: 600; }
+  .toast button { background: transparent; border: 0; color: var(--toast-link); padding: 2px 6px; font-weight: 600; }
+  .toast button:hover:not(:disabled) { background: #ffffff14; color: #fff; }
+  .toast .x { color: #a8c4bb; font-weight: 400; }
+  .toast.error { background: var(--danger-bg); color: var(--danger); border: 1px solid #f3c4bd; }
+  .toast.error .msg b { color: var(--danger); }
+  .toast.error button { color: var(--danger); }
+  .toast .timer { position: absolute; left: 10px; right: 10px; bottom: 3px; height: 2px; border-radius: 1px; background: #ffffff2e; overflow: hidden; }
+  .toast .timer i { display: block; height: 100%; background: var(--toast-link); transform-origin: left; }
+
+  /* Menus */
+  .menu { position: absolute; z-index: 30; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px #183e3524; padding: 6px; min-width: 270px; }
+  .menu .h { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 8px 10px 4px; }
+  .menu .row { display: flex; align-items: center; gap: 4px; border-radius: 7px; }
+  .menu .row:hover, .menu .row:focus-within { background: #f0f5f2; }
+  .menu .item { flex: 1; border: 0; background: transparent; justify-content: flex-start; padding: 8px 10px; min-width: 0; text-align: left; }
+  .menu .item:hover:not(:disabled) { background: transparent; }
+  .menu .item .meta { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .menu .item.cur { color: var(--teal); font-weight: 600; }
+  .menu .trash { border: 0; background: transparent; padding: 6px; color: var(--muted); opacity: 0; }
+  .menu .row:hover .trash, .menu .trash:focus-visible { opacity: 1; }
+  .menu .trash:hover:not(:disabled) { color: var(--danger); background: var(--danger-bg); }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+  .menu .item.red { color: var(--danger); }
+  .menu .note { font-size: 12px; color: var(--muted); padding: 4px 10px 6px; margin: 0; }
+
+  /* Dialog */
+  .scrim { position: absolute; inset: 0; z-index: 40; background: #183e3533; display: grid; place-items: center; padding: 16px; }
+  .dialog { background: var(--card); border-radius: 12px; padding: 22px; width: min(440px, 100%); box-shadow: 0 20px 50px #183e3540; }
+  .dialog h3 { margin: 0 0 10px; font-size: 17px; text-wrap: balance; }
+  .dialog p { margin: 0 0 12px; line-height: 1.55; color: var(--muted); }
+  .dialog ul { margin: 0 0 14px; padding-left: 18px; line-height: 1.7; }
+  .dialog .backup { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--tint); border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+  .dialog .actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+  /* Notes */
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .note-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+  .note-card h2 { margin: 0 0 4px; font-size: 16px; }
+  .note-card .eyebrow { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--teal); font-weight: 600; }
+  .note-card ul { margin: 10px 0 0; padding-left: 18px; line-height: 1.6; }
+  .note-card li { margin-bottom: 6px; }
+  .note-card s { color: var(--muted); }
+  .q { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #fff7e8; color: #7a4a0b; font-size: 13px; line-height: 1.5; }
+
+  @media (max-width: 900px) {
+    .body { grid-template-columns: 1fr; }
+    .queue, .stage { display: none; }
+    .panel { border-left: 0; }
+    .progress .bar, .progress .txt { display: none; }
+    .app { height: auto; min-height: 520px; }
+    .toast { position: fixed; bottom: 16px; }
+    .menu { left: 8px !important; right: 8px !important; min-width: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { .toast .timer i { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <div class="banner"><strong>Mockup, for review.</strong> Click <strong>Done</strong>, <strong>Drop</strong>, the toast's <strong>Undo</strong>, the header <strong>Undo</strong> (or press ⌘Z), the collection name, and <strong>⋯</strong>. Nothing here touches your data.</div>
+
+  <div class="app" id="app">
+    <header>
+      <button class="coll-btn" id="collBtn" aria-haspopup="menu" aria-expanded="false">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2" fill="#0f766e" stroke="none"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="12" cy="20.5" r="2"/><path d="M6.4 6.4 9.8 9.8M17.6 6.4l-3.4 3.4M12 15.2v3.3"/></svg>
+        <span id="collName">Indie-hacking bookmark processing</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="progress"><div class="bar"><span id="barDone" style="background:var(--teal)"></span><span id="barDrop" style="background:#9fb1a9"></span></div><span class="txt" id="progTxt"></span></div>
+      <div class="tabs" role="tablist"><button class="on" id="tabTodo"></button><button>Done</button><button>Dropped</button><button>All</button></div>
+      <button class="undo-btn" id="undoBtn" disabled title="Nothing to undo">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+        Undo <kbd>⌘Z</kbd><i class="new" title="New: moved here from the bottom bar"></i>
+      </button>
+      <button id="moreBtn" aria-haspopup="menu" aria-label="More actions" style="padding:7px 9px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+      </button>
+    </header>
+    <div class="body">
+      <nav class="queue" id="queue"></nav>
+      <div class="stage">
+        <svg class="graph" viewBox="0 0 600 460" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <g stroke="#b9cbc6" stroke-width="1.2">
+            <path d="M300 230 L210 140M300 230 L390 130M300 230 L420 290M300 230 L200 320M300 230 L320 360M390 130 L470 90M210 140 L140 110M420 290 L500 330"/>
+          </g>
+          <rect x="276" y="206" width="48" height="48" rx="12" fill="#475569"/>
+          <circle cx="390" cy="130" r="22" fill="#0f766e"/><circle cx="200" cy="320" r="20" fill="#b45309"/>
+          <g fill="#fff" stroke="#9fb1bd" stroke-width="2.5">
+            <circle cx="210" cy="140" r="13"/><circle cx="420" cy="290" r="13"/><circle cx="320" cy="360" r="13"/><circle cx="470" cy="90" r="11"/><circle cx="140" cy="110" r="11"/><circle cx="500" cy="330" r="11"/>
+          </g>
+          <circle cx="210" cy="140" r="13" fill="none" stroke="#0f766e" stroke-width="4"/>
+          <g font-size="12" fill="#3b544c" font-family="Inter, sans-serif" text-anchor="middle">
+            <text x="300" y="276" font-weight="600">Distribution channels</text><text x="210" y="168" id="gLabel"></text><text x="390" y="168">#141 App Store Optimization</text>
+          </g>
+        </svg>
+        <div class="tools-bottom" aria-label="Graph tools">
+          <span>100%</span><button>Layout ▾</button><button title="Whole collection">⛶</button><button>−</button><button>+</button>
+        </div>
+      </div>
+      <aside class="panel">
+        <div class="detail"><h2 id="curTitle"></h2><p id="curDomain" style="color:var(--teal);margin:0"></p><p id="curDesc"></p></div>
+        <div class="decisions">
+          <button class="primary" id="doneBtn">Done<small>D</small></button>
+          <button id="dropBtn">Drop<small>X</small></button>
+          <button disabled>Deselect<small>S</small></button>
+        </div>
+      </aside>
+    </div>
+    <div id="toastHost"></div>
+    <div id="menuHost"></div>
+    <div id="dialogHost"></div>
+  </div>
+
+  <div class="notes">
+    <section class="note-card">
+      <div class="eyebrow">Undo and messages</div>
+      <h2>One toast, one Undo button</h2>
+      <ul>
+        <li><s>Bottom bar: Undo · “Nothing to undo” · message</s> is removed. The bottom of the graph keeps only the graph tools.</li>
+        <li><strong>Undo</strong> moves to the header, next to ⋯. Its tooltip names what it undoes; <kbd>⌘Z</kbd>/<kbd>Ctrl Z</kbd> works anywhere outside a text field. It undoes any saved change, as today.</li>
+        <li>Every saved change shows <strong>one dark toast</strong> at the bottom center of the graph: what happened, plus <strong>Undo</strong>. It replaces the previous toast, hides after 6 seconds, and pauses while hovered.</li>
+        <li>Notices such as “Backup restored” and “Copied 12 bookmarks” use the same toast without Undo. Errors use a red toast that stays until closed.</li>
+        <li><strong>Queue thumbnails:</strong> each row keeps a 56 × 40 slot on the left. A bookmark's image fills it, cropped to a rounded rectangle; rows without an image keep the slot empty so titles stay aligned. The queue is wider (310 px) to make room.</li>
+        <li><strong>Help</strong> is removed from the graph's bottom bar.</li>
+        <li>The old light toast at bottom right is gone, so nothing covers <strong>Done</strong> and <strong>Drop</strong>.</li>
+      </ul>
+    </section>
+    <section class="note-card">
+      <div class="eyebrow">Collections</div>
+      <h2>Two ways to delete a collection</h2>
+      <ul>
+        <li><strong>Collections menu:</strong> a trash button appears when you hover or focus a row.</li>
+        <li><strong>⋯ menu:</strong> “Delete this collection…” at the bottom, in red.</li>
+        <li>Both open the same dialog: the counts, what gets removed (bubbles, tags, images, graph positions), and a <strong>Download backup</strong> button before the red <strong>Delete collection</strong>.</li>
+        <li>Deleting removes everything from this device. If it was the open collection, the app switches to your next collection, or to a new empty “My collection” if none is left.</li>
+      </ul>
+      <div class="q">This overrides the earlier “no deletion of collections” decision. Bubbles and tags still can't be deleted one by one. Tell me if that should change too.</div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const icon = {
+    trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+    check: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 5 5 9-10"/></svg>',
+    plus: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>',
+  };
+  const bookmarks = [
+    { t: "Traction by Gabriel Weinberg Summary", d: "hakune.co", img: ["#f4c9a8", "#b45309", "TRACTION"], x: "Our favourite takeaways from Gabriel Weinberg's book on finding customer channels." },
+    { t: "SCRNSHTS – A hand-picked collection of app screenshots", d: "scrnshts.club", img: ["#e0e7ff", "#4338ca", "▦ ▦ ▦"], x: "App Store screenshot examples, grouped by category." },
+    { t: "Dribbble", d: "dribbble.com", img: ["#fce7f3", "#db2777", "●"], x: "Design inspiration and portfolios." },
+    { t: "Mobbin", d: "mobbin.com", x: "A library of mobile and web UI patterns." },
+    { t: "Ratings and keyword rankings", d: "x.com", x: "A thread on how ratings move App Store keyword rank." },
+    { t: "Retention and paid conversion over downloads", d: "twitter.com", img: ["#dcfce7", "#15803d", "▁▃▅▇"], x: "Why retention beats raw download counts." },
+    { t: "Reviving a dead app", d: "twitter.com", x: "A founder's notes on relaunching an abandoned app." },
+  ];
+  // Sample covers, drawn inline because the mockup can't load remote images. Wider than the slot, to show cover cropping.
+  const cover = ([bg, fg, text]) => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="${bg}"/><text x="80" y="54" font-family="sans-serif" font-size="22" font-weight="700" fill="${fg}" text-anchor="middle">${text}</text></svg>`);
+  let collections = [
+    { id: "a", name: "Indie-hacking bookmark processing", b: 148, t: 50 },
+    { id: "b", name: "My collection", b: 0, t: 0 },
+    { id: "c", name: "Reading list 2025", b: 312, t: 18 },
+  ];
+  let open = "a";
+  const state = { queue: bookmarks.map((b, i) => i), done: 30, dropped: 2, history: [] };
+
+  function render() {
+    const total = 148;
+    $("barDone").style.width = state.done / total * 100 + "%";
+    $("barDrop").style.width = state.dropped / total * 100 + "%";
+    const todo = total - state.done - state.dropped;
+    $("progTxt").textContent = `${state.done} done · ${state.dropped} dropped · ${todo} to triage`;
+    $("tabTodo").textContent = `To triage ${todo}`;
+    $("queue").innerHTML = state.queue.map((i, n) => `<div class="qi ${n === 0 ? "cur" : ""}"><span class="thumb">${bookmarks[i].img ? `<img src="${cover(bookmarks[i].img)}" alt="">` : ""}</span><span>${bookmarks[i].t}<small>${bookmarks[i].d}</small></span></div>`).join("");
+    const cur = bookmarks[state.queue[0]];
+    $("curTitle").textContent = cur ? cur.t : "Nothing to triage here";
+    $("curDomain").textContent = cur ? cur.d + " ↗" : "";
+    $("curDesc").textContent = cur ? cur.x : "";
+    $("gLabel").textContent = cur ? cur.t.slice(0, 26) + "…" : "";
+    $("doneBtn").disabled = $("dropBtn").disabled = !cur;
+    const last = state.history[state.history.length - 1];
+    $("undoBtn").disabled = !last;
+    $("undoBtn").title = last ? `Undo: ${last.label} (⌘Z)` : "Nothing to undo";
+    $("collName").textContent = collections.find((c) => c.id === open)?.name ?? "My collection";
+  }
+
+  // Toast: one at a time; auto-hides after 6 s; hovering pauses; errors stay.
+  let timer, remaining, started;
+  function toast(html, { undo, error } = {}) {
+    clearTimeout(timer);
+    const host = $("toastHost");
+    host.innerHTML = `<div class="toast ${error ? "error" : ""}" role="status"><span class="msg">${html}</span>${undo ? '<button data-act="undo">Undo</button>' : ""}<button class="x" data-act="close" aria-label="Dismiss">✕</button>${error ? "" : '<span class="timer"><i></i></span>'}</div>`;
+    const el = host.firstChild, bar = el.querySelector(".timer i");
+    el.querySelector('[data-act="close"]').onclick = () => (host.innerHTML = "");
+    if (undo) el.querySelector('[data-act="undo"]').onclick = () => undoLast();
+    if (error) return;
+    remaining = 6000;
+    const run = () => {
+      started = Date.now();
+      if (bar) { bar.style.transition = "none"; bar.style.transform = `scaleX(${remaining / 6000})`; requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.transition = `transform ${remaining}ms linear`; bar.style.transform = "scaleX(0)"; })); }
+      timer = setTimeout(() => { if (host.firstChild === el) host.innerHTML = ""; }, remaining);
+    };
+    el.onmouseenter = () => { clearTimeout(timer); remaining -= Date.now() - started; if (bar) { const s = getComputedStyle(bar).transform; bar.style.transition = "none"; bar.style.transform = s; } };
+    el.onmouseleave = run;
+    run();
+  }
+
+  function decide(kind) {
+    const i = state.queue.shift();
+    if (i === undefined) return;
+    state[kind === "Done" ? "done" : "dropped"]++;
+    const label = `${kind}: ${bookmarks[i].t}`;
+    state.history.push({ label, revert: () => { state.queue.unshift(i); state[kind === "Done" ? "done" : "dropped"]--; } });
+    render();
+    toast(`<b>${kind === "Done" ? "Marked done" : "Dropped"}</b> · ${bookmarks[i].t}`, { undo: true });
+  }
+  function undoLast() {
+    const last = state.history.pop();
+    if (!last) return;
+    last.revert();
+    render();
+    toast(`<b>Undid</b> · ${last.label}`);
+  }
+  $("doneBtn").onclick = () => decide("Done");
+  $("dropBtn").onclick = () => decide("Drop");
+  $("undoBtn").onclick = undoLast;
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.target.closest("input, textarea")) { e.preventDefault(); undoLast(); }
+    else if (e.key === "Escape") { closeMenu(); $("dialogHost").innerHTML = ""; }
+  });
+
+  // Menus
+  function closeMenu() { $("menuHost").innerHTML = ""; $("collBtn").setAttribute("aria-expanded", "false"); }
+  function place(menu, anchor, alignEnd) {
+    const a = anchor.getBoundingClientRect(), app = $("app").getBoundingClientRect();
+    menu.style.top = a.bottom - app.top + 6 + "px";
+    if (alignEnd) menu.style.right = app.right - a.right + "px"; else menu.style.left = a.left - app.left + "px";
+  }
+  $("collBtn").onclick = (e) => {
+    e.stopPropagation();
+    if ($("menuHost").innerHTML) return closeMenu();
+    $("collBtn").setAttribute("aria-expanded", "true");
+    $("menuHost").innerHTML = `<div class="menu" role="menu"><div class="h">Collections</div>${collections.map((c) => `
+      <div class="row"><button class="item ${c.id === open ? "cur" : ""}" data-open="${c.id}">${c.id === open ? icon.check : '<span style="width:15px"></span>'}${c.name}<span class="meta">${c.b} · ${c.t}</span></button>
+      <button class="trash" data-del="${c.id}" aria-label="Delete ${c.name}…" title="Delete ${c.name}…">${icon.trash}</button></div>`).join("")}
+      <hr><div class="row"><button class="item">${icon.plus}New collection…</button></div></div>`;
+    const m = $("menuHost").firstChild;
+    place(m, $("collBtn"), false);
+    m.onclick = (ev) => {
+      ev.stopPropagation();
+      const o = ev.target.closest("[data-open]"), d = ev.target.closest("[data-del]");
+      if (o) { open = o.dataset.open; closeMenu(); render(); }
+      else if (d) { closeMenu(); confirmDelete(d.dataset.del); }
+    };
+  };
+  $("moreBtn").onclick = (e) => {
+    e.stopPropagation();
+    if ($("menuHost").innerHTML) return closeMenu();
+    $("menuHost").innerHTML = `<div class="menu" role="menu">
+      <div class="row"><button class="item">Add bubble…</button></div><div class="row"><button class="item">Add tag…</button></div><div class="row"><button class="item">Import history…</button></div><hr>
+      <div class="row"><button class="item">Download backup</button></div><div class="row"><button class="item">Restore backup…</button></div><hr>
+      <div class="row"><button class="item red" data-del="${open}">${icon.trash}Delete this collection…</button></div>
+      <p class="note">Changes are saved on this device.</p></div>`;
+    const m = $("menuHost").firstChild;
+    place(m, $("moreBtn"), true);
+    m.onclick = (ev) => { ev.stopPropagation(); const d = ev.target.closest("[data-del]"); if (d) { closeMenu(); confirmDelete(d.dataset.del); } };
+  };
+  document.addEventListener("click", closeMenu);
+
+  function confirmDelete(id) {
+    const c = collections.find((x) => x.id === id);
+    $("dialogHost").innerHTML = `<div class="scrim"><div class="dialog" role="dialog" aria-labelledby="dt">
+      <h3 id="dt">Delete “${c.name}”?</h3>
+      <p>This removes it from this device and can't be undone:</p>
+      <ul><li>${c.b} bubbles and ${c.t} tags</li><li>Their images, notes, and import history</li><li>Graph positions and pins</li></ul>
+      <div class="backup"><span>Keep a copy you can restore later.</span><button id="dlBtn">Download backup</button></div>
+      <div class="actions"><button id="cancelBtn">Cancel</button><button class="danger" id="delBtn">Delete collection</button></div>
+    </div></div>`;
+    $("cancelBtn").onclick = () => ($("dialogHost").innerHTML = "");
+    $("dlBtn").onclick = () => { $("dlBtn").textContent = "Downloaded ✓"; $("dlBtn").disabled = true; };
+    $("cancelBtn").focus();
+    $("delBtn").onclick = () => {
+      $("dialogHost").innerHTML = "";
+      collections = collections.filter((x) => x.id !== id);
+      if (!collections.length) collections = [{ id: "new", name: "My collection", b: 0, t: 0 }];
+      if (open === id) open = collections[0].id;
+      render();
+      toast(`<b>Deleted</b> · ${c.name}`);
+    };
+  }
+
+  render();
+})();
+</script>

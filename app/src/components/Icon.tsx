@@ -34,6 +34,8 @@ export type IconName =
   | "scope"
   | "search"
   | "tag"
+  | "trash"
+  | "undo"
   | "upload"
   | "zoom-in"
   | "zoom-out";
@@ -69,6 +71,8 @@ const paths: Record<IconName, ReactNode> = {
       <path d="m7.7 7.2 2.8 8.1m1.9 1.1 3.8-6.6M8 6.4l8 1" />
     </>
   ),
+  trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
+  undo: <path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />,
   history: <path d="M4.5 11a7.5 7.5 0 1 0 2.2-5.3L4.5 8M4.5 4.5V8h3.5M12 8v4l2.8 1.7" />,
   import: <path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14" />,
   info: <path d="M12 10.5v6M12 6.8h.01M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" />,

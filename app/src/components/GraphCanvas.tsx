@@ -1,7 +1,7 @@
 import { bubbleImageMinZoom, bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
 import { placeNear, type Point } from "./graph-placement";
 import "./focus-adapt-label";
-import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import {
   CanvasEvent,
   Graph,
@@ -56,7 +56,6 @@ export function GraphCanvas({
   geometry,
   onGeometry,
   onImport, onClearSearch, onShowList,
-  feedback,
   loadMedia,
   boxSelection,
   onBoxSelect,
@@ -69,7 +68,6 @@ export function GraphCanvas({
   onImport: () => void;
   onClearSearch: () => void;
   onShowList?: () => void;
-  feedback?: ReactNode;
   ref?: Ref<GraphCanvasHandle>;
   onPinsChanged: (ids: string[]) => void;
   workspace: Workspace;
@@ -987,10 +985,8 @@ export function GraphCanvas({
       <div className="canvas-bottom">
         <div className="canvas-status">
           {!ready && <span className="subtle" role="status">{status}</span>}
-          {feedback}
         </div>
         <div className="canvas-tools">
-          <details className="help-menu"><summary aria-label="Graph help"><Icon name="info" /><span>Help</span></summary><div className="help-popover"><strong>Explore your collection</strong><p>Drag a bubble to move it. Scroll with two fingers to pan; pinch to zoom.</p><p>Click a bookmark to triage it; click empty space to clear it. Click a tag, or drag on empty space, to select bookmarks.</p></div></details>
           <span className="zoom-value">{Math.round(zoom * 100)}%</span>
           <div className="layout-menu">
             <button

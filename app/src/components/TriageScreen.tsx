@@ -23,7 +23,7 @@ import {
 type LoadMedia = (id: string) => Promise<{ blob: Blob } | undefined>;
 const relatedListLimit = 12;
 
-function Cover({ asset, load }: { asset?: Asset; load: LoadMedia }) {
+function Cover({ asset, load, className = "triage-cover" }: { asset?: Asset; load: LoadMedia; className?: string }) {
   const [src, setSrc] = useState<string>();
   useEffect(() => {
     let objectUrl: string | undefined, canceled = false;
@@ -38,11 +38,11 @@ function Cover({ asset, load }: { asset?: Asset; load: LoadMedia }) {
   const [loaded, setLoaded] = useState(false);
   useEffect(() => setLoaded(false), [src]);
   // Hidden until loaded, so a slow or blocked cover never leaves an empty frame.
-  return src ? <img className="triage-cover" src={src} alt="" hidden={!loaded} onLoad={() => setLoaded(true)} onError={() => setSrc(undefined)} /> : null;
+  return src ? <img className={className} src={src} alt="" hidden={!loaded} onLoad={() => setLoaded(true)} onError={() => setSrc(undefined)} /> : null;
 }
 
 /** The main collection screen: triage bookmarks into groups beside the force-directed graph. */
-export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, feedback, onEdit, onImport, onError, headerStart, headerEnd }: {
+export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onError, headerStart, headerEnd }: {
   headerStart?: ReactNode;
   headerEnd?: ReactNode;
   workspace: Workspace;
@@ -50,7 +50,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   onGeometry: (geometry: Geometry) => void;
   save: (command: Command | Command[], label?: string) => Promise<void>;
   loadMedia: LoadMedia;
-  feedback: ReactNode;
+  /** The app's message toast, shown over the graph. */
+  toast: ReactNode;
+  notify: (text: string, undo?: () => void) => void;
   onEdit: (id: string) => void;
   onImport: () => void;
   onError: (message: string) => void;
@@ -68,7 +70,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuIndex, setMenuIndex] = useState(0);
   const [copyScope, setCopyScope] = useState<CopyScope>();
-  const [toast, setToast] = useState<{ text: string; undo?: () => void }>();
   const [busy, setBusy] = useState(false);
   const frameToken = useRef(0);
   const [frameRequest, setFrameRequest] = useState(0);
@@ -125,14 +126,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     const i = queue.findIndex((b) => b.id === id);
     return (queue[i + 1] ?? queue[i - 1])?.id;
   };
-  function notify(text: string, undo?: () => void) {
-    setToast({ text, undo });
-  }
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(undefined), 4000);
-    return () => clearTimeout(timer);
-  }, [toast]);
 
   async function run(work: () => Promise<void>) {
     if (busy) return;
@@ -147,7 +140,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       await save({ type: "bubble.patch", id: bubble.id, expectedRecordRevision: bubble.revision, patch: { statusId: status.id } },
         `${kind === "done" ? "Done" : "Drop"}: ${bubble.title}`);
       show(next);
-      notify(`${status.label}: ${bubble.title}`);
     });
   }
   function deselect() {
@@ -256,12 +248,16 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             const decided = outcomeOf(b, workspace) !== "active";
             return (
               <button key={b.id} className={`queue-item ${b.id === current?.id ? "current" : ""}`} aria-current={b.id === current?.id} onClick={() => show(b.id)}>
+                {/* The slot is kept without an image so titles line up. */}
+                <span className="queue-thumb"><Cover asset={b.asset} load={loadMedia} className="" /></span>
+                <span className="queue-text">
                 <span className="queue-title">{b.title}</span>
                 <span className="queue-meta">
                   {warn && <i className="warn-dot" title="Has a warning" />}
                   <span className="queue-domain">{domainOf(b.url) || "No URL"}</span>
                   {decided && <span className="queue-status">{workspace.statuses.find((s) => s.id === b.statusId)?.label}</span>}
                   <span className="queue-groups" title="Groups">{workspace.memberships.filter((m) => m.bubbleId === b.id).length}</span>
+                </span>
                 </span>
               </button>
             );
@@ -294,6 +290,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
               </label>
             </div>
           </div>
+          {toast}
           <GraphCanvas
             ref={graphRef}
             workspace={workspace}
@@ -315,7 +312,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             onClearSearch={() => changeFilter(emptyTriageFilter)}
             onPinsChanged={() => {}}
             loadMedia={loadMedia}
-            feedback={feedback}
           />
         </div>
         <aside className="triage-panel" aria-label="Current bookmark">
@@ -430,12 +426,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
           )}
         </aside>
       </div>
-      {toast && (
-        <div className="triage-toast" role="status">
-          {toast.text}
-          {toast.undo && <button onClick={() => { toast.undo!(); setToast(undefined); }}>Undo</button>}
-        </div>
-      )}
       {copyScope && (
         <CopyDialog
           workspace={workspace}
