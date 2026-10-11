@@ -80,8 +80,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     const order = new Map(selection.map((id, i) => [id, i]));
     return list.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
   }, [workspace, tab, filter, selection, selectionSet]);
-  const current = workspace.bubbles.find((b) => b.id === currentId && queue.some((q) => q.id === b.id))
-    ?? workspace.bubbles.find((b) => b.id === currentId) ?? queue[0];
+  // Nothing is current until a bookmark is picked, so the whole graph shows unfaded.
+  const current = workspace.bubbles.find((b) => b.id === currentId);
   const groups = current ? groupsOf(workspace, current.id) : [];
   const related = useMemo(() => (current ? [...relatedOf(workspace, current.id)].sort((a, b) => b[1].length - a[1].length) : []), [workspace, current]);
   const visibility = useMemo(() => graphVisibility(workspace, filter, current ? [current.id] : []), [workspace, filter, current]);
@@ -198,6 +198,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       else if (key === "q") setQueueOpen((v) => !v);
       else if (key === "c") openCopy();
       else if (e.key === "Escape" && selection) setSelection(undefined);
+      else if (e.key === "Escape" && current) show(undefined, false);
       else if (key === "d") decide("done");
       else if (key === "x") decide("dropped");
       else if (key === "s") deselect();
@@ -209,7 +210,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showDecided);
+  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showDecided || !filter.showEmptyGroups);
   const total = workspace.bubbles.length || 1;
   return (
     <div className={`triage ${queueOpen ? "" : "queue-closed"}`}>
@@ -265,7 +266,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         <div className="triage-stage">
           <div className="triage-tools">
             <button onClick={() => setQueueOpen((v) => !v)} aria-pressed={queueOpen} title="Show or hide the queue (Q)"><Icon name="list" size={17} strokeWidth={2} /> Queue</button>
-            <button onClick={() => graphRef.current?.fitAll()} title="Zoom out to every bookmark"><Icon name="fit" size={17} strokeWidth={2} /> Whole collection</button>
             <button onClick={() => current && graphRef.current?.frame([current.id, ...groups.map((g) => g.id)])} disabled={!current} title="Center on the current bookmark"><Icon name="scope" size={17} strokeWidth={2} /> Current</button>
             <div className={`triage-filter ${filtering ? "active" : ""}`}>
               <Icon name="filter" size={15} />
@@ -283,7 +283,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                 <input type="checkbox" checked={filter.showDecided} onChange={(e) => changeFilter({ ...filter, showDecided: e.target.checked })} />
                 Decided
               </label>
-              {filtering && <span className="filter-count">{visibility.bubbleIds.length} shown</span>}
+              <label className="type-toggle" title="Groups no shown bookmark belongs to">
+                <input type="checkbox" checked={filter.showEmptyGroups} onChange={(e) => changeFilter({ ...filter, showEmptyGroups: e.target.checked })} />
+                Empty groups
+              </label>
             </div>
           </div>
           <GraphCanvas
@@ -291,7 +294,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             workspace={workspace}
             selected={current?.id}
             onSelect={(id) => {
-              if (workspace.bubbles.some((b) => b.id === id)) show(id);
+              if (!id) show(undefined, false);
+              else if (workspace.bubbles.some((b) => b.id === id)) show(id);
               else onEdit(id);
             }}
             query=""
@@ -325,6 +329,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                     </div>
                   </div>
                   <Cover asset={current.asset} load={loadMedia} />
+                  <IconButton className="triage-close" label="Clear current bookmark (Esc)" icon="close" size={15} onClick={() => show(undefined, false)} />
                 </div>
                 <p className="triage-desc">{current.description || <span className="subtle">No description.</span>}</p>
                 {current.source?.fields.tags && (
@@ -413,8 +418,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             </>
           ) : (
             <div className="triage-empty">
-              <h2>{workspace.bubbles.length ? "Nothing to triage here" : "No bookmarks yet"}</h2>
-              <p className="subtle">{workspace.bubbles.length ? "Pick another tab, clear the filter, or draw a box on the graph." : "Import bookmarks to start."}</p>
+              <h2>{!workspace.bubbles.length ? "No bookmarks yet" : queue.length ? "No bookmark picked" : "Nothing to triage here"}</h2>
+              <p className="subtle">{!workspace.bubbles.length ? "Import bookmarks to start." : queue.length ? "Pick one from the queue or the graph, or press J to start at the top." : "Pick another tab, clear the filter, or draw a box on the graph."}</p>
               {!workspace.bubbles.length && <button className="primary" onClick={onImport}>Open Import</button>}
             </div>
           )}
