@@ -1,0 +1,87 @@
+<title>Filter More Menu</title>
+<style>
+  /* Layout: three states of the triage filter bar stacked, each on a slice of graph canvas. Single light look, matching the app. */
+  :root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --ink: #243b35; --muted: #536b62; --line: #dce5e0; --teal: #0f766e; --tint: #e8f3ee;
+    --bg: #f6f8f7; --card: #ffffff; --dark: #183e35; --amber: #b45309;
+    --shadow: 0 10px 30px rgba(24, 62, 53, .14);
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-size: 14px; }
+  button, input { font: inherit; }
+  .wrap { padding: 16px; padding-block: 16px 48px; max-width: 900px; margin: 0 auto; display: grid; gap: 18px; }
+  .banner { background: var(--dark); color: #eef7f3; border-radius: 10px; padding: 10px 16px; font-size: 13px; line-height: 1.55; }
+  .banner strong { color: #fff; }
+  .caption { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--teal); font-weight: 600; margin: 0 0 6px; }
+  .stage { background: #fafcfb; border: 1px solid var(--line); border-radius: 12px; padding: 10px; min-height: 64px; display: flex; justify-content: flex-end; }
+  .stage.tall { min-height: 170px; align-items: flex-start; }
+  .triage-filter { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 3px 4px 3px 10px; background: #ffffffeb; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); }
+  .triage-filter.active { border-color: #a5ccbc; }
+  .search { width: 170px; min-height: 30px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 7px; font-size: 13px; color: #9aaba4; display: flex; align-items: center; }
+  .type-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; padding: 4px 6px; border-radius: 6px; cursor: pointer; user-select: none; }
+  .type-toggle.off { opacity: .5; text-decoration: line-through; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+  .more { position: relative; }
+  .more-btn { position: relative; width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
+  .more-btn:hover, .more-btn[aria-expanded=true] { background: var(--tint); color: var(--teal); }
+  .more-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 2px #fff; }
+  .popover { position: absolute; top: calc(100% + 8px); right: 0; width: 240px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: #fff; box-shadow: var(--shadow); display: grid; gap: 2px; }
+  .popover h4 { margin: 4px 8px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .check { display: grid; grid-template-columns: 16px 1fr; gap: 2px 8px; align-items: start; padding: 7px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--ink); }
+  .check:hover { background: #f3f7f5; }
+  .check input { margin: 2px 0 0; accent-color: var(--teal); }
+  .check small { grid-column: 2; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+  .notes { font-size: 13px; line-height: 1.55; color: var(--ink); margin: 0; padding-left: 18px; }
+</style>
+
+<div class="wrap">
+  <div class="banner"><strong>Filter bar with a More menu.</strong> Empty groups and Ungrouped bookmarks move behind the sliders button at the end of the bar. The menu below is live: tick and untick to see the dot.</div>
+
+  <div>
+    <p class="caption">1 · Both shown (default)</p>
+    <div class="stage">
+      <div class="triage-filter">
+        <span class="search">Filter bookmarks and groups… (F)</span>
+        <span class="type-toggle"><i class="swatch" style="background:#0f766e"></i>Existing issue</span>
+        <span class="type-toggle"><i class="swatch" style="background:#b45309"></i>Proposal issue</span>
+        <span class="type-toggle"><i class="swatch" style="background:#475569"></i>Topic</span>
+        <span class="more"><button class="more-btn" aria-label="More filters" title="More filters"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button></span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <p class="caption">2 · Menu open, one turned off</p>
+    <div class="stage tall">
+      <div class="triage-filter active">
+        <span class="search">Filter bookmarks and groups… (F)</span>
+        <span class="type-toggle"><i class="swatch" style="background:#0f766e"></i>Existing issue</span>
+        <span class="type-toggle off"><i class="swatch" style="background:#b45309"></i>Proposal issue</span>
+        <span class="type-toggle off"><i class="swatch" style="background:#475569"></i>Topic</span>
+        <span class="more">
+          <button id="more" class="more-btn" aria-label="More filters" title="More filters (1 hiding)" aria-expanded="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><i class="dot" id="dot"></i></button>
+          <div class="popover" role="dialog" aria-label="More filters">
+            <h4>Show</h4>
+            <label class="check"><input id="c-empty" type="checkbox" checked><span>Empty groups</span><small>Groups no shown bookmark belongs to</small></label>
+            <label class="check"><input id="c-ungrouped" type="checkbox"><span>Ungrouped bookmarks</span><small>Bookmarks in no shown group</small></label>
+          </div>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <ul class="notes">
+    <li>The dot appears when either option is off, so you can tell something is hidden while the menu is closed.</li>
+    <li>The bar's teal "filtering" outline still turns on for these, as it does today.</li>
+    <li>The menu closes on a click outside or Esc, like the Layout menu.</li>
+  </ul>
+</div>
+
+<script>
+const sync = () => { document.getElementById("dot").hidden = document.getElementById("c-empty").checked && document.getElementById("c-ungrouped").checked; };
+document.addEventListener("change", sync);
+sync();
+</script>
