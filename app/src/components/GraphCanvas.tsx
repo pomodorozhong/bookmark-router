@@ -268,6 +268,11 @@ export function GraphCanvas({
   };
   useImperativeHandle(ref, () => handle);
   const tagSizes = useRef(new Map<string, number>());
+  // Fit everything shown. G6's fitView also counts hidden nodes, which would
+  // zoom far out past a filtered graph.
+  async function fitWhole(g: Graph) {
+    handle.frame(g.getNodeData().map((n) => n.id).filter((id) => g.getElementVisibility(id) !== "hidden"));
+  }
   const collideRadius = (id: string) => (tagSizes.current.has(id) ? tagSizes.current.get(id)! / 2 + 20 : 34);
   function resetPositions() {
     pins.current.clear();
@@ -289,14 +294,18 @@ export function GraphCanvas({
       n.fx = null;
       n.fy = null;
     }
-    // Once the new layout settles, frame what is shown. Hidden nodes take part in
-    // the layout too, so fitting everything would zoom out past the shown ones.
-    sim.on("end.reset", () => {
-      sim.on("end.reset", null);
-      const g = graph.current;
-      if (g) handle.frame(g.getNodeData().map((n) => n.id).filter((id) => g.getElementVisibility(id) !== "hidden"));
-    });
-    sim.alpha(1).restart();
+    // Settle the layout at once instead of animating it, then fit the view
+    // right away, as the Whole collection button does.
+    frozen.current = false;
+    sim.stop();
+    sim.alpha(1);
+    while (sim.alpha() > sim.alphaMin()) sim.tick();
+    const g = graph.current;
+    if (g && renderedGraph.current === g) {
+      const ids = new Set(g.getNodeData().map((node) => node.id));
+      g.updateNodeData(sim.nodes().filter((node) => ids.has(node.id)).map((node) => ({ id: node.id, style: { x: node.x ?? 0, y: node.y ?? 0 } })));
+      void g.draw().then(() => fitWhole(g)).catch((e) => setError(String(e)));
+    }
     persist();
   }
   tagSizes.current = new Map(
@@ -1057,7 +1066,7 @@ export function GraphCanvas({
             label="Whole collection"
             icon="fit"
             disabled={!ready}
-            onClick={() => void action((g) => g.fitView({}, { duration: 300 }))}
+            onClick={() => void action(fitWhole)}
           />
           <IconButton label="Zoom out" icon="zoom-out" disabled={!ready} onClick={() => void action((g) => g.zoomBy(0.8, false))} />
           <IconButton label="Zoom in" icon="zoom-in" disabled={!ready} onClick={() => void action((g) => g.zoomBy(1.25, false))} />
