@@ -1,7 +1,7 @@
 import { Circle as GCircle, Path as GPath, type Group } from "@antv/g";
 import { BaseNode, ExtensionCategory, register, type BaseNodeStyleProps } from "@antv/g6";
 import type { Direction, TagStyle } from "../domain/model";
-import { tagGeometry } from "./tag-shapes";
+import { exitPoint, tagGeometry } from "./tag-shapes";
 
 export interface TagNodeStyleProps extends BaseNodeStyleProps {
   tagStyle?: TagStyle;
@@ -19,6 +19,13 @@ class TagNode extends BaseNode<TagNodeStyleProps> {
     const { tagStyle, points, ...style } = this.getKeyStyle(attributes) as Record<string, unknown>;
     void tagStyle, void points;
     return this.upsert("key", GPath, { ...style, d: this.tagOutline(attributes).d, fillRule: "evenodd" }, container);
+  }
+  // Links meet the tag's own outline rather than its bounding box, which the pointed
+  // end and a turned tag leave well inside.
+  getIntersectPoint(point: [number, number] | [number, number, number], useExtendedLine = false) {
+    const [cx, cy] = this.getPosition();
+    const hit = exitPoint(this.tagOutline(this.parsedAttributes as Attributes).contour, [point[0] - cx, point[1] - cy]);
+    return hit ? ([cx + hit[0], cy + hit[1], 0] as never) : super.getIntersectPoint(point as never, useExtendedLine);
   }
   protected getHaloStyle(attributes: Attributes) {
     const style = super.getHaloStyle(attributes);

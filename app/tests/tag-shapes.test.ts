@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { tagGeometry } from "../src/components/tag-shapes";
+import { exitPoint, tagGeometry } from "../src/components/tag-shapes";
 import { emptyWorkspace, validateWorkspace } from "../src/domain/model";
 
 const close = (actual: readonly number[], expected: number[]) =>
@@ -32,4 +32,17 @@ test("workspaces accept tag styles and directions, and reject unknown directions
   validateWorkspace(w);
   (w.tagTypes[0].appearance as { points: string }).points = "north";
   assert.throws(() => validateWorkspace(w), /unknown tag direction/);
+});
+
+test("links meet a tag's outline, not its bounding box", () => {
+  // A price tag 80 wide pointing left: its tip is at x = -40, straight left of center.
+  const left = tagGeometry("price-tag", 80, "left");
+  close(exitPoint(left.contour, [-100, 0])!, [-40, 0]);
+  // Toward the top-left corner of the box, the slanted edge is reached well inside it.
+  const corner = exitPoint(left.contour, [-40, -25])!;
+  assert.ok(Math.hypot(...corner) < Math.hypot(40, 25) - 5);
+  // Turned to point up, the tip is straight above.
+  close(exitPoint(tagGeometry("price-tag", 80, "up").contour, [0, -100])!, [0, -40]);
+  // The rounded tag's round end reaches the full half width.
+  close(exitPoint(tagGeometry("rounded-tag", 80, "left").contour, [100, 0])!, [40, 0]);
 });

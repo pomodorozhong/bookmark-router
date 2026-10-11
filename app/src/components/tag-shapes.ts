@@ -74,6 +74,45 @@ export interface TagGeometry {
   ring?: { at: Point; r: number };
   /** Width and height of the turned outline's bounding box. */
   box: Point;
+  /** The outer edge as a polygon (curves sampled, hole left out), for where links meet it. */
+  contour: Point[];
+}
+
+// The outer outline as points: everything before the first close, with curves sampled.
+// Its only arcs are half circles (the rounded tag's end), drawn clockwise.
+function contourOf(segments: Segment[]): Point[] {
+  const points: Point[] = [];
+  for (const s of segments) {
+    if (s[0] === "Z") break;
+    if (s[0] === "M" || s[0] === "L") { points.push(s[1]); continue; }
+    const from = points[points.length - 1]!;
+    if (s[0] === "Q") {
+      for (let k = 1; k <= 4; k++) {
+        const u = k / 4, v = 1 - u;
+        points.push([v * v * from[0] + 2 * u * v * s[1][0] + u * u * s[2][0], v * v * from[1] + 2 * u * v * s[1][1] + u * u * s[2][1]]);
+      }
+    } else {
+      const [, r, end] = s as ["A", number, Point];
+      const c: Point = [(from[0] + end[0]) / 2, (from[1] + end[1]) / 2];
+      const start = Math.atan2(from[1] - c[1], from[0] - c[0]);
+      for (let k = 1; k <= 8; k++) points.push([c[0] + r * Math.cos(start + (Math.PI * k) / 8), c[1] + r * Math.sin(start + (Math.PI * k) / 8)]);
+    }
+  }
+  return points;
+}
+
+/** Where a ray from the center toward `toward` leaves the contour, or undefined if it never does. */
+export function exitPoint(contour: Point[], toward: Point): Point | undefined {
+  let best: number | undefined;
+  for (const [i, a] of contour.entries()) {
+    const b = contour[(i + 1) % contour.length]!;
+    const ex = b[0] - a[0], ey = b[1] - a[1];
+    const denom = toward[0] * ey - toward[1] * ex;
+    if (Math.abs(denom) < 1e-9) continue;
+    const t = (a[0] * ey - a[1] * ex) / denom, u = (a[0] * toward[1] - a[1] * toward[0]) / denom;
+    if (t > 0 && u >= 0 && u <= 1 && (best === undefined || t < best)) best = t;
+  }
+  return best === undefined ? undefined : [toward[0] * best, toward[1] * best];
 }
 
 export function tagGeometry(shape: TagStyle, size: number, points: Direction = defaultPoints(shape)): TagGeometry {
@@ -96,5 +135,6 @@ export function tagGeometry(shape: TagStyle, size: number, points: Direction = d
     iconAngle: tilt[points] ?? 0,
     ring: ring && { at: t(ring.at), r: ring.r },
     box: [Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)],
+    contour: contourOf(segments).map(t),
   };
 }
