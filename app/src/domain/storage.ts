@@ -69,13 +69,14 @@ export class WorkspaceStore {
     id: string,
     expectedRevision: number,
     command: Command | Command[],
+    label?: string,
   ): Promise<Workspace> {
     const commands = Array.isArray(command) ? command : [command];
     if (!commands.length) throw new Error("No changes to save.");
     return this.mutate(id, (current) => {
       if (current.revision !== expectedRevision) throw new ConflictError();
       return commands.reduce((next, item) => applyCommand(next, next.revision, item), current);
-    }, commandLabel(commands[0]));
+    }, label ?? commandLabel(commands[0]));
   }
   async import(id: string, command: ImportCommitCommand) {
     return this.mutate(id, (w) => commitImport(w, command), "Import bubbles");
