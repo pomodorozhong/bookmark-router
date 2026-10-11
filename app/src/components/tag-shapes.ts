@@ -58,10 +58,15 @@ function outline(shape: TagStyle, s: number): { segments: Segment[]; icon: Point
       ring: { at, r: h * 0.17 },
     };
   }
-  const p = h * 0.42;
+  // The hole end comes to a rounded point, with softened shoulders.
+  const p = h * 0.42, len = Math.hypot(p, y), ux = p / len, uy = y / len, k = h * 0.16, j = h * 0.06;
   return {
-    segments: [["M", [x0, 0]], ["L", [x0 + p, -y]], ...right, ["L", [x0 + p, y]], ["Z"], ...hole([x0 + p * 0.95, 0], h * 0.11)],
+    segments: [["M", [x0 + k * ux, -k * uy]], ["L", [x0 + p - j * ux, -y + j * uy]], ["Q", [x0 + p, -y], [x0 + p + j, -y]], ...right,
+      ["L", [x0 + p + j, y]], ["Q", [x0 + p, y], [x0 + p - j * ux, y - j * uy]], ["L", [x0 + k * ux, k * uy]], ["Q", [x0, 0], [x0 + k * ux, -k * uy]], ["Z"],
+      ...hole([x0 + p * 0.95, 0], h * 0.11)],
     icon: [h * 0.22, 0],
+    // The rounded point's tip, which no end point reaches.
+    extent: [[x0 + (k * ux) / 2, 0]],
   };
 }
 
