@@ -439,7 +439,7 @@ th { background: #f4f7f5; color: var(--muted); }
 .group-add input { width: 100%; padding: 8px 11px; border: 1px dashed #b9cbc2; border-radius: 8px; background: #fbfcfb; font: inherit; }
 .group-menu { position: absolute; z-index: 10; left: 0; right: 0; top: 100%; margin-top: 4px; max-height: 280px; overflow: auto; background: white; border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
 .group-menu-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 8px 12px 4px; }
-.group-menu button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; border: 0; border-radius: 0; padding: 6px 12px; min-height: 32px; }
+.group-menu button { display: flex; gap: 8px; align-items: center; justify-content: flex-start; width: 100%; text-align: left; border: 0; border-radius: 0; padding: 6px 12px; min-height: 32px; }
 .group-menu button.highlighted { background: var(--tint); }
 .triage-related { display: flex; flex-direction: column; }
 .triage-related button { display: flex; gap: 8px; align-items: baseline; text-align: left; border: 0; padding: 5px 6px; min-height: 30px; }
