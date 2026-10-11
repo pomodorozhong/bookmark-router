@@ -6,7 +6,6 @@ import type { Backup } from "./model";
 import { ConflictError, applyCommand, type Command } from "./commands";
 import { commandLabel, restoreUndoSnapshot, type UndoEntry } from "./undo";
 import {
-  upgradeWorkspace,
   validateWorkspace,
   type Asset,
   type Geometry,
@@ -16,7 +15,7 @@ import {
 type StoredWorkspace = Workspace & { _undoHistory?: UndoEntry[] };
 function collectionContent(stored: StoredWorkspace): Workspace {
   const { _undoHistory, ...workspace } = stored;
-  return upgradeWorkspace(workspace);
+  return workspace;
 }
 function addUndo(entries: UndoEntry[], current: Workspace, next: Workspace, label: string): UndoEntry[] {
   const chain = entries.at(-1)?.revision === current.revision ? entries : [];
@@ -38,8 +37,7 @@ interface ProductDB extends DBSchema {
 }
 export class WorkspaceStore {
   private database: Promise<IDBPDatabase<ProductDB>>;
-  // The database keeps its original name so collections saved under it still open.
-  constructor(name = "bubble-tag-v1") {
+  constructor(name = "bookmark-tag") {
     this.database = openDB<ProductDB>(name, undefined, {
       upgrade(db) {
         if (!db.objectStoreNames.contains("workspaces")) db.createObjectStore("workspaces", { keyPath: "id" });
@@ -131,7 +129,7 @@ export class WorkspaceStore {
       if (!stored || !entry || stored.revision !== expectedRevision || entry.revision !== stored.revision || entry.id !== entryId)
         throw new ConflictError("The collection changed. Review the latest undo action and try again.");
       const current = collectionContent(stored);
-      const next = restoreUndoSnapshot(upgradeWorkspace(entry.before), current);
+      const next = restoreUndoSnapshot(entry.before, current);
       validateWorkspace(next);
       entries.pop();
       const previous = entries.at(-1);

@@ -28,7 +28,7 @@ import { Icon, IconButton, type IconName } from "./components/Icon";
 const store = new WorkspaceStore();
 function activeCollection() {
   try {
-    return localStorage.getItem("bookmark-tag-active") ?? localStorage.getItem("bubble-tag-active");
+    return localStorage.getItem("bookmark-tag-active");
   } catch {
     return null;
   }
