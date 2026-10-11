@@ -5,8 +5,10 @@ export interface TriageFilter {
   text: string;
   hiddenTypeIds: string[];
   showDecided: boolean;
+  /** Off hides groups that no shown bookmark belongs to. */
+  showEmptyGroups: boolean;
 }
-export const emptyTriageFilter: TriageFilter = { text: "", hiddenTypeIds: [], showDecided: true };
+export const emptyTriageFilter: TriageFilter = { text: "", hiddenTypeIds: [], showDecided: true, showEmptyGroups: true };
 type Point = readonly [number, number];
 
 // Tabs follow status outcomes, so collections with their own statuses still work.
@@ -39,16 +41,19 @@ export function matchesFilter(bubble: Bubble, workspace: Workspace, filter: Tria
 }
 
 // Bookmarks and groups the graph shows for a filter. A group shows when its type
-// is visible and its name matches or it has a shown bookmark.
+// is visible and it has a shown bookmark, or its name matches (or, with
+// showEmptyGroups, it has no text filter to fail).
 export function graphVisibility(workspace: Workspace, filter: TriageFilter, keepIds: string[] = []) {
   const bubbleIds = workspace.bubbles
     .filter((b) => keepIds.includes(b.id) || (matchesFilter(b, workspace, filter) && (filter.showDecided || outcomeOf(b, workspace) === "active")))
     .map((b) => b.id);
   const shown = new Set(bubbleIds);
   const q = filter.text.trim().toLowerCase();
+  const hasShown = (tagId: string) => workspace.memberships.some((m) => m.tagId === tagId && shown.has(m.bubbleId));
   const hiddenTagIds = workspace.tags
     .filter((t) => filter.hiddenTypeIds.includes(t.typeId ?? "")
-      || (q && !t.name.toLowerCase().includes(q) && !workspace.memberships.some((m) => m.tagId === t.id && shown.has(m.bubbleId))))
+      || (!filter.showEmptyGroups && !hasShown(t.id))
+      || (q && !t.name.toLowerCase().includes(q) && !hasShown(t.id)))
     .map((t) => t.id);
   return { bubbleIds, hiddenTagIds };
 }

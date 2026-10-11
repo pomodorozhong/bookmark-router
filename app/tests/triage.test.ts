@@ -58,6 +58,14 @@ test("graph visibility hides decided bookmarks and unmatched groups on request",
   assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, showDecided: false }, ["b"]).bubbleIds, ["a", "b"]);
 });
 
+test("hiding empty groups hides groups with no shown bookmark", () => {
+  const w = fixture();
+  assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, text: "keywords", showEmptyGroups: false }).hiddenTagIds, ["t-pricing"]);
+  assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, text: "pricing" }).hiddenTagIds, []);
+  w.bubbles[0].statusId = "done";
+  assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, showDecided: false, showEmptyGroups: false }).hiddenTagIds, ["t-pricing", "t-seo"]);
+});
+
 test("clockwise ordering starts at 12 o'clock and sweeps right", () => {
   const at: Record<string, [number, number]> = { left: [-10, 0], top: [0, -10], bottom: [0, 10], right: [10, 0] };
   const items = Object.keys(at).map((id) => ({ id }));

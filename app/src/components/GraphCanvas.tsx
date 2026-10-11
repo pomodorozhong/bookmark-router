@@ -3,6 +3,7 @@ import { placeNear, type Point } from "./graph-placement";
 import "./focus-adapt-label";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from "react";
 import {
+  CanvasEvent,
   Graph,
   GraphEvent,
   NodeEvent,
@@ -22,7 +23,6 @@ export interface GraphCanvasHandle {
   /** Zoom and center so these nodes, with room for titles, fill the view. */
   frame(ids: string[]): void;
   /** Zoom out until every visible node fits. */
-  fitAll(): void;
   positionOf(id: string): readonly [number, number] | undefined;
 }
 // Titles show for related or box-selected bookmarks only while there are few enough to read.
@@ -74,7 +74,8 @@ export function GraphCanvas({
   onPinsChanged: (ids: string[]) => void;
   workspace: Workspace;
   selected?: string;
-  onSelect: (id: string) => void;
+  /** Called with a node's ID, or with nothing when empty canvas is clicked. */
+  onSelect: (id?: string) => void;
   query: string;
   matchingBubbleIds?: string[];
   filtering?: boolean;
@@ -250,12 +251,6 @@ export function GraphCanvas({
           return g.translateBy([width / 2 - x, height / 2 - y], { duration: 300 });
         })
         .catch((e) => setError(String(e)));
-    },
-    fitAll() {
-      const g = graph.current;
-      if (!g || renderedGraph.current !== g) return;
-      autoFit.current = false;
-      void g.fitView({}, { duration: 300 }).catch((e) => setError(String(e)));
     },
     positionOf(id) {
       const g = graph.current;
@@ -666,6 +661,7 @@ export function GraphCanvas({
     g.on(NodeEvent.CLICK, (event: IElementEvent) =>
       onSelectRef.current(event.target.id),
     );
+    g.on(CanvasEvent.CLICK, () => onSelectRef.current());
     let saved = "",
       changes = 0,
       last = 0,
@@ -994,7 +990,7 @@ export function GraphCanvas({
           {feedback}
         </div>
         <div className="canvas-tools">
-          <details className="help-menu"><summary aria-label="Graph help"><Icon name="info" /><span>Help</span></summary><div className="help-popover"><strong>Explore your collection</strong><p>Drag a bubble to move it. Scroll with two fingers to pan; pinch to zoom.</p><p>Select an item for Details. Pin it there to keep its position during layout.</p></div></details>
+          <details className="help-menu"><summary aria-label="Graph help"><Icon name="info" /><span>Help</span></summary><div className="help-popover"><strong>Explore your collection</strong><p>Drag a bubble to move it. Scroll with two fingers to pan; pinch to zoom.</p><p>Click a bookmark to triage it; click empty space to clear it. Drag on empty space to box-select.</p></div></details>
           <span className="zoom-value">{Math.round(zoom * 100)}%</span>
           <div className="layout-menu">
             <button
@@ -1033,22 +1029,10 @@ export function GraphCanvas({
             )}
           </div>
           <IconButton
-            label="Fit graph"
+            label="Whole collection"
             icon="fit"
             disabled={!ready}
-            onClick={() => void action(async (g) => {
-              const rect = container.current!.getBoundingClientRect();
-              const inspector = container.current!
-                .closest(".workspace-grid")
-                ?.querySelector<HTMLElement>(".inspector");
-              const panel = inspector?.getBoundingClientRect();
-              const covered = panel && panel.width > 0
-                ? Math.max(0, rect.right - panel.left) : 0;
-              g.setOptions({
-                padding: [65, Math.min(rect.width - 85, covered + 40), 40, 40],
-              });
-              await g.fitView({}, false);
-            })}
+            onClick={() => void action((g) => g.fitView({}, { duration: 300 }))}
           />
           <IconButton label="Zoom out" icon="zoom-out" disabled={!ready} onClick={() => void action((g) => g.zoomBy(0.8, false))} />
           <IconButton label="Zoom in" icon="zoom-in" disabled={!ready} onClick={() => void action((g) => g.zoomBy(1.25, false))} />
