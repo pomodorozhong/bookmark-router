@@ -11,6 +11,9 @@ import {
   type NodeData,
 } from "@antv/g6";
 import {
+  forceCollide,
+  forceLink,
+  forceManyBody,
   forceSimulation,
   type SimulationNodeDatum,
   type SimulationLinkDatum,
@@ -23,6 +26,8 @@ export interface GraphCanvasHandle {
   /** Zoom and center so these nodes, with room for titles, fill the view. */
   frame(ids: string[]): void;
   /** Zoom out until every visible node fits. */
+  /** Clears pins and lays every node out again from a grid. */
+  resetPositions(): void;
   positionOf(id: string): readonly [number, number] | undefined;
 }
 // Titles show for related or box-selected bookmarks only while there are few enough to read.
@@ -96,6 +101,8 @@ export function GraphCanvas({
       Simulation<ForceNode, SimulationLinkDatum<ForceNode>> | undefined
     >(undefined),
     pins = useRef(new Set<string>()),
+    // Nodes the filters hide; they keep their place while the shown ones lay out.
+    hiddenNodes = useRef(new Set<string>()),
     frozen = useRef(false),
     // Nodes allowed to move while the rest of the layout is frozen.
     settling = useRef(new Set<string>()),
@@ -219,7 +226,7 @@ export function GraphCanvas({
     drawPinsRef.current();
     void g.draw().catch((e) => setError(String(e)));
   }
-  useImperativeHandle(ref, () => ({
+  const handle: GraphCanvasHandle = {
     setPinned(id, pinned) {
       const g = graph.current;
       if (!g || renderedGraph.current !== g) return;
@@ -253,12 +260,45 @@ export function GraphCanvas({
         })
         .catch((e) => setError(String(e)));
     },
+    resetPositions,
     positionOf(id) {
       const g = graph.current;
       return g && renderedGraph.current === g && g.hasNode(id) ? (g.getElementPosition(id).slice(0, 2) as [number, number]) : undefined;
     },
-  }));
+  };
+  useImperativeHandle(ref, () => handle);
   const tagSizes = useRef(new Map<string, number>());
+  const collideRadius = (id: string) => (tagSizes.current.has(id) ? tagSizes.current.get(id)! / 2 + 20 : 34);
+  function resetPositions() {
+    pins.current.clear();
+    refreshPins();
+    const sim = simulation.current;
+    if (!sim) return;
+    // Lay out only what is shown: hidden nodes hold still and exert no force.
+    const hidden = (node: ForceNode | string | number) => hiddenNodes.current.has(typeof node === "object" ? node.id : String(node));
+    (sim.force("charge") as ReturnType<typeof forceManyBody<ForceNode>> | undefined)?.strength((n) => (hidden(n) ? 0 : -250));
+    (sim.force("collide") as ReturnType<typeof forceCollide<ForceNode>> | undefined)?.radius((n) => (hidden(n) ? 0 : collideRadius(n.id)));
+    (sim.force("link") as ReturnType<typeof forceLink<ForceNode, SimulationLinkDatum<ForceNode>>> | undefined)?.strength((l) => (hidden(l.source as ForceNode) || hidden(l.target as ForceNode) ? 0 : 0.45));
+    const shown = sim.nodes().filter((n) => !hidden(n));
+    const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
+    for (const [i, n] of shown.entries()) {
+      n.x = 90 + (i % columns) * 90;
+      n.y = 120 + Math.floor(i / columns) * 100;
+      n.vx = 0;
+      n.vy = 0;
+      n.fx = null;
+      n.fy = null;
+    }
+    // Once the new layout settles, frame what is shown. Hidden nodes take part in
+    // the layout too, so fitting everything would zoom out past the shown ones.
+    sim.on("end.reset", () => {
+      sim.on("end.reset", null);
+      const g = graph.current;
+      if (g) handle.frame(g.getNodeData().map((n) => n.id).filter((id) => g.getElementVisibility(id) !== "hidden"));
+    });
+    sim.alpha(1).restart();
+    persist();
+  }
   tagSizes.current = new Map(
     workspace.tags.map((t) => [t.id, appearanceFor(t, workspace).size]),
   );
@@ -386,7 +426,7 @@ export function GraphCanvas({
       for (const node of sim.nodes()) {
         if (dragging.current.has(node.id)) continue;
         const datum = graph.current?.getNodeData(node.id);
-        if ((frozen.current && !settling.current.has(node.id)) || pins.current.has(node.id)) {
+        if ((frozen.current && !settling.current.has(node.id)) || pins.current.has(node.id) || hiddenNodes.current.has(node.id)) {
           node.fx = Number(datum?.style?.x ?? node.x ?? 0);
           node.fy = Number(datum?.style?.y ?? node.y ?? 0);
         } else {
@@ -433,12 +473,7 @@ export function GraphCanvas({
         animation: !reduced,
         link: { distance: 120, strength: 0.45 },
         manyBody: { strength: -250 },
-        collide: {
-          radius: (d) =>
-            tagSizes.current.has(d.id)
-              ? tagSizes.current.get(d.id)! / 2 + 20
-              : 34,
-        },
+        collide: { radius: (d) => collideRadius(String(d.id)) },
         alphaDecay: 0.035,
         velocityDecay: 0.45,
       },
@@ -939,6 +974,7 @@ export function GraphCanvas({
       if (has !== box.has(b.id)) brushStates[b.id] = box.has(b.id) ? ["boxed"] : [];
     }
     if (Object.keys(brushStates).length) void g.setElementState(brushStates, false);
+    hiddenNodes.current = new Set(Object.keys(visibility).filter((id) => visibility[id] === "hidden"));
     void g
       .setElementVisibility(visibility, false)
       .then(() => {
@@ -1008,18 +1044,7 @@ export function GraphCanvas({
                 <button onClick={() => {
                   setLayoutOpen(false);
                   if (window.confirm("Reset positions and clear all pins?")) {
-                    pins.current.clear();
-                    refreshPins();
-                    for (const [i, n] of (simulation.current?.nodes() ?? []).entries()) {
-                      n.x = 90 + (i % 6) * 90;
-                      n.y = 120 + Math.floor(i / 6) * 100;
-                      n.vx = 0;
-                      n.vy = 0;
-                      n.fx = null;
-                      n.fy = null;
-                    }
-                    simulation.current?.alpha(1).restart();
-                    persist();
+                    resetPositions();
                   }
                 }}>
                   <Icon name="refresh" size={15} /> Reset positions

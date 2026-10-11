@@ -73,6 +73,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [busy, setBusy] = useState(false);
   const frameToken = useRef(0);
   const [frameRequest, setFrameRequest] = useState(0);
+  const [resetRequest, setResetRequest] = useState(0);
   const filterInput = useRef<HTMLInputElement>(null);
   const groupInput = useRef<HTMLInputElement>(null);
 
@@ -177,6 +178,15 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     if (current && !triageQueue(workspace, { tab, filter: next, selection: selectionSet }).some((b) => b.id === current.id))
       show(undefined, false);
   }
+  // A new tab hides groups left empty by it and lays the graph out afresh.
+  function changeTab(next: TriageTab) {
+    setTab(next);
+    show(undefined, false);
+    if (filter.showEmptyGroups) setFilter({ ...filter, showEmptyGroups: false });
+    setResetRequest((n) => n + 1);
+  }
+  // Runs after the graph has applied the new tab's visibility (child effects run first).
+  useEffect(() => { if (resetRequest) graphRef.current?.resetPositions(); }, [resetRequest]);
   function openCopy(scope?: CopyScope) {
     setCopyScope(scope ?? (selection ? "selection" : "list"));
   }
@@ -221,7 +231,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         </div>
         <div className="segmented" role="tablist" aria-label="Queue">
           {([["todo", `To triage ${counts.todo}`], ["done", `Done ${counts.done}`], ["dropped", `Dropped ${counts.dropped}`], ["all", "All"]] as const).map(([key, label]) => (
-            <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""} onClick={() => { setTab(key); show(undefined, false); }}>{label}</button>
+            <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""} onClick={() => changeTab(key)}>{label}</button>
           ))}
         </div>
         {headerEnd}
