@@ -1,5 +1,6 @@
 import { bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
 import { placeNear, type Point } from "./graph-placement";
+import "./focus-adapt-label";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from "react";
 import {
   Graph,
@@ -386,8 +387,9 @@ export function GraphCanvas({
       },
       behaviors: [
         {
-          type: "auto-adapt-label",
+          type: "focus-adapt-label",
           key: "label-collisions",
+          focusIds: () => [hovered.current, selectedRef.current].filter((id): id is string => !!id),
           padding: 4,
           throttle: 32,
           sort: (a: NodeData, b: NodeData) => {
@@ -566,10 +568,7 @@ export function GraphCanvas({
       if (canceled || renderedGraph.current !== g) return;
       const ids = [previous, id].filter((x): x is string => !!x && g.hasNode(x));
       g.updateNodeData(ids.map((nodeId) => ({ id: nodeId, style: labelStyle(g.getNodeData(nodeId), g.getZoom()) })));
-      void g
-        .draw()
-        .then(() => (id && g.hasNode(id) && !g.getNodeData(id).data?.tag ? g.frontElement(id) : undefined))
-        .catch((e) => { if (!canceled) setError(String(e)); });
+      void g.draw().catch((e) => { if (!canceled) setError(String(e)); });
     };
     imageReady.current = (bubbleId) => {
       if (canceled || renderedGraph.current !== g || !g.hasNode(bubbleId)) return;
@@ -850,9 +849,7 @@ export function GraphCanvas({
       .then(() => {
         if (graph.current === g) return g.draw();
       })
-      .then(() => {
-        if (graph.current === g && selected && g.hasNode(selected)) return g.frontElement(selected);
-      })
+
       .catch((e) => {
         if (graph.current === g) setError(String(e));
       });
