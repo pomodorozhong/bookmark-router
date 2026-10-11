@@ -88,7 +88,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const current = workspace.bubbles.find((b) => b.id === currentId);
   const groups = current ? groupsOf(workspace, current.id) : [];
   const related = useMemo(() => (current ? [...relatedOf(workspace, current.id)].sort((a, b) => b[1].length - a[1].length) : []), [workspace, current]);
-  const visibility = useMemo(() => graphVisibility(workspace, filter, current ? [current.id] : []), [workspace, filter, current]);
+  const visibility = useMemo(() => graphVisibility(workspace, filter, tab, current ? [current.id] : []), [workspace, filter, tab, current]);
   const { done, dropped } = decisionStatuses(workspace);
   const counts = useMemo(() => ({
     todo: workspace.bubbles.filter((b) => inTab(b, workspace, "todo")).length,
@@ -206,7 +206,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showDecided || !filter.showEmptyGroups);
+  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showEmptyGroups);
   const total = workspace.bubbles.length || 1;
   return (
     <div className={`triage ${queueOpen ? "" : "queue-closed"}`}>
@@ -279,10 +279,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   <i className="swatch" style={{ background: type.appearance.color }} />{type.name}
                 </label>
               ))}
-              <label className="type-toggle">
-                <input type="checkbox" checked={filter.showDecided} onChange={(e) => changeFilter({ ...filter, showDecided: e.target.checked })} />
-                Decided
-              </label>
               <label className="type-toggle" title="Groups no shown bookmark belongs to">
                 <input type="checkbox" checked={filter.showEmptyGroups} onChange={(e) => changeFilter({ ...filter, showEmptyGroups: e.target.checked })} />
                 Empty groups
