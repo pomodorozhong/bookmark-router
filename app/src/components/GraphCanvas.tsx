@@ -139,9 +139,19 @@ export function GraphCanvas({
       // The 2px outline is centered on the edge; tucking the image 0.5px under
       // it fills the inner circle without a seam.
       const diameter = Number(node.style?.size ?? 25) - 1;
+      // The hovered or selected title is brought to the front with a backing, so
+      // neighboring nodes and edges cannot cover it.
+      const focused = node.id === selectedRef.current || node.id === hovered.current;
       return {
       label: shown,
       labelPointerEvents: "none",
+      labelBackground: focused,
+      labelBackgroundFill: "#ffffff",
+      labelBackgroundOpacity: 0.96,
+      labelBackgroundRadius: 3 / scale,
+      labelBackgroundPointerEvents: "none",
+      labelPadding: focused ? [2 / scale, 4 / scale] : 0,
+      labelFill: focused ? "#183e35" : "#475569",
       icon: !!image,
       iconSrc: image as unknown as HTMLImageElement | undefined,
       iconWidth: diameter,
@@ -553,10 +563,13 @@ export function GraphCanvas({
     const hover = (id: string | undefined) => {
       const previous = hovered.current;
       hovered.current = id;
-      if (canceled || renderedGraph.current !== g || g.getZoom() >= bubbleLabelMinZoom) return;
+      if (canceled || renderedGraph.current !== g) return;
       const ids = [previous, id].filter((x): x is string => !!x && g.hasNode(x));
       g.updateNodeData(ids.map((nodeId) => ({ id: nodeId, style: labelStyle(g.getNodeData(nodeId), g.getZoom()) })));
-      void g.draw().catch((e) => { if (!canceled) setError(String(e)); });
+      void g
+        .draw()
+        .then(() => (id && g.hasNode(id) && !g.getNodeData(id).data?.tag ? g.frontElement(id) : undefined))
+        .catch((e) => { if (!canceled) setError(String(e)); });
     };
     imageReady.current = (bubbleId) => {
       if (canceled || renderedGraph.current !== g || !g.hasNode(bubbleId)) return;
@@ -836,6 +849,9 @@ export function GraphCanvas({
       .setElementVisibility(visibility, false)
       .then(() => {
         if (graph.current === g) return g.draw();
+      })
+      .then(() => {
+        if (graph.current === g && selected && g.hasNode(selected)) return g.frontElement(selected);
       })
       .catch((e) => {
         if (graph.current === g) setError(String(e));
