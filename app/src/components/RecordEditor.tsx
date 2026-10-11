@@ -13,11 +13,14 @@ export function RecordEditor({
   id,
   onSave,
   onClose,
+  inline = false,
 }: {
   workspace: Workspace;
   id: string;
   onSave: (command: Command | Command[]) => Promise<void>;
   onClose: () => void;
+  /** Render in the triage detail panel instead of a dialog. */
+  inline?: boolean;
 }) {
   const bubble = workspace.bubbles.find((b) => b.id === id),
     tag = workspace.tags.find((t) => t.id === id),
@@ -110,8 +113,8 @@ export function RecordEditor({
       setBusy(false);
     }
   }
-  return (
-    <Dialog labelledBy="edit-title" onClose={() => { if (!busy) onClose(); }}>
+  const content = (
+      <>
         <div className="modal-heading">
           <div>
             <div className="eyebrow">{bubble ? "BUBBLE" : "TAG"} DETAILS</div>
@@ -131,7 +134,7 @@ export function RecordEditor({
         <label>
           {bubble ? "Title" : "Name"}
           <input
-            autoFocus
+            autoFocus={!inline}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -326,6 +329,9 @@ export function RecordEditor({
             <Icon name="check" size={15} /> {busy ? "Saving…" : "Save changes"}
           </button>
         </footer>
-    </Dialog>
+      </>
   );
+  return inline
+    ? <section className="triage-editor" aria-labelledby="edit-title">{content}</section>
+    : <Dialog labelledBy="edit-title" onClose={() => { if (!busy) onClose(); }}>{content}</Dialog>;
 }

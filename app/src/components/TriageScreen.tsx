@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { CopyDialog, type CopyScope } from "./CopyDialog";
+import { RecordEditor } from "./RecordEditor";
 import { Icon, IconButton } from "./Icon";
 import type { Command } from "../domain/commands";
 import { isWebUrl, type Asset, type Bubble, type Geometry, type Workspace } from "../domain/model";
@@ -64,6 +65,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [selection, setSelection] = useState<string[]>();
   // The tag whose bookmarks make up the selection, when it came from clicking a tag.
   const [selectionTagId, setSelectionTagId] = useState<string>();
+  // The tag open in the detail panel's editor, after a tag is clicked in the graph.
+  const [editingTagId, setEditingTagId] = useState<string>();
   const [currentId, setCurrentId] = useState<string>();
   const [queueOpen, setQueueOpen] = useState(() => window.innerWidth > 1000);
   const [groupQuery, setGroupQuery] = useState("");
@@ -114,6 +117,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
 
   function show(id: string | undefined, frame = true) {
     setCurrentId(id);
+    setEditingTagId(undefined);
     setGroupQuery("");
     setMenuOpen(false);
     if (frame) setFrameRequest(++frameToken.current);
@@ -203,6 +207,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       else if (e.key === "ArrowUp" || key === "k") { e.preventDefault(); move(-1); }
       else if (key === "q") setQueueOpen((v) => !v);
       else if (key === "c") openCopy();
+      else if (e.key === "Escape" && editingTagId) setEditingTagId(undefined);
       else if (e.key === "Escape" && selection) setSelection(undefined);
       else if (e.key === "Escape" && current) show(undefined, false);
       else if (key === "d") decide("done");
@@ -242,7 +247,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             <div className="queue-bar selection" role="status">
               <span className={`queue-bar-label ${selectionTag ? "full" : ""}`}><strong>{selection.length}</strong> {selectionTag ? <>in <span title={selectionTag.name}>{selectionTag.name}</span></> : "selected"}{queue.length !== selection.length ? ` · ${queue.length} here` : ""}</span>
               <span className="queue-bar-actions">
-                {selectionTag && <button onClick={() => onEdit(selectionTag.id)}><Icon name="edit" size={13} /> Edit tag</button>}
                 <button onClick={() => openCopy("selection")}><Icon name="copy" size={13} /> Copy…</button>
                 <button onClick={() => setSelection(undefined)} title="Clear selection (Esc)">Clear</button>
               </span>
@@ -303,7 +307,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             onSelect={(id) => {
               if (!id) show(undefined, false);
               else if (workspace.bubbles.some((b) => b.id === id)) show(id);
-              else boxSelect(workspace.memberships.filter((m) => m.tagId === id).map((m) => m.bubbleId), false, id);
+              else {
+                boxSelect(workspace.memberships.filter((m) => m.tagId === id).map((m) => m.bubbleId), false, id);
+                setEditingTagId(id);
+              }
             }}
             query=""
             matchingBubbleIds={visibility.bubbleIds}
@@ -321,7 +328,11 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
           />
         </div>
         <aside className="triage-panel" aria-label="Current bookmark">
-          {current ? (
+          {editingTagId && workspace.tags.some((t) => t.id === editingTagId) ? (
+            <div className="triage-detail">
+              <RecordEditor key={editingTagId} inline workspace={workspace} id={editingTagId} onSave={(c) => save(c)} onClose={() => setEditingTagId(undefined)} />
+            </div>
+          ) : current ? (
             <>
               <div className="triage-detail">
                 <div className="triage-top">
