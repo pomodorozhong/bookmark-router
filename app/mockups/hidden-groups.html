@@ -1,0 +1,251 @@
+<title>Hidden Groups Mockup</title>
+<style>
+  /* Layout: the triage toolbar on top, then queue | graph | details, like the app. Single light look, matching the app. */
+  :root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --ink: #243b35; --muted: #536b62; --line: #dce5e0; --teal: #0f766e; --tint: #e8f3ee;
+    --bg: #f6f8f7; --card: #ffffff; --dark: #183e35; --edge: #a9bdba;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-size: 14px; }
+  button, input { font: inherit; }
+  .wrap { padding: 16px; padding-block: 16px 48px; max-width: 1240px; margin: 0 auto; display: grid; gap: 16px; }
+  .banner { background: var(--dark); color: #eef7f3; border-radius: 10px; padding: 10px 16px; font-size: 13px; line-height: 1.55; }
+  .banner strong { color: #fff; }
+  .banner ol { margin: 6px 0 0; padding-left: 20px; }
+  .caption { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--teal); font-weight: 600; margin: 0 0 6px; }
+
+  .variants { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+  .variants button { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  .variants button[aria-pressed=true] { background: var(--teal); border-color: var(--teal); color: #fff; }
+  button:focus-visible, .type-toggle:has(input:focus-visible) { outline: 3px solid #2e9586; outline-offset: 2px; }
+
+  .app { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: grid; grid-template-columns: 230px minmax(0, 1fr) 250px; min-height: 470px; }
+  .queue { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; }
+  .queue-bar { padding: 10px 12px; font-size: 12.5px; color: var(--muted); border-bottom: 1px solid var(--line); background: #fbfcfb; }
+  .queue-bar strong { color: var(--ink); }
+  .queue button { all: unset; cursor: pointer; padding: 9px 12px; border-bottom: 1px solid #edf2ef; display: grid; gap: 2px; }
+  .queue button:hover { background: #f3f7f5; }
+  .queue button.current { background: var(--tint); box-shadow: inset 3px 0 0 var(--teal); }
+  .queue button:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+  .q-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .q-meta { font-size: 11.5px; color: var(--muted); }
+  .queue-empty { padding: 14px 12px; color: var(--muted); font-size: 12.5px; }
+
+  .stage { position: relative; min-width: 0; background: #fafcfb; }
+  .tools { position: absolute; top: 10px; right: 10px; left: 10px; display: flex; justify-content: flex-end; }
+  .triage-filter { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 3px 6px 3px 10px; background: #ffffffeb; border: 1px solid #a5ccbc; border-radius: 10px; color: var(--muted); }
+  .triage-filter .search { width: 120px; min-height: 28px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 7px; font-size: 12.5px; color: #9aaba4; display: flex; align-items: center; }
+  .type-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; padding: 4px 6px; border-radius: 6px; cursor: pointer; user-select: none; position: relative; }
+  .type-toggle:has(input:not(:checked)) { opacity: .5; text-decoration: line-through; }
+  .type-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+  .type-toggle.new { background: #fff7e0; box-shadow: 0 0 0 1px #f0d68a; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+  svg { display: block; width: 100%; height: 100%; }
+  .node { cursor: pointer; }
+  .label { font-size: 11px; fill: var(--ink); text-anchor: middle; pointer-events: none; }
+  .tag-label { font-size: 11.5px; font-weight: 600; }
+
+  .panel { border-left: 1px solid var(--line); padding: 14px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+  .panel h3 { margin: 0; font-size: 15px; line-height: 1.35; text-wrap: balance; }
+  .panel .sub { font-size: 12px; color: var(--muted); }
+  .section-h { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .group { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 0; border-top: 1px solid #edf2ef; }
+  .group:first-of-type { border-top: 0; }
+  .group .name { flex: 1; min-width: 0; }
+  .group.peek .name { color: var(--muted); }
+  .peek-note { font-size: 11px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; white-space: nowrap; }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.55; }
+  .note p { margin: 0; }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .queue { border-right: 0; border-bottom: 1px solid var(--line); max-height: 200px; overflow: auto; }
+    .stage { height: 440px; }
+    .panel { border-left: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+
+<div class="wrap">
+  <div class="banner">
+    <strong>Hidden groups mockup.</strong> Example collection, already set up for scenario 2: Proposal issue and Topic are hidden, and you've clicked the issue group, so the first bookmark is selected.
+    <ol>
+      <li>Turn <strong>Ungrouped bookmarks</strong> on and off (new, highlighted). Off hides bookmarks that are in no shown group, in the graph and the queue.</li>
+      <li>Look at the current bookmark: its hidden groups appear as <strong>peeking</strong> groups, with the bookmarks they link. Click another bookmark or group to see them come and go.</li>
+      <li>Pick the peeking style you like below.</li>
+    </ol>
+  </div>
+
+  <div>
+    <p class="caption">Peeking style</p>
+    <div class="variants" role="group" aria-label="Peeking style">
+      <button id="v-a" data-v="a" aria-pressed="true">A · Hollow, dashed</button>
+      <button id="v-b" data-v="b" aria-pressed="false">B · Hollow, dashed + eye badge</button>
+      <button id="v-c" data-v="c" aria-pressed="false">C · Faded fill, dashed</button>
+    </div>
+  </div>
+
+  <div class="app">
+    <nav class="queue" id="queue" aria-label="Bookmarks to triage"></nav>
+    <div class="stage">
+      <div class="tools">
+        <div class="triage-filter">
+          <span class="search">Filter… (F)</span>
+          <span id="toggles"></span>
+          <label class="type-toggle" title="Groups no shown bookmark belongs to"><input id="t-empty" type="checkbox" checked>Empty groups</label>
+          <label class="type-toggle new" title="Bookmarks in no shown group"><input id="t-ungrouped" type="checkbox">Ungrouped bookmarks</label>
+        </div>
+      </div>
+      <svg id="graph" viewBox="0 0 760 470" role="img" aria-label="Graph"></svg>
+    </div>
+    <aside class="panel" id="panel" aria-label="Current bookmark"></aside>
+  </div>
+
+  <div class="notes">
+    <div class="note"><p><strong>Which groups peek.</strong> Only the current bookmark's groups. Bookmarks in your box selection don't bring their hidden groups back, or most of them would return.</p></div>
+    <div class="note"><p><strong>What comes with them.</strong> A peeking group brings its bookmarks, even ones Ungrouped bookmarks would hide, with dashed lines, so you can see what else is in it. They leave when you move on.</p></div>
+    <div class="note"><p><strong>Right panel.</strong> It already lists every group of the bookmark. Groups of a hidden type get a small "hidden" marker so the panel and the graph agree.</p></div>
+  </div>
+</div>
+
+<script>
+const types = [
+  { id: "existing", name: "Existing issue", color: "#0f766e", size: 50, shape: "circle" },
+  { id: "proposal", name: "Proposal issue", color: "#b45309", size: 44, shape: "circle" },
+  { id: "topic", name: "Topic", color: "#475569", size: 38, shape: "square" },
+];
+const tags = [
+  { id: "e1", type: "existing", name: "Graph slow on big collections", x: 390, y: 235 },
+  { id: "p1", type: "proposal", name: "Virtualize the canvas", x: 610, y: 150 },
+  { id: "t1", type: "topic", name: "Graph rendering", x: 170, y: 150 },
+  { id: "t2", type: "topic", name: "WebGL", x: 640, y: 380 },
+];
+const bubbles = [
+  { id: "b1", title: "G6 performance guide", domain: "g6.antv.antgroup.com", x: 280, y: 190, in: ["e1", "t1"] },
+  { id: "b2", title: "Profiling React renders", domain: "react.dev", x: 330, y: 340, in: ["e1"] },
+  { id: "b3", title: "Canvas vs SVG at 10k nodes", domain: "blog.example.dev", x: 500, y: 190, in: ["e1", "p1"] },
+  { id: "b4", title: "Force layouts explained", domain: "observablehq.com", x: 80, y: 240, in: ["t1"] },
+  { id: "b5", title: "Quadtree collision", domain: "d3js.org", x: 120, y: 75, in: ["t1"] },
+  { id: "b6", title: "Offscreen canvas in workers", domain: "developer.mozilla.org", x: 400, y: 95, in: ["p1", "t1"] },
+  { id: "b7", title: "Recipe: miso soup", domain: "cooking.example.com", x: 120, y: 400, in: [] },
+  { id: "b8", title: "Sigma.js WebGL renderer", domain: "sigmajs.org", x: 690, y: 290, in: ["p1", "t2"] },
+  { id: "b9", title: "Debounced redraws", domain: "web.dev", x: 470, y: 330, in: ["e1"] },
+];
+const state = { hidden: new Set(["proposal", "topic"]), showEmpty: true, showUngrouped: false, current: "b1", selection: ["b1", "b2", "b3", "b9"], selTag: "e1", variant: "a" };
+const tagById = Object.fromEntries(tags.map((t) => [t.id, t]));
+const typeOf = (t) => types.find((y) => y.id === t.type);
+const shownTag = (id) => !state.hidden.has(tagById[id].type);
+
+// The rule the app would use: a bookmark shows when Ungrouped bookmarks is on, or it is in a
+// shown group, or it shares a peeking group with the current bookmark.
+function compute() {
+  const cur = bubbles.find((b) => b.id === state.current);
+  const peek = new Set(cur ? cur.in.filter((id) => !shownTag(id)) : []);
+  const base = new Set(bubbles.filter((b) => state.showUngrouped || b.in.some(shownTag)).map((b) => b.id));
+  const visible = new Set(base);
+  for (const b of bubbles) if (b.in.some((id) => peek.has(id))) visible.add(b.id);
+  if (cur) visible.add(cur.id);
+  const visibleTags = new Set(tags.filter((t) => {
+    if (peek.has(t.id)) return true;
+    if (!shownTag(t.id)) return false;
+    return state.showEmpty || bubbles.some((b) => visible.has(b.id) && b.in.includes(t.id));
+  }).map((t) => t.id));
+  const queue = bubbles.filter((b) => base.has(b.id) && (!state.selection || state.selection.includes(b.id)));
+  return { cur, peek, visible, visibleTags, queue };
+}
+
+const eyeOff = (x, y, color) => `
+  <g transform="translate(${x - 9} ${y - 9})">
+    <circle cx="9" cy="9" r="9.5" fill="#fff" stroke="${color}" stroke-width="1.5"/>
+    <path d="M4 9c1.4-2.4 3-3.4 5-3.4s3.6 1 5 3.4c-1.4 2.4-3 3.4-5 3.4S5.4 11.4 4 9Z" fill="none" stroke="${color}" stroke-width="1.4"/>
+    <path d="M4.5 13.5 13.5 4.5" stroke="${color}" stroke-width="1.4" stroke-linecap="round"/>
+  </g>`;
+
+function tagShape(t, peeking) {
+  const y = typeOf(t), r = y.size / 2, c = y.color, v = state.variant;
+  const fill = !peeking ? c : v === "c" ? c : "#fff";
+  const fillOpacity = peeking && v === "c" ? 0.32 : 1;
+  const stroke = peeking ? `stroke="${c}" stroke-width="2.5" stroke-dasharray="5 4"` : `stroke="${c}" stroke-width="1"`;
+  const shape = y.shape === "circle"
+    ? `<circle cx="${t.x}" cy="${t.y}" r="${r}" fill="${fill}" fill-opacity="${fillOpacity}" ${stroke}/>`
+    : `<rect x="${t.x - r}" y="${t.y - r}" width="${r * 2}" height="${r * 2}" rx="11" fill="${fill}" fill-opacity="${fillOpacity}" ${stroke}/>`;
+  const badge = peeking && v === "b" ? eyeOff(t.x + r * 0.78, t.y - r * 0.78, c) : "";
+  const label = `<text class="label tag-label" x="${t.x}" y="${t.y + r + 15}" ${peeking ? `fill="${c}" font-style="italic"` : ""}>${t.name}</text>`;
+  return shape + badge + label;
+}
+
+function render() {
+  const { cur, peek, visible, visibleTags, queue } = compute();
+  const related = new Set(cur ? bubbles.filter((b) => b.in.some((id) => cur.in.includes(id) && visibleTags.has(id))).map((b) => b.id) : []);
+  const groupsOfCur = new Set(cur ? cur.in : []);
+  let edges = "", nodes = "";
+  for (const b of bubbles) for (const id of b.in) {
+    if (!visible.has(b.id) || !visibleTags.has(id)) continue;
+    const t = tagById[id], isPeek = peek.has(id), mine = cur && b.id === cur.id;
+    const op = !cur || mine ? 1 : groupsOfCur.has(id) ? 0.5 : 0.08;
+    edges += `<line x1="${b.x}" y1="${b.y}" x2="${t.x}" y2="${t.y}" stroke="${mine ? "#0f766e" : "#a9bdba"}" stroke-width="${mine ? 2.5 : 1.2}" opacity="${op}" ${isPeek ? `stroke-dasharray="5 4"` : ""}/>`;
+  }
+  for (const t of tags) {
+    if (!visibleTags.has(t.id)) continue;
+    const op = !cur || groupsOfCur.has(t.id) ? 1 : 0.28;
+    nodes += `<g class="node" data-tag="${t.id}" opacity="${op}">${tagShape(t, peek.has(t.id))}</g>`;
+  }
+  for (const b of bubbles) {
+    if (!visible.has(b.id)) continue;
+    const isCur = cur && b.id === cur.id, inBox = state.selection?.includes(b.id);
+    const op = !cur || isCur || related.has(b.id) || inBox ? 1 : 0.18;
+    const onlyPeek = !b.in.some((id) => shownTag(id)) && !state.showUngrouped;
+    nodes += `<g class="node" data-b="${b.id}" opacity="${op}">
+      ${isCur ? `<circle cx="${b.x}" cy="${b.y}" r="20" fill="none" stroke="#0f766e" stroke-opacity=".25" stroke-width="12"/>` : inBox ? `<circle cx="${b.x}" cy="${b.y}" r="17" fill="none" stroke="#2563eb" stroke-opacity=".16" stroke-width="8"/>` : ""}
+      <circle cx="${b.x}" cy="${b.y}" r="13" fill="#fff" stroke="${isCur ? "#0f766e" : inBox ? "#2563eb" : "#94a3b8"}" stroke-width="${isCur ? 4 : inBox ? 3 : 2}" ${onlyPeek ? `stroke-dasharray="4 3"` : ""}/>
+      <text class="label" x="${b.x}" y="${b.y + 28}">${b.title}</text></g>`;
+  }
+  document.getElementById("graph").innerHTML = edges + nodes;
+
+  const selTag = state.selTag && tagById[state.selTag];
+  document.getElementById("queue").innerHTML =
+    `<div class="queue-bar">${state.selection ? `<strong>${state.selection.length}</strong> in ${selTag ? selTag.name : "selection"}${queue.length !== state.selection.length ? ` · ${queue.length} here` : ""}` : `${queue.length} in this list`}</div>` +
+    (queue.map((b) => `<button class="${cur && b.id === cur.id ? "current" : ""}" data-b="${b.id}"><span class="q-title">${b.title}</span><span class="q-meta">${b.domain} · ${b.in.length}</span></button>`).join("") ||
+      `<p class="queue-empty">Nothing here. Try another tab or clear the filter.</p>`);
+
+  document.getElementById("panel").innerHTML = cur
+    ? `<div><h3>${cur.title}</h3><div class="sub">${cur.domain}</div></div>
+       <div class="section-h">Groups</div>
+       <div>${cur.in.length ? cur.in.map((id) => { const t = tagById[id], y = typeOf(t), p = peek.has(id);
+          return `<div class="group ${p ? "peek" : ""}"><i class="swatch" style="background:${y.color}"></i><span class="name">${t.name}</span>${p ? `<span class="peek-note" title="${y.name} is hidden in the filter">${eyeOff(0, 0, "#536b62").replace("translate(-9 -9)", "")
+            .replace(/^\s*<g/, '<svg width="14" height="14" viewBox="-0.5 -0.5 19 19"><g') + "</svg>"}hidden</span>` : ""}</div>`; }).join("") : `<p class="hint">No groups yet.</p>`}</div>
+       <p class="hint">Click a bookmark or group in the graph, or a bookmark in the queue.</p>`
+    : `<p class="hint">Nothing selected. Click a bookmark or group.</p>`;
+
+  document.getElementById("toggles").innerHTML = types.map((y) =>
+    `<label class="type-toggle"><input id="t-${y.id}" type="checkbox" data-type="${y.id}" ${state.hidden.has(y.id) ? "" : "checked"}><i class="swatch" style="background:${y.color}"></i>${y.name}</label>`).join("");
+}
+
+document.addEventListener("click", (e) => {
+  const v = e.target.closest("[data-v]");
+  if (v) { state.variant = v.dataset.v; document.querySelectorAll("[data-v]").forEach((x) => x.setAttribute("aria-pressed", x === v)); render(); return; }
+  const b = e.target.closest("[data-b]");
+  if (b) { state.current = b.dataset.b; if (e.target.closest("svg")) { state.selection = undefined; state.selTag = undefined; } render(); return; }
+  const t = e.target.closest("[data-tag]");
+  if (t) {
+    // Clicking a group selects its bookmarks and shows the first one, as the app does.
+    state.selTag = t.dataset.tag;
+    state.selection = bubbles.filter((x) => x.in.includes(t.dataset.tag)).map((x) => x.id);
+    state.current = state.selection[0];
+    render(); return;
+  }
+  if (e.target.closest("svg")) { state.current = undefined; state.selection = undefined; state.selTag = undefined; render(); }
+});
+document.addEventListener("change", (e) => {
+  const el = e.target;
+  if (el.dataset.type) { el.checked ? state.hidden.delete(el.dataset.type) : state.hidden.add(el.dataset.type); }
+  else if (el.id === "t-empty") state.showEmpty = el.checked;
+  else if (el.id === "t-ungrouped") state.showUngrouped = el.checked;
+  render();
+});
+render();
+</script>
