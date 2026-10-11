@@ -134,12 +134,14 @@ export function GraphCanvas({
   function labelStyle(node: NodeData, scale: number): NonNullable<NodeData["style"]> {
     if (!node.data?.tag) {
       const shown = scale >= bubbleLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current;
-      const image = shown ? bubbleImage(bubblesRef.current.get(node.id)) : undefined;
+      // Images only when zoomed in; at hover or selection while zoomed out they are too small to read.
+      const image = scale >= bubbleLabelMinZoom ? bubbleImage(bubblesRef.current.get(node.id)) : undefined;
       // The 2px outline is centered on the edge; tucking the image 0.5px under
       // it fills the inner circle without a seam.
       const diameter = Number(node.style?.size ?? 25) - 1;
       return {
       label: shown,
+      labelPointerEvents: "none",
       icon: !!image,
       iconSrc: image as unknown as HTMLImageElement | undefined,
       iconWidth: diameter,
@@ -166,6 +168,9 @@ export function GraphCanvas({
       labelBackgroundFill: "#f8faf9",
       labelBackgroundOpacity: .94,
       labelBackgroundRadius: 3 / scale,
+      // Zoomed-out tag titles cover nearby bubbles; let hover and clicks reach them.
+      labelPointerEvents: "none",
+      labelBackgroundPointerEvents: "none",
       labelPadding: outside ? [2 / scale, 3 / scale] : 0,
     };
   }
@@ -377,7 +382,7 @@ export function GraphCanvas({
           throttle: 32,
           sort: (a: NodeData, b: NodeData) => {
             const priority = (n: typeof a) =>
-              n.id === selectedRef.current ? 2 : n.data?.tag ? 1 : 0;
+              n.id === hovered.current ? 3 : n.id === selectedRef.current ? 2 : n.data?.tag ? 1 : 0;
             const diff = priority(b) - priority(a);
             return diff > 0
               ? 1
