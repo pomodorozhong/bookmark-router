@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { CopyDialog, type CopyScope } from "./CopyDialog";
 import { RecordEditor } from "./RecordEditor";
+import { TagView } from "./TagView";
+import { Cover, type LoadMedia } from "./Cover";
 import { Icon, IconButton } from "./Icon";
 import type { Command } from "../domain/commands";
-import { isWebUrl, type Asset, type Bubble, type Geometry, type Workspace } from "../domain/model";
+import { isWebUrl, type Bubble, type Geometry, type Workspace } from "../domain/model";
 import {
   decisionStatuses,
   domainOf,
@@ -21,29 +23,12 @@ import {
   type TriageTab,
 } from "../domain/triage";
 
-type LoadMedia = (id: string) => Promise<{ blob: Blob } | undefined>;
 const relatedListLimit = 12;
 
-function Cover({ asset, load, className = "triage-cover" }: { asset?: Asset; load: LoadMedia; className?: string }) {
-  const [src, setSrc] = useState<string>();
-  useEffect(() => {
-    let objectUrl: string | undefined, canceled = false;
-    setSrc(undefined);
-    if (asset?.kind !== "image") return;
-    if (asset.source === "remote") setSrc(asset.url);
-    else void load(asset.blobId!).then((m) => {
-      if (m && !canceled) setSrc(objectUrl = URL.createObjectURL(m.blob));
-    });
-    return () => { canceled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [asset, load]);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => setLoaded(false), [src]);
-  // Hidden until loaded, so a slow or blocked cover never leaves an empty frame.
-  return src ? <img className={className} src={src} alt="" hidden={!loaded} onLoad={() => setLoaded(true)} onError={() => setSrc(undefined)} /> : null;
-}
-
 /** The main collection screen: triage bookmarks into groups beside the force-directed graph. */
-export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onError, headerStart, headerEnd }: {
+export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onTagTypes, onError, headerStart, headerEnd }: {
+  /** Opens the tag type manager. */
+  onTagTypes: () => void;
   headerStart?: ReactNode;
   headerEnd?: ReactNode;
   workspace: Workspace;
@@ -65,8 +50,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [selection, setSelection] = useState<string[]>();
   // The tag whose bookmarks make up the selection, when it came from clicking a tag.
   const [selectionTagId, setSelectionTagId] = useState<string>();
-  // The tag open in the detail panel's editor, after a tag is clicked in the graph.
-  const [editingTagId, setEditingTagId] = useState<string>();
+  // The tag shown in the detail panel after a tag is clicked in the graph, read or edited.
+  const [tagPanel, setTagPanel] = useState<{ id: string; editing: boolean }>();
   const [currentId, setCurrentId] = useState<string>();
   const [queueOpen, setQueueOpen] = useState(() => window.innerWidth > 1000);
   const [groupQuery, setGroupQuery] = useState("");
@@ -81,6 +66,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const groupInput = useRef<HTMLInputElement>(null);
 
   const selectionTag = selection && workspace.tags.find((t) => t.id === selectionTagId);
+  const panelTag = tagPanel && workspace.tags.find((t) => t.id === tagPanel.id);
   const selectionSet = useMemo(() => (selection ? new Set(selection) : undefined), [selection]);
   const queue = useMemo(() => {
     const list = triageQueue(workspace, { tab, filter, selection: selectionSet });
@@ -117,7 +103,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
 
   function show(id: string | undefined, frame = true) {
     setCurrentId(id);
-    setEditingTagId(undefined);
+    setTagPanel(undefined);
     setGroupQuery("");
     setMenuOpen(false);
     if (frame) setFrameRequest(++frameToken.current);
@@ -207,7 +193,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       else if (e.key === "ArrowUp" || key === "k") { e.preventDefault(); move(-1); }
       else if (key === "q") setQueueOpen((v) => !v);
       else if (key === "c") openCopy();
-      else if (e.key === "Escape" && editingTagId) setEditingTagId(undefined);
+      else if (e.key === "Escape" && tagPanel) setTagPanel(tagPanel.editing ? { ...tagPanel, editing: false } : undefined);
       else if (e.key === "Escape" && selection) setSelection(undefined);
       else if (e.key === "Escape" && current) show(undefined, false);
       else if (key === "d") decide("done");
@@ -309,7 +295,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
               else if (workspace.bubbles.some((b) => b.id === id)) show(id);
               else {
                 boxSelect(workspace.memberships.filter((m) => m.tagId === id).map((m) => m.bubbleId), false, id);
-                setEditingTagId(id);
+                setTagPanel({ id, editing: false });
               }
             }}
             query=""
@@ -328,9 +314,13 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
           />
         </div>
         <aside className="triage-panel" aria-label="Current bookmark">
-          {editingTagId && workspace.tags.some((t) => t.id === editingTagId) ? (
+          {panelTag ? (
             <div className="triage-detail">
-              <RecordEditor key={editingTagId} inline workspace={workspace} id={editingTagId} onSave={(c) => save(c)} onClose={() => setEditingTagId(undefined)} />
+              {tagPanel!.editing
+                ? <RecordEditor key={panelTag.id} inline workspace={workspace} id={panelTag.id} onSave={(c) => save(c)} onNewType={onTagTypes}
+                    onClose={() => setTagPanel({ id: panelTag.id, editing: false })} />
+                : <TagView tag={panelTag} workspace={workspace} loadMedia={loadMedia} onOpen={(id) => show(id)}
+                    onCopy={() => openCopy("selection")} onEdit={() => setTagPanel({ id: panelTag.id, editing: true })} onClose={() => setTagPanel(undefined)} />}
             </div>
           ) : current ? (
             <>

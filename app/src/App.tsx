@@ -22,6 +22,7 @@ import { WorkspaceStore } from "./domain/storage";
 import { ConflictError, type Command } from "./domain/commands";
 import { undoConflicts } from "./domain/import-commands";
 import { RecordEditor } from "./components/RecordEditor";
+import { TagTypesDialog } from "./components/TagTypesDialog";
 import { Dialog } from "./components/Dialog";
 import { Icon, IconButton, type IconName } from "./components/Icon";
 const store = new WorkspaceStore();
@@ -91,6 +92,7 @@ export default function App() {
     [undoBatch, setUndoBatch] = useState<string>(),
     [toast, setToast] = useState<ToastMessage>(),
     [deleting, setDeleting] = useState<Workspace>(),
+    [tagTypesOpen, setTagTypesOpen] = useState(false),
     [promptKind, setPromptKind] = useState<"collection" | "tag">(),
     [promptValue, setPromptValue] = useState("");
   const [nextUndo, setNextUndo] = useState<Awaited<ReturnType<WorkspaceStore["nextUndo"]>>>();
@@ -484,6 +486,7 @@ export default function App() {
     <MoreMenu
       onAddBubble={() => setScreen("import")}
       onAddTag={() => { setPromptKind("tag"); setPromptValue(""); }}
+      onTagTypes={() => setTagTypesOpen(true)}
       onHistory={() => setHistory(true)}
       onDownload={() => void backup()}
       onRestore={restoreBackup}
@@ -960,6 +963,7 @@ export default function App() {
             notify={notify}
             onEdit={setEditing}
             onImport={() => setScreen("import")}
+            onTagTypes={() => setTagTypesOpen(true)}
             onError={setError}
             headerStart={collectionMenu}
             headerEnd={<>{undoButton}{moreMenu}</>}
@@ -973,8 +977,10 @@ export default function App() {
           id={editing}
           onSave={save}
           onClose={() => setEditing(undefined)}
+          onNewType={() => setTagTypesOpen(true)}
         />
       )}
+      {tagTypesOpen && <TagTypesDialog workspace={workspace} save={save} onClose={() => setTagTypesOpen(false)} />}
       {promptKind && (
         <PromptModal
           kind={promptKind}

@@ -1,7 +1,9 @@
 import { Dialog } from "./Dialog";
 import { useState } from "react";
+import { NodePreview } from "./NodePreview";
 import {
   appearanceFor,
+  defaultAppearance,
   type Appearance,
   type MediaKind,
   type Workspace,
@@ -14,7 +16,10 @@ export function RecordEditor({
   onSave,
   onClose,
   inline = false,
+  onNewType,
 }: {
+  /** Opens the tag type manager, from the type list's "New type…" option. */
+  onNewType?: () => void;
   workspace: Workspace;
   id: string;
   onSave: (command: Command | Command[]) => Promise<void>;
@@ -46,6 +51,21 @@ export function RecordEditor({
     icon: tag?.appearance.icon !== undefined,
   });
   const [updateTypeDefaults, setUpdateTypeDefaults] = useState(false);
+  // What the node shows: each overridden field, otherwise the selected type's value.
+  const typeAppearance: Appearance = { ...defaultAppearance, ...workspace.tagTypes.find((t) => t.id === typeId)?.appearance };
+  const effective: Appearance = {
+    color: appearanceOverrides.color ? appearance.color : typeAppearance.color,
+    size: appearanceOverrides.size ? appearance.size : typeAppearance.size,
+    shape: appearanceOverrides.shape ? appearance.shape : typeAppearance.shape,
+    icon: appearanceOverrides.icon ? appearance.icon : typeAppearance.icon,
+  };
+  const overridden = Object.values(appearanceOverrides).some(Boolean);
+  const typeLabel = workspace.tagTypes.find((t) => t.id === typeId)?.name ?? "the default";
+  // Checking an override starts from the value it was inheriting.
+  const override = (field: keyof typeof appearanceOverrides, on: boolean) => {
+    if (on && !appearanceOverrides[field]) setAppearance({ ...appearance, [field]: effective[field] });
+    setAppearanceOverrides({ ...appearanceOverrides, [field]: on });
+  };
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   async function save() {
@@ -97,10 +117,10 @@ export function RecordEditor({
           id: typeId,
           patch: {
             appearance: {
-              color: appearance.color,
-              size: appearance.size,
-              shape: appearance.shape,
-              ...(appearance.icon?.trim() ? { icon: appearance.icon.trim() } : {}),
+              color: effective.color,
+              size: effective.size,
+              shape: effective.shape,
+              ...(effective.icon?.trim() ? { icon: effective.icon.trim() } : {}),
             },
           },
         });
@@ -115,12 +135,13 @@ export function RecordEditor({
   }
   const content = (
       <>
+        {inline && <button className="text-button editor-back" disabled={busy} onClick={onClose}><Icon name="arrow-left" size={14} /> Back</button>}
         <div className="modal-heading">
           <div>
             <div className="eyebrow">{bubble ? "BUBBLE" : "TAG"} DETAILS</div>
             <h2 id="edit-title">Edit {bubble ? "bubble" : "tag"}</h2>
           </div>
-          <IconButton label="Close editor" icon="close" size={17} disabled={busy} onClick={onClose} />
+          {!inline && <IconButton label="Close editor" icon="close" size={17} disabled={busy} onClick={onClose} />}
         </div>
         {error && (
           <div role="alert" className="alert">
@@ -163,44 +184,40 @@ export function RecordEditor({
         {tag && (
           <label>
             Tag type
-            <select value={typeId} onChange={(e) => setType(e.target.value)}>
+            <select value={typeId} onChange={(e) => { if (e.target.value === "__new") onNewType?.(); else setType(e.target.value); }}>
               <option value="">Untyped</option>
               {workspace.tagTypes.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
                 </option>
               ))}
+              {onNewType && <option value="__new">New type…</option>}
             </select>
           </label>
         )}
         {tag && (
-          <section className="appearance-editor">
-            <div className="section-heading">
-              <div>
-                <h3>Appearance</h3>
-                <p className="subtle">
-                  Unchecked fields inherit from {typeId ? "the tag type" : "the workspace default"}.
-                </p>
-              </div>
-            </div>
+          <details className="appearance-editor">
+            <summary>
+              <Icon name="chevron-right" size={14} />
+              <h3>Appearance</h3>
+              <span className="subtle">{overridden ? "Overridden" : `From ${typeLabel}`}</span>
+            </summary>
+            <div className="appearance-body">
+            <div className="appearance-fields">
+            <p className="subtle">Unchecked fields use {typeId ? `the ${typeLabel} type` : "the workspace default"}.</p>
             <label className="appearance-field">
               <span className="appearance-field-label">
                 <input
                   type="checkbox"
                   checked={appearanceOverrides.color}
-                  onChange={(event) =>
-                    setAppearanceOverrides({
-                      ...appearanceOverrides,
-                      color: event.target.checked,
-                    })
-                  }
+                  onChange={(event) => override("color", event.target.checked)}
                 />
                 Color override
               </span>
               <input
                 aria-label="Tag color"
                 type="color"
-                value={appearance.color}
+                value={effective.color}
                 disabled={!appearanceOverrides.color}
                 onChange={(event) => setAppearance({ ...appearance, color: event.target.value })}
               />
@@ -210,12 +227,7 @@ export function RecordEditor({
                 <input
                   type="checkbox"
                   checked={appearanceOverrides.size}
-                  onChange={(event) =>
-                    setAppearanceOverrides({
-                      ...appearanceOverrides,
-                      size: event.target.checked,
-                    })
-                  }
+                  onChange={(event) => override("size", event.target.checked)}
                 />
                 Size override
               </span>
@@ -225,29 +237,24 @@ export function RecordEditor({
                 min="20"
                 max="160"
                 step="1"
-                value={appearance.size}
+                value={effective.size}
                 disabled={!appearanceOverrides.size}
                 onChange={(event) => setAppearance({ ...appearance, size: Number(event.target.value) })}
               />
-              <output>{appearance.size}px</output>
+              <output>{effective.size}px</output>
             </label>
             <label className="appearance-field">
               <span className="appearance-field-label">
                 <input
                   type="checkbox"
                   checked={appearanceOverrides.shape}
-                  onChange={(event) =>
-                    setAppearanceOverrides({
-                      ...appearanceOverrides,
-                      shape: event.target.checked,
-                    })
-                  }
+                  onChange={(event) => override("shape", event.target.checked)}
                 />
                 Shape override
               </span>
               <select
                 aria-label="Tag shape"
-                value={appearance.shape}
+                value={effective.shape}
                 disabled={!appearanceOverrides.shape}
                 onChange={(event) =>
                   setAppearance({
@@ -266,19 +273,14 @@ export function RecordEditor({
                 <input
                   type="checkbox"
                   checked={appearanceOverrides.icon}
-                  onChange={(event) =>
-                    setAppearanceOverrides({
-                      ...appearanceOverrides,
-                      icon: event.target.checked,
-                    })
-                  }
+                  onChange={(event) => override("icon", event.target.checked)}
                 />
                 Icon override
               </span>
               <input
                 aria-label="Tag icon"
                 placeholder="Optional symbol or icon name"
-                value={appearance.icon ?? ""}
+                value={effective.icon ?? ""}
                 disabled={!appearanceOverrides.icon}
                 onChange={(event) => setAppearance({ ...appearance, icon: event.target.value })}
               />
@@ -293,7 +295,10 @@ export function RecordEditor({
                 Also update the {workspace.tagTypes.find((type) => type.id === typeId)?.name ?? "tag"} type default
               </label>
             )}
-          </section>
+            </div>
+            <div className="appearance-preview"><NodePreview appearance={effective} box={96} /><span className="subtle">Preview</span></div>
+            </div>
+          </details>
         )}
         {bubble && (
           <>
