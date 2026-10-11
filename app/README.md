@@ -1,6 +1,6 @@
 # Bubble & Tag
 
-A new local-first product, replacing the reverted bookmark prototype. The approved plan is [../docs/product-plan.md](../docs/product-plan.md).
+A local-first app for triaging bookmarks into project ideas. The current plan is [../docs/plan.md](../docs/plan.md); progress is in [../docs/progress.md](../docs/progress.md).
 
 ## Run
 
@@ -11,17 +11,22 @@ npm run dev
 
 Open http://127.0.0.1:5199/. `npm run build` produces a static-hostable `dist/`; `npm run preview` serves it on port 5200. `npm test` checks parsers, data integrity, command revisions, and transactional IndexedDB conflicts. `npm run check` checks TypeScript.
 
-## Current milestone: Stage C — Checkpoint C ready for review
+## Triage (round 1)
 
-The import-first usable build saves confirmed imports in IndexedDB. Sources include pasted links, CSV/TSV, Netscape bookmark HTML, and versioned JSON backups. Review field mappings, explicitly exclude invalid rows, resolve unknown statuses/types, and choose Skip, Keep both, or Merge. Confirmation commits the batch atomically.
+The collection screen is triage: a queue on the left, the force-directed graph in the middle, and the current bookmark on the right. The graph frames the current bookmark with its groups, highlights bookmarks that share a group, and fades the rest.
 
-Bubble/tag editors, tag creation, memberships, independent statuses, graph/list search, import history with conflict-aware undo, collection selection, and full backup/restore are available. Stage C adds tag appearance inheritance/overrides, reviewed status propagation and selection changes with undo, nested/saved/distance filters, exact copy composition with presets, and transactional local image/video/audio attachments. Node positions, pins, and viewport are stored separately from content. Dragging does not pin. Use Pin/Unpin in Details; a flat red pushpin marks each pinned node. Re-layout preserves pins; confirmed Reset positions clears them. Search and saved views hide or sort display without excluding bubbles from matching rules, and Fit graph accounts for the Details overlay.
+- **Decide:** Done (`D`), Drop (`X`), and Deselect (`S`, removes a bookmark from the box selection without deciding it). Each moves to the next bookmark. Tabs follow status outcomes: To triage, Done, Dropped, All.
+- **Groups:** remove with ✕ or add with the search (`/`). Reasons from the converted collection show under each group.
+- **Select:** drag on empty canvas to box-select (Shift adds, Esc clears). The queue narrows to the selection, ordered clockwise around its center. Two-finger scrolling pans; pinching zooms.
+- **Filter** (`F`): text over titles, URLs, descriptions, and group names; group-type toggles; hide decided bookmarks. The filter narrows the graph and the queue.
+- **Copy** (`C`): the selection, the current list, or the current bookmark through a template with presets and fields; the template is remembered on this device.
+- **Edit** opens the bookmark editor; clicking a tag in the graph opens the tag editor.
 
-Backups bundle local media and preserve remote references. Restores create new collections. `fixtures/media-backup.json` contains a harmless bundled image for recovery testing. Enrichment and WebMCP are later phases. See the [Checkpoint C review checklist](../docs/product-review-guide.md#c--a-complicated-workflow--ready-for-review-october-10-2026).
+Every decision and group change is a revision-checked command with a labeled entry in the per-collection **Undo** (up to 50 actions, kept across reloads). Selection, filter, and graph positions are not undoable. Node positions, existing pins, and the viewport are stored separately from content; Layout → Reset positions clears pins.
 
-The permanent **Undo** control in the bottom bar reverses the latest saved collection action. Each collection keeps up to 50 actions across reloads, covering edits, tags, connections, statuses, imports, media attachments, saved views, and copy presets. An editor save is one action even when it changes multiple fields or connections. Undo advances revisions and rejects stale targets from other tabs. Search, selection, graph navigation/positions, collection creation, and backup restoration into a new collection are outside this history. Existing changes made before this history was introduced have no general undo entry; older imports can still be reviewed in Import history. Backups preserve collection content rather than this local undo history.
+Imports, import history, and backup/restore are unchanged from Stage B. Backups bundle local media and restore into new collections. `npm run convert` turns the prototype tracker `bookmarks-working.json` into a restorable backup.
 
-G6 is pinned to 5.1.1. Memberships have no direction or arrows. Two-finger pinch zoom is supported through Chromium Ctrl-wheel and Safari gesture events; ordinary two-finger scrolling remains panning. Initialization errors appear over the graph; the list remains available. Sample data contains no private bookmarks.
+G6 is pinned to 5.1.1.
 
 ## Prototype recovery
 
