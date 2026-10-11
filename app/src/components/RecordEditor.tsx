@@ -28,19 +28,19 @@ export function RecordEditor({
   /** Render in the triage detail panel instead of a dialog. */
   inline?: boolean;
 }) {
-  const bubble = workspace.bubbles.find((b) => b.id === id),
+  const bookmark = workspace.bookmarks.find((b) => b.id === id),
     tag = workspace.tags.find((t) => t.id === id),
-    record = (bubble ?? tag)!;
+    record = (bookmark ?? tag)!;
   const [expectedRecordRevision] = useState(record.revision);
-  const [title, setTitle] = useState(bubble?.title ?? tag?.name ?? ""),
+  const [title, setTitle] = useState(bookmark?.title ?? tag?.name ?? ""),
     [description, setDescription] = useState(record.description ?? ""),
     [url, setUrl] = useState(record.url ?? ""),
     [statusId, setStatus] = useState(record.statusId),
     [typeId, setType] = useState(tag?.typeId ?? ""),
     [mediaUrl, setMedia] = useState(
-      bubble?.asset?.source === "remote" ? (bubble.asset.url ?? "") : "",
+      bookmark?.asset?.source === "remote" ? (bookmark.asset.url ?? "") : "",
     ),
-    [kind, setKind] = useState(bubble?.asset?.kind ?? "image");
+    [kind, setKind] = useState(bookmark?.asset?.kind ?? "image");
   const inherited = tag ? appearanceFor(tag, workspace) : undefined;
   const [appearance, setAppearance] = useState<Appearance>(
     inherited ?? { color: "#0f766e", size: 64, shape: "circle" },
@@ -77,9 +77,9 @@ export function RecordEditor({
     setBusy(true);
     setError("");
     try {
-      const command: Command = bubble
+      const command: Command = bookmark
         ? {
-            type: "bubble.patch",
+            type: "bookmark.patch",
             id,
             expectedRecordRevision,
             patch: {
@@ -89,8 +89,8 @@ export function RecordEditor({
               statusId,
               asset: mediaUrl.trim()
                 ? { source: "remote", kind, url: mediaUrl.trim() }
-                : bubble.asset?.source === "local"
-                  ? bubble.asset
+                : bookmark.asset?.source === "local"
+                  ? bookmark.asset
                   : undefined,
             },
           }
@@ -143,8 +143,8 @@ export function RecordEditor({
         {inline && <button className="text-button editor-back" disabled={busy} onClick={onClose}><Icon name="arrow-left" size={14} /> Back</button>}
         <div className="modal-heading">
           <div>
-            <div className="eyebrow">{bubble ? "BUBBLE" : "TAG"} DETAILS</div>
-            <h2 id="edit-title">Edit {bubble ? "bubble" : "tag"}</h2>
+            <div className="eyebrow">{bookmark ? "BOOKMARK" : "TAG"} DETAILS</div>
+            <h2 id="edit-title">Edit {bookmark ? "bookmark" : "tag"}</h2>
           </div>
           {!inline && <IconButton label="Close editor" icon="close" size={17} disabled={busy} onClick={onClose} />}
         </div>
@@ -158,7 +158,7 @@ export function RecordEditor({
           </div>
         )}
         <label>
-          {bubble ? "Title" : "Name"}
+          {bookmark ? "Title" : "Name"}
           <input
             autoFocus={!inline}
             value={title}
@@ -290,7 +290,7 @@ export function RecordEditor({
             </div>
           </details>
         )}
-        {bubble && (
+        {bookmark && (
           <>
             <label>
               Primary media URL

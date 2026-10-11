@@ -1,4 +1,4 @@
-import type { Bubble, Status, Tag, Workspace } from "./model";
+import type { Bookmark, Status, Tag, Workspace } from "./model";
 
 export type TriageTab = "todo" | "done" | "dropped" | "all";
 export interface TriageFilter {
@@ -19,33 +19,33 @@ export function decisionStatuses(workspace: Workspace): { done?: Status; dropped
     dropped: workspace.statuses.find((s) => s.outcome === "discarded"),
   };
 }
-export function outcomeOf(bubble: Bubble, workspace: Workspace): Status["outcome"] {
-  return workspace.statuses.find((s) => s.id === bubble.statusId)?.outcome ?? "active";
+export function outcomeOf(bookmark: Bookmark, workspace: Workspace): Status["outcome"] {
+  return workspace.statuses.find((s) => s.id === bookmark.statusId)?.outcome ?? "active";
 }
-export function inTab(bubble: Bubble, workspace: Workspace, tab: TriageTab): boolean {
-  const outcome = outcomeOf(bubble, workspace);
+export function inTab(bookmark: Bookmark, workspace: Workspace, tab: TriageTab): boolean {
+  const outcome = outcomeOf(bookmark, workspace);
   return tab === "all" || (tab === "todo" ? outcome === "active" : tab === "done" ? outcome === "completed" : outcome === "discarded");
 }
 
-export function groupsOf(workspace: Workspace, bubbleId: string): Tag[] {
-  const ids = new Set(workspace.memberships.filter((m) => m.bubbleId === bubbleId).map((m) => m.tagId));
+export function groupsOf(workspace: Workspace, bookmarkId: string): Tag[] {
+  const ids = new Set(workspace.memberships.filter((m) => m.bookmarkId === bookmarkId).map((m) => m.tagId));
   return workspace.tags.filter((t) => ids.has(t.id));
 }
 
 // Text matches a bookmark's title, URL, or description, or the name of a
 // visible group it belongs to.
-export function matchesFilter(bubble: Bubble, workspace: Workspace, filter: TriageFilter): boolean {
+export function matchesFilter(bookmark: Bookmark, workspace: Workspace, filter: TriageFilter): boolean {
   const q = filter.text.trim().toLowerCase();
   if (!q) return true;
-  if (`${bubble.title} ${bubble.url ?? ""} ${bubble.description}`.toLowerCase().includes(q)) return true;
-  return groupsOf(workspace, bubble.id).some((t) => !filter.hiddenTypeIds.includes(t.typeId ?? "") && t.name.toLowerCase().includes(q));
+  if (`${bookmark.title} ${bookmark.url ?? ""} ${bookmark.description}`.toLowerCase().includes(q)) return true;
+  return groupsOf(workspace, bookmark.id).some((t) => !filter.hiddenTypeIds.includes(t.typeId ?? "") && t.name.toLowerCase().includes(q));
 }
 
 // Whether a bookmark passes the filter: its text matches, and with showUngrouped
 // off, it belongs to a group of a shown type.
-function passesFilter(bubble: Bubble, workspace: Workspace, filter: TriageFilter): boolean {
-  return matchesFilter(bubble, workspace, filter)
-    && (filter.showUngrouped || groupsOf(workspace, bubble.id).some((t) => !filter.hiddenTypeIds.includes(t.typeId ?? "")));
+function passesFilter(bookmark: Bookmark, workspace: Workspace, filter: TriageFilter): boolean {
+  return matchesFilter(bookmark, workspace, filter)
+    && (filter.showUngrouped || groupsOf(workspace, bookmark.id).some((t) => !filter.hiddenTypeIds.includes(t.typeId ?? "")));
 }
 
 // Bookmarks and groups the graph shows for a filter and queue tab. A group shows when its type
@@ -56,23 +56,23 @@ function passesFilter(bubble: Bubble, workspace: Workspace, filter: TriageFilter
 export function graphVisibility(workspace: Workspace, filter: TriageFilter, tab: TriageTab = "all", keepIds: string[] = []) {
   const typeHidden = (t: Tag) => filter.hiddenTypeIds.includes(t.typeId ?? "");
   const tagsOf = new Map<string, string[]>();
-  for (const m of workspace.memberships) tagsOf.set(m.bubbleId, [...(tagsOf.get(m.bubbleId) ?? []), m.tagId]);
+  for (const m of workspace.memberships) tagsOf.set(m.bookmarkId, [...(tagsOf.get(m.bookmarkId) ?? []), m.tagId]);
   const kept = new Set(keepIds.flatMap((id) => tagsOf.get(id) ?? []));
   const peekTagIds = workspace.tags.filter((t) => typeHidden(t) && kept.has(t.id)).map((t) => t.id);
   const peeking = new Set(peekTagIds);
-  const bubbleIds = workspace.bubbles
+  const bookmarkIds = workspace.bookmarks
     .filter((b) => keepIds.includes(b.id) || (inTab(b, workspace, tab) && (passesFilter(b, workspace, filter)
       || ((tagsOf.get(b.id) ?? []).some((id) => peeking.has(id)) && matchesFilter(b, workspace, filter)))))
     .map((b) => b.id);
-  const shown = new Set(bubbleIds);
+  const shown = new Set(bookmarkIds);
   const q = filter.text.trim().toLowerCase();
-  const withShown = new Set(workspace.memberships.filter((m) => shown.has(m.bubbleId)).map((m) => m.tagId));
+  const withShown = new Set(workspace.memberships.filter((m) => shown.has(m.bookmarkId)).map((m) => m.tagId));
   const hiddenTagIds = workspace.tags
     .filter((t) => !peeking.has(t.id) && (typeHidden(t)
       || (!filter.showEmptyGroups && !withShown.has(t.id))
       || (q && !t.name.toLowerCase().includes(q) && !withShown.has(t.id))))
     .map((t) => t.id);
-  return { bubbleIds, hiddenTagIds, peekTagIds };
+  return { bookmarkIds, hiddenTagIds, peekTagIds };
 }
 
 // A box selection is ordered clockwise around `center`, or its own center (screen
@@ -103,25 +103,25 @@ export function clockwise<T extends { id: string }>(items: T[], positionOf: (id:
 export function triageQueue(
   workspace: Workspace,
   options: { tab: TriageTab; filter: TriageFilter; selection?: ReadonlySet<string>; positionOf?: (id: string) => Point | undefined },
-): Bubble[] {
-  const list = workspace.bubbles.filter((b) =>
+): Bookmark[] {
+  const list = workspace.bookmarks.filter((b) =>
     (!options.selection || options.selection.has(b.id)) && passesFilter(b, workspace, options.filter) && inTab(b, workspace, options.tab));
   return options.selection && options.positionOf ? clockwise(list, options.positionOf) : list;
 }
 
 // Bookmarks sharing at least one group with `id`, with the shared group IDs.
 export function relatedOf(workspace: Workspace, id: string): Map<string, string[]> {
-  const groups = new Set(workspace.memberships.filter((m) => m.bubbleId === id).map((m) => m.tagId));
+  const groups = new Set(workspace.memberships.filter((m) => m.bookmarkId === id).map((m) => m.tagId));
   const related = new Map<string, string[]>();
   for (const m of workspace.memberships)
-    if (m.bubbleId !== id && groups.has(m.tagId)) related.set(m.bubbleId, [...(related.get(m.bubbleId) ?? []), m.tagId]);
+    if (m.bookmarkId !== id && groups.has(m.tagId)) related.set(m.bookmarkId, [...(related.get(m.bookmarkId) ?? []), m.tagId]);
   return related;
 }
 
 // The import reason for a group, when the converted data recorded one.
-export function reasonFor(bubble: Bubble, tag: Tag, workspace: Workspace): string | undefined {
+export function reasonFor(bookmark: Bookmark, tag: Tag, workspace: Workspace): string | undefined {
   const typeName = workspace.tagTypes.find((t) => t.id === tag.typeId)?.name;
-  return bubble.notes?.find((n) =>
+  return bookmark.notes?.find((n) =>
     typeName === "Topic"
       ? n.label === "Why this topic" && n.text.includes(`"${tag.name}"`)
       : n.label === `Why ${tag.name.split(" ")[0]}`)?.text;
@@ -143,9 +143,9 @@ export function domainOf(url?: string): string {
   }
 }
 // Fills `{field}` placeholders for each bookmark; unknown placeholders stay as typed.
-export function formatCopy(bubbles: Bubble[], workspace: Workspace, template: string, separator: string): string {
+export function formatCopy(bookmarks: Bookmark[], workspace: Workspace, template: string, separator: string): string {
   const topicType = workspace.tagTypes.find((t) => t.name === "Topic")?.id;
-  return bubbles.map((b, i) => {
+  return bookmarks.map((b, i) => {
     const groups = groupsOf(workspace, b.id);
     const values: Record<string, string> = {
       title: b.title,

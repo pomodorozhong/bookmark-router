@@ -27,8 +27,8 @@ export async function makeBackup(
     }),
   );
   const backup: Backup = {
-    format: "bubble-tag",
-    version: 1,
+    format: "bookmark-tag",
+    version: 2,
     workspace: structuredClone(workspace),
     geometry,
     media: embedded,
@@ -57,7 +57,7 @@ export function prepareRestore(backup: Backup): {
     }),
   }));
   for (const b of [
-    ...workspace.bubbles,
+    ...workspace.bookmarks,
     ...workspace.batches.flatMap((batch) => batch.beforeMerged),
   ])
     if (b.asset?.source === "local")

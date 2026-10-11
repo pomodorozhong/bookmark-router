@@ -6,6 +6,7 @@ import type { Backup } from "./model";
 import { ConflictError, applyCommand, type Command } from "./commands";
 import { commandLabel, restoreUndoSnapshot, type UndoEntry } from "./undo";
 import {
+  upgradeWorkspace,
   validateWorkspace,
   type Asset,
   type Geometry,
@@ -15,7 +16,7 @@ import {
 type StoredWorkspace = Workspace & { _undoHistory?: UndoEntry[] };
 function collectionContent(stored: StoredWorkspace): Workspace {
   const { _undoHistory, ...workspace } = stored;
-  return workspace;
+  return upgradeWorkspace(workspace);
 }
 function addUndo(entries: UndoEntry[], current: Workspace, next: Workspace, label: string): UndoEntry[] {
   const chain = entries.at(-1)?.revision === current.revision ? entries : [];
@@ -37,6 +38,7 @@ interface ProductDB extends DBSchema {
 }
 export class WorkspaceStore {
   private database: Promise<IDBPDatabase<ProductDB>>;
+  // The database keeps its original name so collections saved under it still open.
   constructor(name = "bubble-tag-v1") {
     this.database = openDB<ProductDB>(name, undefined, {
       upgrade(db) {
@@ -79,7 +81,7 @@ export class WorkspaceStore {
     }, label ?? commandLabel(commands[0]));
   }
   async import(id: string, command: ImportCommitCommand) {
-    return this.mutate(id, (w) => commitImport(w, command), "Import bubbles");
+    return this.mutate(id, (w) => commitImport(w, command), "Import bookmarks");
   }
   async undo(
     id: string,
@@ -129,7 +131,7 @@ export class WorkspaceStore {
       if (!stored || !entry || stored.revision !== expectedRevision || entry.revision !== stored.revision || entry.id !== entryId)
         throw new ConflictError("The collection changed. Review the latest undo action and try again.");
       const current = collectionContent(stored);
-      const next = restoreUndoSnapshot(entry.before, current);
+      const next = restoreUndoSnapshot(upgradeWorkspace(entry.before), current);
       validateWorkspace(next);
       entries.pop();
       const previous = entries.at(-1);
@@ -196,7 +198,7 @@ export class WorkspaceStore {
     id: string,
     expectedRevision: number,
     assignments: Array<{
-      bubbleId: string;
+      bookmarkId: string;
       expectedRecordRevision: number;
       asset: Asset;
     }>,

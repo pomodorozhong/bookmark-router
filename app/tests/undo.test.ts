@@ -13,8 +13,8 @@ test("undo persists, reverses grouped edits in order, and advances revisions", a
   const w = demoWorkspace();
   await store.create(w);
   const first = await store.command(w.id, w.revision, [
-    { type: "bubble.patch", id: w.bubbles[0].id, expectedRecordRevision: 0, patch: { title: "Edited" } },
-    { type: "membership.set", bubbleId: w.bubbles[0].id, tagId: w.tags[0].id, linked: false },
+    { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { title: "Edited" } },
+    { type: "membership.set", bookmarkId: w.bookmarks[0].id, tagId: w.tags[0].id, linked: false },
   ]);
   const second = await store.command(w.id, first.revision, { type: "tag.create", name: "New tag" });
   await store.close();
@@ -22,14 +22,14 @@ test("undo persists, reverses grouped edits in order, and advances revisions", a
   assert.equal((await store.nextUndo(w.id))?.label, "Create tag");
   const undoneTag = await store.undoLast(w.id, second.revision, (await store.nextUndo(w.id))!.id);
   assert.equal(undoneTag.tags.length, w.tags.length);
-  assert.equal(undoneTag.bubbles[0].title, "Edited");
+  assert.equal(undoneTag.bookmarks[0].title, "Edited");
   const undoneEdit = await store.undoLast(w.id, undoneTag.revision, (await store.nextUndo(w.id))!.id);
-  assert.equal(undoneEdit.bubbles[0].title, w.bubbles[0].title);
+  assert.equal(undoneEdit.bookmarks[0].title, w.bookmarks[0].title);
   assert.deepEqual(undoneEdit.memberships, w.memberships);
-  assert.ok(undoneEdit.bubbles[0].revision > first.bubbles[0].revision);
+  assert.ok(undoneEdit.bookmarks[0].revision > first.bookmarks[0].revision);
   assert.equal(undoneEdit.revision, second.revision + 2);
   assert.equal(await store.nextUndo(w.id), undefined);
-  await assert.rejects(store.command(w.id, undoneEdit.revision, { type: "bubble.patch", id: w.bubbles[0].id, expectedRecordRevision: first.bubbles[0].revision, patch: { title: "Stale" } }), ConflictError);
+  await assert.rejects(store.command(w.id, undoneEdit.revision, { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: first.bookmarks[0].revision, patch: { title: "Stale" } }), ConflictError);
   await store.close();
 });
 
@@ -38,7 +38,7 @@ test("failed grouped changes and failed undo leave content and history intact", 
   await store.create(w);
   await assert.rejects(store.command(w.id, 0, [
     { type: "tag.create", name: "Would be partial" },
-    { type: "bubble.patch", id: "absent", expectedRecordRevision: 0, patch: { title: "Invalid" } },
+    { type: "bookmark.patch", id: "absent", expectedRecordRevision: 0, patch: { title: "Invalid" } },
   ]));
   assert.deepEqual(await store.get(w.id), w);
   assert.equal(await store.nextUndo(w.id), undefined);
@@ -75,12 +75,12 @@ test("undo reverses import and media attachment without losing earlier data", as
   const preview = previewImport(parsed, guessMapping(parsed.headers), w, { delimiter: "|", commonTags: "", initialStatus: "Pending" });
   const imported = await store.import(w.id, { type: "import.commit", expectedRevision: w.revision, preview, decisions: preview.candidates.map((c) => ({ row: c.row, action: "keep" })), statusMapping: {}, typeMapping: {}, source: "Test" });
   const mediaId = crypto.randomUUID();
-  const attached = await store.attachMedia(w.id, imported.revision, [{ bubbleId: w.bubbles[0].id, expectedRecordRevision: 0, asset: { kind: "image", source: "local", blobId: mediaId, filename: "test.png" } }], [{ id: mediaId, filename: "test.png", mime: "image/png", blob: new Blob(["image"]) }]);
+  const attached = await store.attachMedia(w.id, imported.revision, [{ bookmarkId: w.bookmarks[0].id, expectedRecordRevision: 0, asset: { kind: "image", source: "local", blobId: mediaId, filename: "test.png" } }], [{ id: mediaId, filename: "test.png", mime: "image/png", blob: new Blob(["image"]) }]);
   const mediaUndone = await store.undoLast(w.id, attached.revision, (await store.nextUndo(w.id))!.id);
-  assert.deepEqual(mediaUndone.bubbles[0].asset, w.bubbles[0].asset);
-  assert.equal(mediaUndone.bubbles.length, imported.bubbles.length);
+  assert.deepEqual(mediaUndone.bookmarks[0].asset, w.bookmarks[0].asset);
+  assert.equal(mediaUndone.bookmarks.length, imported.bookmarks.length);
   const importUndone = await store.undoLast(w.id, mediaUndone.revision, (await store.nextUndo(w.id))!.id);
-  assert.equal(importUndone.bubbles.length, w.bubbles.length);
+  assert.equal(importUndone.bookmarks.length, w.bookmarks.length);
   assert.deepEqual(importUndone.batches, w.batches);
   assert.deepEqual(importUndone.memberships, w.memberships);
   await store.close();
@@ -108,13 +108,13 @@ test("existing v1 collections load without history and preserve geometry and med
 test("undoing a status change after undoing a later edit restores original statuses", async () => {
   const store = new WorkspaceStore(crypto.randomUUID()), w = demoWorkspace();
   await store.create(w);
-  const status = await store.command(w.id, 0, { type: "status.bulk", source: "selection", targetIds: [w.bubbles[0].id], statusId: "done", reviewedRecordRevisions: { [w.bubbles[0].id]: 0 } });
-  const edited = await store.command(w.id, status.revision, { type: "bubble.patch", id: w.bubbles[0].id, expectedRecordRevision: status.bubbles[0].revision, patch: { title: "Later edit" } });
+  const status = await store.command(w.id, 0, { type: "status.bulk", source: "selection", targetIds: [w.bookmarks[0].id], statusId: "done", reviewedRecordRevisions: { [w.bookmarks[0].id]: 0 } });
+  const edited = await store.command(w.id, status.revision, { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: status.bookmarks[0].revision, patch: { title: "Later edit" } });
   const titleUndone = await store.undoLast(w.id, edited.revision, (await store.nextUndo(w.id))!.id);
-  assert.equal(titleUndone.bubbles[0].statusId, "done");
-  assert.equal(titleUndone.bubbles[0].title, w.bubbles[0].title);
+  assert.equal(titleUndone.bookmarks[0].statusId, "done");
+  assert.equal(titleUndone.bookmarks[0].title, w.bookmarks[0].title);
   const statusUndone = await store.undoLast(w.id, titleUndone.revision, (await store.nextUndo(w.id))!.id);
-  assert.equal(statusUndone.bubbles[0].statusId, w.bubbles[0].statusId);
+  assert.equal(statusUndone.bookmarks[0].statusId, w.bookmarks[0].statusId);
   await store.close();
 });
 
@@ -123,22 +123,22 @@ test("history is isolated by collection, capped at 50, and excluded from backups
   other.id = crypto.randomUUID();
   await store.create(w); await store.create(other);
   let current = w;
-  for (let i = 0; i < 51; i++) current = await store.command(w.id, current.revision, { type: "bubble.patch", id: current.bubbles[0].id, expectedRecordRevision: current.bubbles[0].revision, patch: { title: `Edit ${i}` } });
+  for (let i = 0; i < 51; i++) current = await store.command(w.id, current.revision, { type: "bookmark.patch", id: current.bookmarks[0].id, expectedRecordRevision: current.bookmarks[0].revision, patch: { title: `Edit ${i}` } });
   assert.equal(await store.nextUndo(other.id), undefined);
   assert.equal("_undoHistory" in (await store.get(w.id))!, false);
   assert.equal("_undoHistory" in (await store.backup(w.id)).workspace, false);
   for (let i = 0; i < 50; i++) current = await store.undoLast(w.id, current.revision, (await store.nextUndo(w.id))!.id);
-  assert.equal(current.bubbles[0].title, "Edit 0");
+  assert.equal(current.bookmarks[0].title, "Edit 0");
   assert.equal(await store.nextUndo(w.id), undefined);
   await store.close();
 });
 
-test("undoing connections advances the bubble revision even when its fields are unchanged", async () => {
+test("undoing connections advances the bookmark revision even when its fields are unchanged", async () => {
   const store = new WorkspaceStore(crypto.randomUUID()), w = demoWorkspace();
   await store.create(w);
-  const changed = await store.command(w.id, 0, { type: "membership.set", bubbleId: w.bubbles[0].id, tagId: w.tags[0].id, linked: false });
+  const changed = await store.command(w.id, 0, { type: "membership.set", bookmarkId: w.bookmarks[0].id, tagId: w.tags[0].id, linked: false });
   const restored = await store.undoLast(w.id, changed.revision, (await store.nextUndo(w.id))!.id);
   assert.deepEqual(restored.memberships, w.memberships);
-  assert.ok(restored.bubbles[0].revision > changed.bubbles[0].revision);
+  assert.ok(restored.bookmarks[0].revision > changed.bookmarks[0].revision);
   await store.close();
 });

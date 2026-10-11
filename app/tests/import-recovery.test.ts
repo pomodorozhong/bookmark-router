@@ -39,12 +39,12 @@ function command(
 test("import creates taxonomy and batch; undo preserves subsequent edits", () => {
   const w = emptyWorkspace();
   const imported = commitImport(w, command(w));
-  assert.equal(w.bubbles.length, 0);
-  assert.equal(imported.bubbles.length, 2);
+  assert.equal(w.bookmarks.length, 0);
+  assert.equal(imported.bookmarks.length, 2);
   assert.equal(imported.tagTypes[0].name, "Topic");
-  const b = imported.bubbles[0];
+  const b = imported.bookmarks[0];
   const edited = applyCommand(imported, 1, {
-    type: "bubble.patch",
+    type: "bookmark.patch",
     id: b.id,
     expectedRecordRevision: 0,
     patch: { description: "Later edit" },
@@ -53,24 +53,24 @@ test("import creates taxonomy and batch; undo preserves subsequent edits", () =>
   assert.equal(undoConflicts(edited, batch).length, 1);
   assert.throws(() => undoImport(edited, 2, batch.id), /Changed records/);
   const undone = undoImport(edited, 2, batch.id, [b.id]);
-  assert.equal(undone.bubbles.length, 1);
-  assert.equal(undone.bubbles[0].description, "Later edit");
+  assert.equal(undone.bookmarks.length, 1);
+  assert.equal(undone.bookmarks[0].description, "Later edit");
 });
 test("merge restores exact prior values and memberships on undo", () => {
   let w = emptyWorkspace();
   w = commitImport(w, command(w));
-  const prior = structuredClone(w.bubbles[0]);
+  const prior = structuredClone(w.bookmarks[0]);
   const c = command(
     w,
     "title,url,description,tags,status,type\nReplacement,https://example.com/1,Replaced,New,Done,Topic",
   );
   c.decisions[0].action = "merge";
   const merged = commitImport(w, c);
-  assert.equal(merged.bubbles.length, 2);
-  assert.equal(merged.bubbles[0].title, "Replacement");
+  assert.equal(merged.bookmarks.length, 2);
+  assert.equal(merged.bookmarks[0].title, "Replacement");
   const undone = undoImport(merged, 2, merged.batches[1].id);
-  assert.equal(undone.bubbles[0].title, prior.title);
-  assert.equal(undone.bubbles[0].statusId, prior.statusId);
+  assert.equal(undone.bookmarks[0].title, prior.title);
+  assert.equal(undone.bookmarks[0].statusId, prior.statusId);
   assert.deepEqual(
     [...undone.memberships].sort((a, b) => a.id.localeCompare(b.id)),
     [...w.memberships].sort((a, b) => a.id.localeCompare(b.id)),
@@ -83,7 +83,7 @@ test("unknown values and invalid rows reject atomically, stale or duplicate subm
   const c = command(w);
   c.typeMapping = {};
   await assert.rejects(store.import(w.id, c), /Map or create/);
-  assert.equal((await store.get(w.id))!.bubbles.length, 0);
+  assert.equal((await store.get(w.id))!.bookmarks.length, 0);
   const valid = command(w);
   await store.import(w.id, valid);
   await assert.rejects(store.import(w.id, valid), /changed/);
@@ -98,8 +98,8 @@ test("within-import merge requires included target and keeps one record", () => 
   );
   c.decisions[1].action = "merge";
   const result = commitImport(w, c);
-  assert.equal(result.bubbles.length, 1);
-  assert.equal(result.bubbles[0].title, "Second");
+  assert.equal(result.bookmarks.length, 1);
+  assert.equal(result.bookmarks[0].title, "Second");
   c.decisions[0].action = "skip";
   assert.throws(() => commitImport(w, c), /target was skipped/);
 });
@@ -108,7 +108,7 @@ test("membership edits are protected during import undo", () => {
   const added = commitImport(w, command(w));
   const edited = applyCommand(added, 1, {
     type: "membership.set",
-    bubbleId: added.bubbles[0].id,
+    bookmarkId: added.bookmarks[0].id,
     tagId: added.tags[0].id,
     linked: false,
   });
@@ -117,7 +117,7 @@ test("membership edits are protected during import undo", () => {
 test("backup roundtrip bundles media, remaps references, and keeps geometry and source", async () => {
   let w = emptyWorkspace();
   w = commitImport(w, command(w));
-  w.bubbles[0].asset = {
+  w.bookmarks[0].asset = {
     kind: "image",
     source: "local",
     blobId: "media",
@@ -125,7 +125,7 @@ test("backup roundtrip bundles media, remaps references, and keeps geometry and 
   };
   const geometry = {
     workspaceId: w.id,
-    positions: { [w.bubbles[0].id]: { x: 10, y: 20, pinned: true } },
+    positions: { [w.bookmarks[0].id]: { x: 10, y: 20, pinned: true } },
     viewport: { zoom: 1, x: 2, y: 3 },
   };
   const backup = await makeBackup(
@@ -143,9 +143,9 @@ test("backup roundtrip bundles media, remaps references, and keeps geometry and 
   );
   const restored = prepareRestore(backup);
   assert.notEqual(restored.workspace.id, w.id);
-  assert.notEqual(restored.workspace.bubbles[0].asset?.blobId, "media");
+  assert.notEqual(restored.workspace.bookmarks[0].asset?.blobId, "media");
   assert.equal(await restored.media[0].blob.text(), "fixture");
-  assert.equal(restored.geometry?.positions[w.bubbles[0].id].pinned, true);
+  assert.equal(restored.geometry?.positions[w.bookmarks[0].id].pinned, true);
   const store = new WorkspaceStore(crypto.randomUUID());
   await store.create(w);
   const newW = await store.restore(backup);
@@ -218,15 +218,15 @@ test("selected invalid rows reject the entire transaction", async () => {
     "title,url,mediaUrl\nGood,https://example.com/good,\nBad,https://example.com/bad,javascript:alert(1)",
   );
   await assert.rejects(store.import(w.id, c), /invalid/);
-  assert.equal((await store.get(w.id))!.bubbles.length, 0);
+  assert.equal((await store.get(w.id))!.bookmarks.length, 0);
   c.decisions[1].action = "skip";
-  assert.equal((await store.import(w.id, c)).bubbles.length, 1);
+  assert.equal((await store.import(w.id, c)).bookmarks.length, 1);
   await store.close();
 });
 test("undo snapshots require bundled local media even after asset replacement", async () => {
   let w = emptyWorkspace();
   w = commitImport(w, command(w));
-  w.bubbles[0].asset = {
+  w.bookmarks[0].asset = {
     source: "local",
     kind: "image",
     blobId: "previous",
@@ -252,14 +252,14 @@ test("unrecognized URLs import, persist, deduplicate, merge and restore as text"
     c.preview.candidates.every((c) => !c.errors.length && c.urlWarning),
   );
   const added = await store.import(w.id, c);
-  assert.equal((await store.get(w.id))!.bubbles[0].url, "not-a-url");
+  assert.equal((await store.get(w.id))!.bookmarks[0].url, "not-a-url");
   const duplicate = command(added, "title,url\nFixed title,not-a-url");
   assert.equal(duplicate.preview.candidates[0].duplicate?.kind, "workspace");
   duplicate.decisions[0].action = "merge";
   const merged = await store.import(w.id, duplicate);
-  assert.equal(merged.bubbles.length, 2);
+  assert.equal(merged.bookmarks.length, 2);
   const restored = await store.restore(await store.backup(w.id));
-  assert.equal(restored.bubbles[0].url, "not-a-url");
-  assert.equal(restored.bubbles[1].url, "javascript:alert(1)");
+  assert.equal(restored.bookmarks[0].url, "not-a-url");
+  assert.equal(restored.bookmarks[1].url, "javascript:alert(1)");
   await store.close();
 });

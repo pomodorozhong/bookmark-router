@@ -9,7 +9,7 @@ export interface UndoEntry {
 }
 export function commandLabel(command: Command): string {
   switch (command.type) {
-    case "bubble.patch": return "Edit bubble";
+    case "bookmark.patch": return "Edit bookmark";
     case "tag.patch": return "Edit tag";
     case "tag-type.patch": return "Edit tag type";
     case "tag-type.create": return "Create tag type";
@@ -31,13 +31,13 @@ export function commandLabel(command: Command): string {
 export function restoreUndoSnapshot(before: Workspace, current: Workspace): Workspace {
   const restored = structuredClone(before);
   restored.revision = current.revision + 1;
-  const currentRecords = new Map([...current.bubbles, ...current.tags].map((record) => [record.id, record]));
-  const content = (record: Workspace["bubbles"][number] | Workspace["tags"][number]) => {
+  const currentRecords = new Map([...current.bookmarks, ...current.tags].map((record) => [record.id, record]));
+  const content = (record: Workspace["bookmarks"][number] | Workspace["tags"][number]) => {
     const { revision, updatedAt, ...values } = record;
     return JSON.stringify(values);
   };
-  const connections = (workspace: Workspace, id: string) => JSON.stringify(workspace.memberships.filter((membership) => membership.bubbleId === id).map((membership) => membership.tagId).sort());
-  for (const record of [...restored.bubbles, ...restored.tags]) {
+  const connections = (workspace: Workspace, id: string) => JSON.stringify(workspace.memberships.filter((membership) => membership.bookmarkId === id).map((membership) => membership.tagId).sort());
+  for (const record of [...restored.bookmarks, ...restored.tags]) {
     const existing = currentRecords.get(record.id);
     const previousRevision = record.revision;
     const changed = !existing || content(existing) !== content(record) || connections(before, record.id) !== connections(current, record.id);

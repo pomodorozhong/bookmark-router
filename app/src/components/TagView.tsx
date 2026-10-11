@@ -11,16 +11,16 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
   order?: string[];
   workspace: Workspace;
   loadMedia: LoadMedia;
-  onOpen: (bubbleId: string) => void;
+  onOpen: (bookmarkId: string) => void;
   onCopy: () => void;
   onEdit: () => void;
   onClose: () => void;
 }) {
   const type = workspace.tagTypes.find((t) => t.id === tag.typeId);
   const status = (id: string) => workspace.statuses.find((s) => s.id === id)?.label ?? "";
-  const ids = new Set(workspace.memberships.filter((m) => m.tagId === tag.id).map((m) => m.bubbleId));
+  const ids = new Set(workspace.memberships.filter((m) => m.tagId === tag.id).map((m) => m.bookmarkId));
   const rank = new Map(order?.map((id, i) => [id, i]));
-  const bookmarks = workspace.bubbles.filter((b) => ids.has(b.id))
+  const bookmarks = workspace.bookmarks.filter((b) => ids.has(b.id))
     .sort((a, b) => (rank.get(a.id) ?? rank.size) - (rank.get(b.id) ?? rank.size));
   const statuses = [...new Set(bookmarks.map((b) => status(b.statusId)))];
   return (

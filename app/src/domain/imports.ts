@@ -5,6 +5,7 @@ import {
   urlKey,
   isWebUrl,
   storedUrlKey,
+  upgradeWorkspace,
   validateWorkspace,
   type Workspace,
   type Backup,
@@ -201,14 +202,16 @@ export function parseImport(
     };
   }
   const backup = JSON.parse(text) as Backup;
+  // Version 1 backups were written as "bubble-tag", before bookmarks were renamed.
+  const legacy = (backup.format as string) === "bubble-tag" && (backup.version as number) === 1;
   if (
-    backup.format !== "bubble-tag" ||
-    backup.version !== 1 ||
+    !(legacy || (backup.format === "bookmark-tag" && backup.version === 2)) ||
     !Array.isArray(backup.media)
   )
     throw new Error(
-      "Use a versioned Bubble & Tag JSON backup. Prototype JSON is not supported.",
+      "Use a versioned Bookmark & Tag JSON backup. Prototype JSON is not supported.",
     );
+  if (legacy) Object.assign(backup, { format: "bookmark-tag", version: 2, workspace: upgradeWorkspace(backup.workspace) });
   validateWorkspace(backup.workspace);
   const mediaIds = new Set<string>();
   for (const media of backup.media) {
@@ -230,12 +233,12 @@ export function parseImport(
       throw new Error("Invalid media encoding.");
     mediaIds.add(media.id);
   }
-  for (const bubble of [
-    ...backup.workspace.bubbles,
+  for (const bookmark of [
+    ...backup.workspace.bookmarks,
     ...backup.workspace.batches.flatMap((b) => b.beforeMerged),
   ])
-    if (bubble.asset?.source === "local" && !mediaIds.has(bubble.asset.blobId!))
-      throw new Error(`Backup is missing local media for “${bubble.title}”.`);
+    if (bookmark.asset?.source === "local" && !mediaIds.has(bookmark.asset.blobId!))
+      throw new Error(`Backup is missing local media for “${bookmark.title}”.`);
   if (backup.geometry) {
     if (
       backup.geometry.workspaceId !== backup.workspace.id ||
@@ -264,7 +267,7 @@ export function parseImport(
     format: resolved,
     restore: backup,
     headers: fields,
-    rows: backup.workspace.bubbles.map((b, i) => ({
+    rows: backup.workspace.bookmarks.map((b, i) => ({
       row: i + 1,
       values: {
         title: b.title,
@@ -274,7 +277,7 @@ export function parseImport(
         status: backup.workspace.statuses.find((s) => s.id === b.statusId)!
           .label,
         tags: backup.workspace.memberships
-          .filter((m) => m.bubbleId === b.id)
+          .filter((m) => m.bookmarkId === b.id)
           .map((m) => backup.workspace.tags.find((t) => t.id === m.tagId)!.name)
           .join("|"),
         tagType: "",
@@ -346,7 +349,7 @@ export function previewImport(
     else signatures.set(signature, row.row);
     if (url && !candidate.errors.length) {
       const key = storedUrlKey(url),
-        existing = w.bubbles.find((b) => b.url && storedUrlKey(b.url) === key),
+        existing = w.bookmarks.find((b) => b.url && storedUrlKey(b.url) === key),
         earlier = seenUrls.get(key);
       if (existing)
         candidate.duplicate = {
