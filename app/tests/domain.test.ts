@@ -42,6 +42,17 @@ test('appearance overrides inherit by field and can update type defaults',()=>{
  assert.equal(appearanceFor(typed.tags[1],typed).shape,'rounded-square');
  assert.equal(appearanceFor(typed.tags[1],typed).size,88);
 });
+test('tag types can be created with their own appearance, but not twice or invalid',()=>{
+ const w=demoWorkspace();
+ const next=applyCommand(w,w.revision,{type:'tag-type.create',name:' Reading list ',appearance:{color:'#2563eb',size:56,shape:'diamond',icon:'★'}});
+ const made=next.tagTypes.at(-1)!;
+ assert.equal(made.name,'Reading list');
+ assert.deepEqual(made.appearance,{color:'#2563eb',size:56,shape:'diamond',icon:'★'});
+ const tagged=applyCommand(next,next.revision,{type:'tag.create',name:'Later',typeId:made.id});
+ assert.equal(appearanceFor(tagged.tags.at(-1)!,tagged).shape,'diamond');
+ assert.throws(()=>applyCommand(next,next.revision,{type:'tag-type.create',name:'Reading list',appearance:made.appearance}),/new tag type name/);
+ assert.throws(()=>applyCommand(w,w.revision,{type:'tag-type.create',name:'Bad',appearance:{color:'blue',size:56,shape:'circle'}}),/color/);
+});
 test('reviewed bulk status changes record an undo and reject later edits',()=>{
  const w=demoWorkspace();
  const targets=[w.tags[0],w.bubbles[0]];
