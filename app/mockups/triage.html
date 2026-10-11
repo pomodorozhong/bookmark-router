@@ -28,6 +28,8 @@
   main.queue-closed { grid-template-columns: 0 1fr 420px; }
   .queue { border-right: 1px solid var(--line); overflow: auto; background: #fbfcfb; }
   main.queue-closed .queue { visibility: hidden; }
+  .selection-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 8px 12px 8px 14px; background: #eff4ff; border-bottom: 1px solid #c7d6fb; color: #1e3a8a; font-size: 12.5px; }
+  .selection-bar button { padding: 3px 9px; font-size: 12px; }
   .queue-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid #edf2ef; border-radius: 0; padding: 9px 14px; background: transparent; }
   .queue-item.on { background: var(--tint); box-shadow: inset 3px 0 var(--teal); }
   .queue-item .t { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; font-size: 13px; }
@@ -93,7 +95,7 @@
 </style>
 </head>
 <body>
-<div class="mock-banner">Mockup — nothing is saved. Keys: K keep · X drop · D duplicate · L later · ↑/↓ move · / add to a group · F filter · Q show/hide queue · trackpad: two-finger scroll pans, pinch zooms</div>
+<div class="mock-banner">Mockup — nothing is saved. Keys: K keep · X drop · D duplicate · L later · ↑/↓ move · / add to a group · F filter · Q show/hide queue · Esc clear selection · drag a box to select (Shift adds) · two-finger scroll pans, pinch zooms</div>
 <header>
   <h1>Triage</h1>
   <div class="progress"><div class="bar" id="bar"></div><span id="counts"></span></div>

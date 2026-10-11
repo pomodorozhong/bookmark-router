@@ -32,7 +32,7 @@ function matchesText(b) {
     || [...links.get(b.id)].some((t) => filter.types.has(tags.get(t).typeId) && tags.get(t).name.toLowerCase().includes(q));
 }
 const shownBubble = (b) => matchesText(b) && (filter.decided || b.statusId === "pending" || b.statusId === "in-progress" || b.id === state.current);
-const visible = () => w.bubbles.filter(matchesText).filter((b) => state.tab === "all" || (state.tab === "pending" ? b.statusId === "pending"
+const visible = () => w.bubbles.filter((b) => !state.selection || state.selection.has(b.id)).filter(matchesText).filter((b) => state.tab === "all" || (state.tab === "pending" ? b.statusId === "pending"
   : state.tab === "later" ? b.statusId === "in-progress" : b.statusId === "done" || b.statusId === "dropped"));
 const relatedOf = (id) => {
   const via = new Map();
@@ -44,6 +44,22 @@ const edgeId = (bubbleId, tagId) => `${bubbleId}|${tagId}`;
 const clip = (text, length) => (text.length > length ? text.slice(0, length - 1).trimEnd() + "…" : text);
 
 // ---- Graph ----
+const boxStyle = { fill: "#2563eb", fillOpacity: 0.06, stroke: "#2563eb", lineWidth: 1, lineDash: [4, 3] };
+// The box selection narrows the queue to the bookmarks inside it.
+function selectBox(states, adding) {
+  const ids = Object.entries(states).filter(([id, s]) => bubbles.has(id) && [s].flat().includes("selected")).map(([id]) => id);
+  state.selection = ids.length || adding ? new Set([...(adding ? state.selection ?? [] : []), ...ids]) : undefined;
+  state.current = state.selection && state.selection.has(state.current) ? state.current : undefined;
+  // Repaint after brush-select has applied its states; keep the view where the box was drawn.
+  setTimeout(() => render(false), 0);
+}
+function clearSelection() {
+  state.selection = undefined;
+  const states = {};
+  for (const n of graph.getNodeData()) if (graph.getElementState(n.id).includes("selected")) states[n.id] = [];
+  void graph.setElementState(states, false);
+  render();
+}
 const graph = new Graph({
   container: "graph",
   autoFit: "view",
@@ -63,7 +79,17 @@ const graph = new Graph({
   layout: { type: "d3-force", link: { distance: 110, strength: 0.4 }, manyBody: { strength: -260 },
     collide: { radius: (d) => (d.data?.tag ? typeSize[tags.get(d.id).typeId] / 2 + 18 : 22) } },
   // Two-finger trackpad scrolling pans; pinching zooms (handled below).
-  behaviors: ["drag-canvas", { type: "scroll-canvas", enable: (e) => !e.ctrlKey }, { type: "auto-adapt-label", padding: 4 }],
+  // Dragging on the canvas draws a selection box (Shift adds), so panning is
+  // two-finger scrolling or the mouse wheel.
+  behaviors: [
+    { type: "scroll-canvas", enable: (e) => !e.ctrlKey },
+    { type: "auto-adapt-label", padding: 4 },
+    { type: "brush-select", key: "box", trigger: ["drag"], enableElements: ["node"], mode: "default", enable: (e) => !e.shiftKey, onSelect: (states) => selectBox(states, false), style: boxStyle },
+    { type: "brush-select", key: "box-add", trigger: ["shift"], enableElements: ["node"], mode: "union", onSelect: (states) => selectBox(states, true), style: boxStyle },
+  ],
+  // G6's theme gives selected nodes a fixed 12-unit title; keep it screen-sized like the others.
+  node: { state: { selected: { stroke: "#2563eb", lineWidth: 3, halo: true, haloStroke: "#2563eb", haloLineWidth: 10, haloStrokeOpacity: 0.18,
+    labelFontSize: () => 12 / graph.getZoom(), labelFontWeight: 400 } } },
 });
 graph.on("node:click", (e) => { if (bubbles.has(e.target.id)) select(e.target.id); });
 await graph.render();
@@ -109,7 +135,7 @@ function paintGraph(animate) {
         labelBackground: groupIds.has(t.id), labelBackgroundFill: "#fff", labelBackgroundOpacity: 0.9, labelPadding: [1 / z, 4 / z], zIndex: on ? 2 : 0 } };
     }),
     ...w.bubbles.map((b) => {
-      const isCurrent = b.id === id, isRelated = related.has(b.id);
+      const isCurrent = b.id === id, isRelated = related.has(b.id), isSelected = !!state.selection?.has(b.id);
       const decided = b.statusId === "done" || b.statusId === "dropped";
       return { id: b.id, style: {
         size: isCurrent ? 34 : 22,
@@ -117,8 +143,8 @@ function paintGraph(animate) {
         lineWidth: isCurrent ? 5 : 2,
         fill: decided ? "#eef2f0" : "#fff",
         halo: isCurrent, haloStroke: "#0f766e", haloLineWidth: 18, haloStrokeOpacity: 0.2,
-        opacity: !id || isCurrent || isRelated ? 1 : 0.15,
-        label: isCurrent || (isRelated && showRelatedLabels),
+        opacity: !id || isCurrent || isRelated || isSelected ? 1 : 0.15,
+        label: isCurrent || (isRelated && showRelatedLabels) || (isSelected && state.selection.size <= 30),
         labelFill: isCurrent ? "#0b3b33" : "#475569", labelFontWeight: isCurrent ? 700 : 400, labelFontSize: (isCurrent ? 15 : 12) / z,
         labelText: clip(b.title, isCurrent ? 48 : 26), labelOffsetY: 4 / z,
         labelBackground: isCurrent, labelBackgroundFill: "#fff", labelBackgroundOpacity: 0.95, labelPadding: [2 / z, 6 / z],
@@ -164,7 +190,8 @@ function render(animate = true) {
     .map(([k, l]) => `<button class="${state.tab === k ? "on" : ""}" data-tab="${k}">${l}</button>`).join("");
   const list = visible();
   if (!state.current || !bubbles.has(state.current)) state.current = list[0]?.id;
-  $("queue").innerHTML = list.map((b) => `<button class="queue-item ${b.id === state.current ? "on" : ""}" data-id="${b.id}"><span class="t">${esc(b.title)}</span><span class="d">${warningsOf(b).length ? '<i class="warn-dot" title="Has a warning"></i>' : ""}${esc(domain(b.url))}${b.statusId !== "pending" ? `<span class="decided">${statusLabel[b.statusId]}</span>` : ""}<span style="margin-left:auto">${links.get(b.id).size}</span></span></button>`).join("")
+  const selectionBar = state.selection ? `<div class="selection-bar"><span><strong>${state.selection.size}</strong> selected in the graph${list.length !== state.selection.size ? ` · ${list.length} in this tab` : ""}</span><button id="clear-selection" title="Clear selection (Esc)">Clear</button></div>` : "";
+  $("queue").innerHTML = selectionBar + list.map((b) => `<button class="queue-item ${b.id === state.current ? "on" : ""}" data-id="${b.id}"><span class="t">${esc(b.title)}</span><span class="d">${warningsOf(b).length ? '<i class="warn-dot" title="Has a warning"></i>' : ""}${esc(domain(b.url))}${b.statusId !== "pending" ? `<span class="decided">${statusLabel[b.statusId]}</span>` : ""}<span style="margin-left:auto">${links.get(b.id).size}</span></span></button>`).join("")
     || '<p style="padding:16px;color:var(--muted)">Nothing here.</p>';
   document.querySelector(".queue-item.on")?.scrollIntoView({ block: "nearest" });
   renderCard();
@@ -257,6 +284,7 @@ function keepMenuFocus() { const i = $("add"); i.focus(); i.setSelectionRange(i.
 document.addEventListener("click", (e) => {
   const t = e.target.closest?.("button"); if (!t) return;
   if (t.id === "undo") { const b = bubbles.get(state.last.id); b.statusId = state.last.status; $("toast").style.display = "none"; return select(b.id); }
+  if (t.id === "clear-selection") return clearSelection();
   if (t.id === "fit") return void graph.fitView({}, { duration: 300 });
   if (t.id === "focus") return void (state.current && frame(state.current));
   if (t.id === "toggle-queue") { $("main").classList.toggle("queue-closed"); return void setTimeout(() => graph.resize(), 0); }
@@ -294,6 +322,7 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowDown") { e.preventDefault(); move(1); }
   else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
   else if (key === "q") $("toggle-queue").click();
+  else if (e.key === "Escape" && state.selection) clearSelection();
   else if (!b) return;
   else if (key === "k" && links.get(b.id).size) decide("done");
   else if (key === "x") decide("dropped");
