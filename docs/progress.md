@@ -19,28 +19,27 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 - **Round 1 approved — October 11, 2026.** Round 1.5 is skipped: the user already has a local fetcher that works. Round 2 (issues and tags) starts with a mockup: https://claude.ai/artifact/UDiy6z6zQ66wVKwwxn3CpH.
 - **Round 2 built — October 11, 2026:** following the approved mockup (https://claude.ai/artifact/UDiy6z6zQ66wVKwwxn3CpH). Clicking a tag opens an issue view in the detail panel: type, status, link, rendered description, and its bookmarks with the reason each belongs (click one to open it); **Copy…** and **Edit** sit under the title. The editor's **Appearance** is collapsed, with a live node preview and inherited values. **Tag types…** (⋯ menu, or **New type…** in the editor's type list) lists types with their nodes and creates or edits them; types are never deleted (user decision). Tag nodes now redraw when their appearance changes: color fills the node, size and shape apply, and the icon sits inside. Also fixed: cached covers that stayed hidden. Verified in headless Chrome with the converted collection (issue #141: 7 bookmarks; overrides to purple, diamond, ★ redraw the node; a new type adds a filter toggle). 64 tests pass. How to try it: [round-2-test-guide.md](round-2-test-guide.md).
 
-## Status at the end of the October 11, 2026 session
+- **Round 2 follow-up — hidden groups and selection order, October 12, 2026:** hiding a tag type used to hide only that type's group nodes, and the current bookmark's related bookmarks still showed through a hidden group with no link drawn. Following the approved mockups (https://claude.ai/artifact/FYdtnwzotTPKTnQevKKsNq, https://claude.ai/artifact/8AYAKHREwicpmjysvFfq48): **Ungrouped bookmarks** hides bookmarks in no group of a shown type, in the graph and the queue (your collection, with Proposal issue and Topic hidden: 148 → 47). The current bookmark's groups of a hidden type **peek**: they show with a faded fill and dashed outline (style C, user's choice), with dashed links and their bookmarks (still following the tab and text filter), and the groups panel marks them "hidden". Peeking groups appear where they last sat; nothing re-lays out (user decision). Empty groups and Ungrouped bookmarks moved into a hamburger **More** menu at the end of the filter bar, with a dot while either is off; the bar now fits on one line at 1440 px, and the search placeholder is "Filter… (F)". Clicking a group orders its bookmarks clockwise around the group itself, starting at the edge of the cluster when more than 90° of the ring is empty (otherwise 12 o'clock); the issue view lists them in the same order. J/K and the arrow keys wrap past either end of the queue. Verified in headless Chrome with the converted collection; 66 tests pass. Not verified by eye: the cluster-edge start on a lopsided group (the check ran at 15% zoom).
 
-**Where things stand.** Rounds 0 and 1 are approved; round 1.5 is skipped (the user has a working local fetcher). Round 2 (issues and tags) is built and committed and waits for the user's "You try" in [round-2-test-guide.md](round-2-test-guide.md).
+## Status at the end of the October 12, 2026 session
+
+**Where things stand.** Rounds 0 and 1 are approved; round 1.5 is skipped. Round 2 is built, with the October 12 follow-up above; the user is trying it with [round-2-test-guide.md](round-2-test-guide.md).
 
 **Decisions made this session**
-- The product name stays **Bubble & Tag**; the logo is "Web" (one tag joined to three bubbles).
-- Collections can be deleted (reversing the earlier rule); bubbles, tags, and tag types cannot.
-- Round 1.5 (fetcher) is skipped: the user already has a local fetcher that works.
-- The queue tabs drive the graph; changing tabs hides empty groups and resets the layout, fitting the shown nodes at once. The Decided filter toggle is gone.
-- One toast with Undo for every saved change; Undo also in the header and on ⌘Z.
-- Clicking a tag selects its bookmarks and opens the issue view; Edit opens the editor in the same panel.
-- Converted suggestions are plain links; high-zoom panning cost is acceptable.
+- Peeking groups stay where they last sat; the layout never re-runs for them. Placing them beside the current bookmark is a later option if they land off-screen or on top of other nodes.
+- Peeking style C (faded fill, dashed outline); the queue follows Ungrouped bookmarks.
+- Empty groups and Ungrouped bookmarks live in a hamburger More menu, not in the bar.
+- A clicked group's bookmarks go clockwise around the group, starting at the cluster's edge when more than 90° of the ring is empty (the threshold is a guess; lower it if lopsided groups still start at 12 o'clock).
 
 **Open items**
-- Not verified on real hardware: the system clipboard for Copy (trackpad pan and pinch passed the user's test).
-- At 1200 px the filter bar can wrap to two lines; at phone width the header is crowded (progress text wraps) and tapping a tag was not verified there.
+- Not verified on real hardware: the system clipboard for Copy.
+- At phone width the header is crowded (progress text wraps) and tapping a tag was not verified there.
 - Titles of non-focused bubbles can be partly covered by nearby nodes when zoomed in; zooming above 60% still stutters slightly.
 - Some remote covers fail to load (403, for example Twitter profile images); they stay blank.
-- Hidden nodes hold their place during a reset, so switching back to All re-lays out the whole collection.
-- Untracked in the repo root, not created by the assistant: `bookmarks-converted_.json`, `bookmarks-visible.json`; `.claude/launch.json` starts the dev server for the browser preview.
+- Hidden nodes hold their place during a reset, so a peeking group or a re-shown bookmark can appear on top of shown nodes or off-screen.
+- Untracked in the repo root, not created by the assistant: `bookmarks-converted_.json`, `bookmarks-visible.json`; `.claude/launch.json` starts the dev server for the browser preview. The in-app browser pane is too throttled to lay out the graph; headless Chrome over CDP with the converted collection restored works.
 
 **Next**
-1. User tries round 2 ([round-2-test-guide.md](round-2-test-guide.md)) and reports anything to fix.
-2. Round 3: filters redesign (the triage filter bar is the starting point; mockup options first).
+1. User finishes the round 2 try ([round-2-test-guide.md](round-2-test-guide.md)) and reports anything to fix.
+2. Round 3: the rest of the filters redesign (for example status filters and saved filter setups), starting from mockup options. Today's More menu and peeking groups are its starting point.
 3. Round 4: WebMCP — needs the user's browser and agent pair.
