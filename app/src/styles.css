@@ -484,7 +484,7 @@ th { background: #f4f7f5; color: var(--muted); }
 }
 
 /* Header menus: collection switcher and More, shared by triage and import. */
-:root { --logo-line: #536b62; --logo-bubble: #ffffff; }
+:root { --logo-line: #536b62; --logo-bookmark: #ffffff; }
 .logo { display: block; flex-shrink: 0; }
 .menu-root { position: relative; }
 .menu-trigger { display: inline-flex; align-items: center; gap: 8px; border-color: transparent; background: transparent; padding: 6px 8px; min-height: 36px; }

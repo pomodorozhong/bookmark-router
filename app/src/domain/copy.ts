@@ -1,6 +1,6 @@
 import {
   isWebUrl,
-  type Bubble,
+  type Bookmark,
   type CopyField,
   type CopyPreset,
   type Workspace,
@@ -14,18 +14,18 @@ export interface CopyOptions {
   sort: "title" | "createdAt" | "status";
 }
 
-function fieldValue(field: CopyField, bubble: Bubble, workspace: Workspace): string {
-  if (field === "title") return bubble.title;
-  if (field === "url") return bubble.url ?? "";
-  if (field === "description") return bubble.description;
+function fieldValue(field: CopyField, bookmark: Bookmark, workspace: Workspace): string {
+  if (field === "title") return bookmark.title;
+  if (field === "url") return bookmark.url ?? "";
+  if (field === "description") return bookmark.description;
   if (field === "assetUrl")
-    return bubble.asset?.source === "remote"
-      ? bubble.asset.url ?? ""
-      : bubble.asset?.filename ?? "";
+    return bookmark.asset?.source === "remote"
+      ? bookmark.asset.url ?? ""
+      : bookmark.asset?.filename ?? "";
   if (field === "status")
-    return workspace.statuses.find((status) => status.id === bubble.statusId)?.label ?? "";
+    return workspace.statuses.find((status) => status.id === bookmark.statusId)?.label ?? "";
   return workspace.memberships
-    .filter((membership) => membership.bubbleId === bubble.id)
+    .filter((membership) => membership.bookmarkId === bookmark.id)
     .map((membership) => workspace.tags.find((tag) => tag.id === membership.tagId)?.name)
     .filter((name): name is string => Boolean(name))
     .join(", ");
@@ -47,12 +47,12 @@ function markdownValue(field: CopyField, value: string): string {
   return value;
 }
 
-export function sortBubbles(
-  bubbles: Bubble[],
+export function sortBookmarks(
+  bookmarks: Bookmark[],
   workspace: Workspace,
   sort: CopyOptions["sort"],
-): Bubble[] {
-  return [...bubbles].sort((left, right) => {
+): Bookmark[] {
+  return [...bookmarks].sort((left, right) => {
     if (sort === "createdAt") return left.createdAt.localeCompare(right.createdAt);
     if (sort === "status") {
       const leftStatus = workspace.statuses.find((status) => status.id === left.statusId)?.label ?? "";
@@ -64,17 +64,17 @@ export function sortBubbles(
 }
 
 export function composeCopy(
-  bubbles: Bubble[],
+  bookmarks: Bookmark[],
   workspace: Workspace,
   options: CopyOptions,
 ): string {
   const fields = [...new Set(options.fields)];
-  const sorted = sortBubbles(bubbles, workspace, options.sort);
+  const sorted = sortBookmarks(bookmarks, workspace, options.sort);
   return sorted
-    .map((bubble) => {
+    .map((bookmark) => {
       const rawValues = Object.fromEntries(
         fields.map((field) => {
-          const raw = fieldValue(field, bubble, workspace);
+          const raw = fieldValue(field, bookmark, workspace);
           return [field, raw];
         }),
       ) as Partial<Record<CopyField, string>>;

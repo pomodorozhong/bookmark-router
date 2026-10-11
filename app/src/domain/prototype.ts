@@ -6,7 +6,7 @@ import {
   isWebUrl,
   validateWorkspace,
   type Backup,
-  type Bubble,
+  type Bookmark,
   type SourceNote,
   type Tag,
   type TagType,
@@ -164,7 +164,7 @@ export function convertPrototype(data: Prototype, now: string): Backup {
         if (other !== id)
           note(id, other === group.proposed_canonical_bookmark_id ? "Possible duplicate (keep the other)" : "Possible duplicate", `${titles.get(other)} — ${group.reason}`);
 
-  const bubbles: Bubble[] = data.bookmarks.map((b) => {
+  const bookmarks: Bookmark[] = data.bookmarks.map((b) => {
     const o = b.original;
     const cover = o.cover && isWebUrl(o.cover) ? o.cover : undefined;
     return {
@@ -183,11 +183,11 @@ export function convertPrototype(data: Prototype, now: string): Backup {
 
   workspace.tagTypes = types;
   workspace.tags = tags;
-  workspace.bubbles = bubbles;
+  workspace.bookmarks = bookmarks;
   workspace.memberships = [...links].map((pair) => {
-    const [bubbleId, tagId] = JSON.parse(pair) as [string, string];
-    return { id: `${bubbleId}|${tagId}`, bubbleId, tagId };
+    const [bookmarkId, tagId] = JSON.parse(pair) as [string, string];
+    return { id: `${bookmarkId}|${tagId}`, bookmarkId, tagId };
   });
   validateWorkspace(workspace);
-  return { format: "bubble-tag", version: 1, workspace, media: [] };
+  return { format: "bookmark-tag", version: 2, workspace, media: [] };
 }

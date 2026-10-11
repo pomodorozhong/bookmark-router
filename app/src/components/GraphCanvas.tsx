@@ -1,4 +1,4 @@
-import { bubbleImageMinZoom, bubbleLabelMinZoom } from "./graph-labels";
+import { bookmarkImageMinZoom, bookmarkLabelMinZoom } from "./graph-labels";
 import { placeNear, type Point } from "./graph-placement";
 import "./focus-adapt-label";
 import "./tag-node";
@@ -21,7 +21,7 @@ import {
   type SimulationLinkDatum,
   type Simulation,
 } from "d3-force";
-import { appearanceFor, type Appearance, type Bubble, type Geometry, type Workspace } from "../domain/model";
+import { appearanceFor, type Appearance, type Bookmark, type Geometry, type Workspace } from "../domain/model";
 import { Icon, IconButton } from "./Icon";
 export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
@@ -34,7 +34,7 @@ export interface GraphCanvasHandle {
 }
 // Titles show for related or box-selected bookmarks only while there are few enough to read.
 const emphasisLabelLimit = 30;
-// About a bubble at maximum zoom on a 2x display.
+// About a bookmark at maximum zoom on a 2x display.
 const thumbnailSize = 256;
 function roundThumbnail(img: HTMLImageElement, key: string): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
@@ -80,7 +80,7 @@ export function GraphCanvas({
   selected,
   onSelect,
   query,
-  matchingBubbleIds,
+  matchingBookmarkIds,
   filtering,
   hiddenTagIds = [],
   peekTagIds = noTags,
@@ -109,7 +109,7 @@ export function GraphCanvas({
   /** Called with a node's ID, or with nothing when empty canvas is clicked. */
   onSelect: (id?: string) => void;
   query: string;
-  matchingBubbleIds?: string[];
+  matchingBookmarkIds?: string[];
   filtering?: boolean;
   hiddenTagIds?: string[];
   /** Groups of a hidden type shown anyway because the current bookmark is in them; drawn faded and dashed. */
@@ -148,26 +148,26 @@ export function GraphCanvas({
   onBoxSelectRef.current = onBoxSelect;
   // Triage emphasis: the selected bookmark's groups, bookmarks sharing them, and the box selection.
   const emphasis = useMemo(() => {
-    const groups = new Set(workspace.memberships.filter((m) => m.bubbleId === selected).map((m) => m.tagId));
-    const related = new Set(workspace.memberships.filter((m) => groups.has(m.tagId) && m.bubbleId !== selected).map((m) => m.bubbleId));
+    const groups = new Set(workspace.memberships.filter((m) => m.bookmarkId === selected).map((m) => m.tagId));
+    const related = new Set(workspace.memberships.filter((m) => groups.has(m.tagId) && m.bookmarkId !== selected).map((m) => m.bookmarkId));
     return { groups, related, box: boxSelection ?? new Set<string>() };
   }, [workspace.memberships, selected, boxSelection]);
   const emphasisRef = useRef(emphasis);
   emphasisRef.current = emphasis;
-  const bubbles = useMemo(() => new Map(workspace.bubbles.map((b) => [b.id, b])), [workspace.bubbles]);
-  const bubblesRef = useRef(bubbles);
-  bubblesRef.current = bubbles;
+  const bookmarks = useMemo(() => new Map(workspace.bookmarks.map((b) => [b.id, b])), [workspace.bookmarks]);
+  const bookmarksRef = useRef(bookmarks);
+  bookmarksRef.current = bookmarks;
   const loadMediaRef = useRef(loadMedia);
   loadMediaRef.current = loadMedia;
-  // Bubble images by source, preloaded so the graph never draws a broken image.
+  // Bookmark images by source, preloaded so the graph never draws a broken image.
   // Each becomes a small round thumbnail once, because redrawing full-size
   // covers on every frame makes panning slow. G6 reloads string sources as CORS
   // requests, which most sites refuse, so the thumbnail canvas is drawn instead,
   // with the `src` and `complete` fields G's image cache keys on.
   const images = useRef(new Map<string, HTMLCanvasElement | "loading" | "failed">());
-  const imageReady = useRef<(bubbleId: string) => void>(() => {});
-  function bubbleImage(bubble: Bubble | undefined) {
-    const asset = bubble?.asset;
+  const imageReady = useRef<(bookmarkId: string) => void>(() => {});
+  function bookmarkImage(bookmark: Bookmark | undefined) {
+    const asset = bookmark?.asset;
     if (!asset || asset.kind !== "image") return undefined;
     const key = asset.source === "local" ? `blob:${asset.blobId}` : asset.url;
     if (!key) return undefined;
@@ -183,7 +183,7 @@ export function GraphCanvas({
       const img = new Image();
       img.onload = () => {
         images.current.set(key, roundThumbnail(img, key));
-        imageReady.current(bubble!.id);
+        imageReady.current(bookmark!.id);
       };
       img.onerror = () => images.current.set(key, "failed");
       img.src = src;
@@ -193,10 +193,10 @@ export function GraphCanvas({
   function labelStyle(node: NodeData, scale: number): NonNullable<NodeData["style"]> {
     if (!node.data?.tag) {
       const { related, box } = emphasisRef.current;
-      const shown = scale >= bubbleLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current
+      const shown = scale >= bookmarkLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current
         || (related.has(node.id) && related.size <= emphasisLabelLimit) || (box.has(node.id) && box.size <= emphasisLabelLimit);
-      // Images show with the title once the bubble is big enough to read; far out they are too small.
-      const image = shown && scale >= bubbleImageMinZoom ? bubbleImage(bubblesRef.current.get(node.id)) : undefined;
+      // Images show with the title once the bookmark is big enough to read; far out they are too small.
+      const image = shown && scale >= bookmarkImageMinZoom ? bookmarkImage(bookmarksRef.current.get(node.id)) : undefined;
       // The 2px outline is centered on the edge; tucking the image 0.5px under
       // it fills the inner circle without a seam.
       const diameter = Number(node.style?.size ?? 25) - 1;
@@ -234,7 +234,7 @@ export function GraphCanvas({
       labelBackgroundFill: "#f8faf9",
       labelBackgroundOpacity: .94,
       labelBackgroundRadius: 3 / scale,
-      // Zoomed-out tag titles cover nearby bubbles; let hover and clicks reach them.
+      // Zoomed-out tag titles cover nearby bookmarks; let hover and clicks reach them.
       labelPointerEvents: "none",
       labelBackgroundPointerEvents: "none",
       labelPadding: [2 / scale, 3 / scale],
@@ -396,10 +396,10 @@ export function GraphCanvas({
           },
         };
       }),
-      ...workspace.bubbles.map<NodeData>((bubble, i) => ({
-        id: bubble.id,
+      ...workspace.bookmarks.map<NodeData>((bookmark, i) => ({
+        id: bookmark.id,
         type: "circle",
-        data: { label: bubble.title },
+        data: { label: bookmark.title },
         style: {
           x: 90 + (i % 6) * 90,
           y: 120 + Math.floor(i / 6) * 200,
@@ -464,7 +464,7 @@ export function GraphCanvas({
     const boxStyle = { fill: "#2563eb", fillOpacity: 0.06, stroke: "#2563eb", lineWidth: 1, lineDash: [4, 3] };
     const boxed = (states: Record<string, string | string[]>, adding: boolean) => {
       const ids = Object.entries(states)
-        .filter(([id, state]) => bubblesRef.current.has(id) && [state].flat().includes("boxed"))
+        .filter(([id, state]) => bookmarksRef.current.has(id) && [state].flat().includes("boxed"))
         .map(([id]) => id);
       onBoxSelectRef.current?.(ids, adding);
     };
@@ -479,7 +479,7 @@ export function GraphCanvas({
         nodes,
         edges: workspace.memberships.map((m) => ({
           id: m.id,
-          source: m.bubbleId,
+          source: m.bookmarkId,
           target: m.tagId,
         })),
       },
@@ -713,9 +713,9 @@ export function GraphCanvas({
       g.updateNodeData(ids.map((nodeId) => ({ id: nodeId, style: labelStyle(g.getNodeData(nodeId), g.getZoom()) })));
       void g.draw().catch((e) => { if (!canceled) setError(String(e)); });
     };
-    imageReady.current = (bubbleId) => {
-      if (canceled || renderedGraph.current !== g || !g.hasNode(bubbleId)) return;
-      g.updateNodeData([{ id: bubbleId, style: labelStyle(g.getNodeData(bubbleId), g.getZoom()) }]);
+    imageReady.current = (bookmarkId) => {
+      if (canceled || renderedGraph.current !== g || !g.hasNode(bookmarkId)) return;
+      g.updateNodeData([{ id: bookmarkId, style: labelStyle(g.getNodeData(bookmarkId), g.getZoom()) }]);
       void g.draw().catch((e) => { if (!canceled) setError(String(e)); });
     };
     g.on(NodeEvent.POINTER_ENTER, (event: IElementEvent) => hover(event.target.id));
@@ -816,7 +816,7 @@ export function GraphCanvas({
     if (!ready || !g || renderedGraph.current !== g) return;
     const currentNodes = g.getNodeData(),
       currentEdges = g.getEdgeData(),
-      ids = new Set([...workspace.bubbles, ...workspace.tags].map((n) => n.id)),
+      ids = new Set([...workspace.bookmarks, ...workspace.tags].map((n) => n.id)),
       edgeIds = new Set(workspace.memberships.map((m) => m.id));
     const removedNodes = currentNodes
         .filter((n) => !ids.has(n.id))
@@ -824,7 +824,7 @@ export function GraphCanvas({
       removedEdges = currentEdges
         .filter((e) => !edgeIds.has(e.id!))
         .map((e) => e.id!);
-    const added = [...workspace.tags, ...workspace.bubbles].filter(
+    const added = [...workspace.tags, ...workspace.bookmarks].filter(
       (n) => !currentNodes.some((c) => c.id === n.id),
     );
     const addedEdges = workspace.memberships.filter(
@@ -864,7 +864,7 @@ export function GraphCanvas({
       g.addData({
         edges: addedEdges.map((m) => ({
           id: m.id,
-          source: m.bubbleId,
+          source: m.bookmarkId,
           target: m.tagId,
         })),
       });
@@ -880,7 +880,7 @@ export function GraphCanvas({
           style: node.style,
         };
       }),
-      ...workspace.bubbles.map((b) => ({ id: b.id, data: { label: b.title } })),
+      ...workspace.bookmarks.map((b) => ({ id: b.id, data: { label: b.title } })),
     ]);
     g.updateNodeData(
       g.getNodeData().map((n) => ({
@@ -916,8 +916,8 @@ export function GraphCanvas({
     }
     const term = query.toLowerCase();
     const matching = new Set(
-      matchingBubbleIds ??
-        workspace.bubbles
+      matchingBookmarkIds ??
+        workspace.bookmarks
           .filter((b) =>
             `${b.title} ${b.description} ${b.url ?? ""}`
               .toLowerCase()
@@ -926,14 +926,14 @@ export function GraphCanvas({
           .map((b) => b.id),
     );
     const visibility: Record<string, "visible" | "hidden"> = {};
-    for (const b of workspace.bubbles)
+    for (const b of workspace.bookmarks)
       visibility[b.id] = matching.has(b.id) ? "visible" : "hidden";
     const linkedTags = new Set(
       workspace.memberships
-        .filter((m) => matching.has(m.bubbleId) && !hiddenTagIds.includes(m.tagId))
+        .filter((m) => matching.has(m.bookmarkId) && !hiddenTagIds.includes(m.tagId))
         .map((m) => m.tagId),
     );
-    const shouldFilterTags = filtering ?? (matchingBubbleIds === undefined ? Boolean(term) : true);
+    const shouldFilterTags = filtering ?? (matchingBookmarkIds === undefined ? Boolean(term) : true);
     for (const tag of workspace.tags)
       visibility[tag.id] = hiddenTagIds.includes(tag.id)
         ? "hidden"
@@ -941,11 +941,11 @@ export function GraphCanvas({
           ? "visible"
           : "hidden";
     for (const m of workspace.memberships)
-      visibility[m.id] = matching.has(m.bubbleId) && !hiddenTagIds.includes(m.tagId) ? "visible" : "hidden";
+      visibility[m.id] = matching.has(m.bookmarkId) && !hiddenTagIds.includes(m.tagId) ? "visible" : "hidden";
     // Triage emphasis: the current bookmark with its groups and related bookmarks
     // stays strong, the box selection is outlined, and everything else fades.
     const { groups, related, box } = emphasis;
-    const focusing = Boolean(selected && workspace.bubbles.some((b) => b.id === selected));
+    const focusing = Boolean(selected && workspace.bookmarks.some((b) => b.id === selected));
     const decided = new Set(workspace.statuses.filter((s) => s.outcome !== "active").map((s) => s.id));
     const peeking = new Set(peekTagIds);
     g.updateNodeData([
@@ -960,7 +960,7 @@ export function GraphCanvas({
           halo: false,
         },
       })),
-      ...workspace.bubbles.map((b) => {
+      ...workspace.bookmarks.map((b) => {
         const current = b.id === selected, inBox = box.has(b.id), done = decided.has(b.statusId);
         return {
           id: b.id,
@@ -989,7 +989,7 @@ export function GraphCanvas({
     });
     // Keep G6's brush state in step with the selection (it is cleared outside the graph too).
     const brushStates: Record<string, string[]> = {};
-    for (const b of workspace.bubbles) {
+    for (const b of workspace.bookmarks) {
       const has = g.getElementState(b.id).includes("boxed");
       if (has !== box.has(b.id)) brushStates[b.id] = box.has(b.id) ? ["boxed"] : [];
     }
@@ -1004,7 +1004,7 @@ export function GraphCanvas({
       .catch((e) => {
         if (graph.current === g) setError(String(e));
       });
-  }, [ready, selected, query, matchingBubbleIds, filtering, hiddenTagIds, peekTagIds, workspace, emphasis]);
+  }, [ready, selected, query, matchingBookmarkIds, filtering, hiddenTagIds, peekTagIds, workspace, emphasis]);
   async function action(work: (g: Graph) => Promise<unknown>) {
     if (!graph.current || !ready) return;
     autoFit.current = false;
@@ -1021,18 +1021,18 @@ export function GraphCanvas({
         ref={container}
         className="graph-canvas"
         role="img"
-        aria-label="Force-directed bubble and tag graph"
+        aria-label="Force-directed bookmark and tag graph"
       />
       <div ref={pinLayer} className="pin-layer" aria-hidden="true" />
-      {!workspace.bubbles.length && !workspace.tags.length && (
+      {!workspace.bookmarks.length && !workspace.tags.length && (
         <div className="canvas-empty">
           <h2>Your collection is empty</h2>
           <p>Add links, notes, or a file to start exploring.</p>
           <button className="primary" onClick={onImport}>Open Import</button>
         </div>
       )}
-      {workspace.bubbles.length > 0 && matchingBubbleIds !== undefined && matchingBubbleIds.length === 0 && <div className="canvas-empty"><h2>No matching bubbles</h2><p>Try a different search or clear the filter.</p><button onClick={onClearSearch}>Clear search</button></div>}
-      {matchingBubbleIds === undefined && query && workspace.bubbles.length > 0 && !workspace.bubbles.some((b) => `${b.title} ${b.description} ${b.url ?? ""}`.toLowerCase().includes(query.toLowerCase())) && <div className="canvas-empty"><h2>No matching bubbles</h2><p>Try a different search or clear the filter.</p><button onClick={onClearSearch}>Clear search</button></div>}
+      {workspace.bookmarks.length > 0 && matchingBookmarkIds !== undefined && matchingBookmarkIds.length === 0 && <div className="canvas-empty"><h2>No matching bookmarks</h2><p>Try a different search or clear the filter.</p><button onClick={onClearSearch}>Clear search</button></div>}
+      {matchingBookmarkIds === undefined && query && workspace.bookmarks.length > 0 && !workspace.bookmarks.some((b) => `${b.title} ${b.description} ${b.url ?? ""}`.toLowerCase().includes(query.toLowerCase())) && <div className="canvas-empty"><h2>No matching bookmarks</h2><p>Try a different search or clear the filter.</p><button onClick={onClearSearch}>Clear search</button></div>}
       {error && (
         <div className="canvas-error" role="alert">
           <strong>The graph couldn’t load</strong>

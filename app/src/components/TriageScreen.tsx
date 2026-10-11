@@ -6,7 +6,7 @@ import { TagView } from "./TagView";
 import { Cover, type LoadMedia } from "./Cover";
 import { Icon, IconButton } from "./Icon";
 import type { Command } from "../domain/commands";
-import { isWebUrl, type Bubble, type Geometry, type Workspace } from "../domain/model";
+import { isWebUrl, type Bookmark, type Geometry, type Workspace } from "../domain/model";
 import {
   decisionStatuses,
   domainOf,
@@ -77,15 +77,15 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     return list.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
   }, [workspace, tab, filter, selection, selectionSet]);
   // Nothing is current until a bookmark is picked, so the whole graph shows unfaded.
-  const current = workspace.bubbles.find((b) => b.id === currentId);
+  const current = workspace.bookmarks.find((b) => b.id === currentId);
   const groups = current ? groupsOf(workspace, current.id) : [];
   const related = useMemo(() => (current ? [...relatedOf(workspace, current.id)].sort((a, b) => b[1].length - a[1].length) : []), [workspace, current]);
   const visibility = useMemo(() => graphVisibility(workspace, filter, tab, current ? [current.id] : []), [workspace, filter, tab, current]);
   const { done, dropped } = decisionStatuses(workspace);
   const counts = useMemo(() => ({
-    todo: workspace.bubbles.filter((b) => inTab(b, workspace, "todo")).length,
-    done: workspace.bubbles.filter((b) => inTab(b, workspace, "done")).length,
-    dropped: workspace.bubbles.filter((b) => inTab(b, workspace, "dropped")).length,
+    todo: workspace.bookmarks.filter((b) => inTab(b, workspace, "todo")).length,
+    done: workspace.bookmarks.filter((b) => inTab(b, workspace, "done")).length,
+    dropped: workspace.bookmarks.filter((b) => inTab(b, workspace, "dropped")).length,
   }), [workspace]);
   const options = useMemo(() => {
     const linked = new Set(groups.map((g) => g.id));
@@ -130,10 +130,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   function decide(kind: "done" | "dropped") {
     const status = kind === "done" ? done : dropped;
     if (!current || !status) return;
-    const bubble = current, next = nextAfter(bubble.id);
+    const bookmark = current, next = nextAfter(bookmark.id);
     void run(async () => {
-      await save({ type: "bubble.patch", id: bubble.id, expectedRecordRevision: bubble.revision, patch: { statusId: status.id } },
-        `${kind === "done" ? "Done" : "Drop"}: ${bubble.title}`);
+      await save({ type: "bookmark.patch", id: bookmark.id, expectedRecordRevision: bookmark.revision, patch: { statusId: status.id } },
+        `${kind === "done" ? "Done" : "Drop"}: ${bookmark.title}`);
       show(next);
     });
   }
@@ -149,7 +149,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     if (!current) return;
     const tag = workspace.tags.find((t) => t.id === tagId);
     void run(async () => {
-      await save({ type: "membership.set", bubbleId: current.id, tagId, linked }, `${linked ? "Add to" : "Remove from"} ${tag?.name ?? "group"}`);
+      await save({ type: "membership.set", bookmarkId: current.id, tagId, linked }, `${linked ? "Add to" : "Remove from"} ${tag?.name ?? "group"}`);
       setGroupQuery("");
       setFrameRequest(++frameToken.current);
     });
@@ -164,7 +164,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     const ordered = clockwise(merged.map((id) => ({ id })), positionOf, tagId ? positionOf(tagId) : undefined).map((b) => b.id);
     setSelection(ordered);
     if (!ordered.includes(current?.id ?? "")) show(ordered.find((id) => {
-      const b = workspace.bubbles.find((x) => x.id === id);
+      const b = workspace.bookmarks.find((x) => x.id === id);
       return b && inTab(b, workspace, tab);
     }), false);
   }
@@ -221,7 +221,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   }, [moreOpen]);
 
   const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showEmptyGroups || !filter.showUngrouped);
-  const total = workspace.bubbles.length || 1;
+  const total = workspace.bookmarks.length || 1;
   return (
     <div className={`triage ${queueOpen ? "" : "queue-closed"}`}>
       <header className="triage-header">
@@ -269,13 +269,13 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   {warn && <i className="warn-dot" title="Has a warning" />}
                   <span className="queue-domain">{domainOf(b.url) || "No URL"}</span>
                   {decided && <span className="queue-status">{workspace.statuses.find((s) => s.id === b.statusId)?.label}</span>}
-                  <span className="queue-groups" title="Groups">{workspace.memberships.filter((m) => m.bubbleId === b.id).length}</span>
+                  <span className="queue-groups" title="Groups">{workspace.memberships.filter((m) => m.bookmarkId === b.id).length}</span>
                 </span>
                 </span>
               </button>
             );
           })}
-          {!queue.length && <p className="queue-empty">{workspace.bubbles.length ? "Nothing here. Try another tab or clear the filter." : "No bookmarks yet."}</p>}
+          {!queue.length && <p className="queue-empty">{workspace.bookmarks.length ? "Nothing here. Try another tab or clear the filter." : "No bookmarks yet."}</p>}
         </nav>
         <div className="triage-stage">
           <div className="triage-tools">
@@ -321,14 +321,14 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             selected={current?.id}
             onSelect={(id) => {
               if (!id) show(undefined, false);
-              else if (workspace.bubbles.some((b) => b.id === id)) show(id);
+              else if (workspace.bookmarks.some((b) => b.id === id)) show(id);
               else {
-                boxSelect(workspace.memberships.filter((m) => m.tagId === id).map((m) => m.bubbleId), false, id);
+                boxSelect(workspace.memberships.filter((m) => m.tagId === id).map((m) => m.bookmarkId), false, id);
                 setTagPanel({ id, editing: false });
               }
             }}
             query=""
-            matchingBubbleIds={visibility.bubbleIds}
+            matchingBookmarkIds={visibility.bookmarkIds}
             filtering={Boolean(filter.text.trim())}
             hiddenTagIds={visibility.hiddenTagIds}
             peekTagIds={visibility.peekTagIds}
@@ -435,7 +435,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   <h3>Related bookmarks ({related.length})</h3>
                   <div className="triage-related">
                     {related.slice(0, relatedListLimit).map(([id, via]) => {
-                      const b = workspace.bubbles.find((x) => x.id === id) as Bubble;
+                      const b = workspace.bookmarks.find((x) => x.id === id) as Bookmark;
                       const viaTag = workspace.tags.find((t) => t.id === via[0]);
                       return (
                         <button key={id} onClick={() => show(id)}>
@@ -457,9 +457,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             </>
           ) : (
             <div className="triage-empty">
-              <h2>{!workspace.bubbles.length ? "No bookmarks yet" : queue.length ? "No bookmark picked" : "Nothing to triage here"}</h2>
-              <p className="subtle">{!workspace.bubbles.length ? "Import bookmarks to start." : queue.length ? "Pick one from the queue or the graph, or press J to start at the top." : "Pick another tab, clear the filter, or draw a box on the graph."}</p>
-              {!workspace.bubbles.length && <button className="primary" onClick={onImport}>Open Import</button>}
+              <h2>{!workspace.bookmarks.length ? "No bookmarks yet" : queue.length ? "No bookmark picked" : "Nothing to triage here"}</h2>
+              <p className="subtle">{!workspace.bookmarks.length ? "Import bookmarks to start." : queue.length ? "Pick one from the queue or the graph, or press J to start at the top." : "Pick another tab, clear the filter, or draw a box on the graph."}</p>
+              {!workspace.bookmarks.length && <button className="primary" onClick={onImport}>Open Import</button>}
             </div>
           )}
         </aside>
@@ -469,7 +469,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
           workspace={workspace}
           initialScope={copyScope}
           scopes={{
-            selection: selection ? selection.map((id) => workspace.bubbles.find((b) => b.id === id)).filter((b): b is Bubble => !!b) : undefined,
+            selection: selection ? selection.map((id) => workspace.bookmarks.find((b) => b.id === id)).filter((b): b is Bookmark => !!b) : undefined,
             list: queue,
             current: current ? [current] : undefined,
           }}

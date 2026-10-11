@@ -7,14 +7,14 @@ const distance = (a: readonly number[], b: readonly number[]) => Math.hypot(a[0]
 test("new nodes start beside linked nodes, and new groups stay together", () => {
   const placed = new Map([["tag-a", [1000, 1000] as const]]);
   const memberships = [
-    { bubbleId: "b1", tagId: "tag-a" },
-    { bubbleId: "b2", tagId: "tag-new" },
-    { bubbleId: "b3", tagId: "tag-new" },
+    { bookmarkId: "b1", tagId: "tag-a" },
+    { bookmarkId: "b2", tagId: "tag-new" },
+    { bookmarkId: "b3", tagId: "tag-new" },
   ];
   const result = placeNear(["tag-new", "b1", "b2", "b3"], placed, memberships, [0, 0]);
   assert.equal(result.size, 4);
   assert.ok(distance(result.get("b1")!, [1000, 1000]) < 120);
-  // The unlinked group starts around the center, with bubbles next to their new tag.
+  // The unlinked group starts around the center, with bookmarks next to their new tag.
   assert.ok(distance(result.get("tag-new")!, [0, 0]) < 120);
   assert.ok(distance(result.get("b2")!, result.get("tag-new")!) < 120);
   assert.ok(distance(result.get("b3")!, result.get("tag-new")!) < 120);

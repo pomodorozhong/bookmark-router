@@ -1,13 +1,13 @@
-import { isWebUrl, type Bubble, type Filter, type Workspace } from "./model";
+import { isWebUrl, type Bookmark, type Filter, type Workspace } from "./model";
 
 export interface DistanceMatch {
   distance: number;
   path: string[];
 }
 
-function linkedTags(bubble: Bubble, workspace: Workspace) {
+function linkedTags(bookmark: Bookmark, workspace: Workspace) {
   const tagIds = workspace.memberships
-    .filter((membership) => membership.bubbleId === bubble.id)
+    .filter((membership) => membership.bookmarkId === bookmark.id)
     .map((membership) => membership.tagId);
   return workspace.tags.filter((tag) => tagIds.includes(tag.id));
 }
@@ -18,11 +18,11 @@ export function distanceMatches(
 ): Map<string, DistanceMatch> {
   const adjacency = new Map<string, string[]>();
   for (const membership of workspace.memberships) {
-    const bubbleNeighbors = adjacency.get(membership.bubbleId) ?? [];
-    bubbleNeighbors.push(membership.tagId);
-    adjacency.set(membership.bubbleId, bubbleNeighbors);
+    const bookmarkNeighbors = adjacency.get(membership.bookmarkId) ?? [];
+    bookmarkNeighbors.push(membership.tagId);
+    adjacency.set(membership.bookmarkId, bookmarkNeighbors);
     const tagNeighbors = adjacency.get(membership.tagId) ?? [];
-    tagNeighbors.push(membership.bubbleId);
+    tagNeighbors.push(membership.bookmarkId);
     adjacency.set(membership.tagId, tagNeighbors);
   }
   const queue: Array<{ id: string; distance: number; path: string[] }> = [],
@@ -45,36 +45,36 @@ export function distanceMatches(
     }
   }
   return new Map(
-    workspace.bubbles.flatMap((bubble) => {
-      const match = seen.get(bubble.id);
-      return match ? [[bubble.id, match] as const] : [];
+    workspace.bookmarks.flatMap((bookmark) => {
+      const match = seen.get(bookmark.id);
+      return match ? [[bookmark.id, match] as const] : [];
     }),
   );
 }
 
 function matchesLeaf(
   filter: Filter,
-  bubble: Bubble,
+  bookmark: Bookmark,
   workspace: Workspace,
   distanceCache: Map<string, Map<string, DistanceMatch>>,
 ): boolean {
-  const tags = linkedTags(bubble, workspace);
+  const tags = linkedTags(bookmark, workspace);
   if (filter.op === "text") {
     const value = filter.value.trim().toLowerCase();
     if (!value) return true;
-    return `${bubble.title} ${bubble.description} ${bubble.url ?? ""}`
+    return `${bookmark.title} ${bookmark.description} ${bookmark.url ?? ""}`
       .toLowerCase()
       .includes(value);
   }
   if (filter.op === "url") {
     const value = filter.value.trim().toLowerCase();
     if (!value) return true;
-    if (filter.mode === "domain" && isWebUrl(bubble.url ?? "")) {
-      return new URL(bubble.url!).hostname.toLowerCase().includes(value);
+    if (filter.mode === "domain" && isWebUrl(bookmark.url ?? "")) {
+      return new URL(bookmark.url!).hostname.toLowerCase().includes(value);
     }
-    return (bubble.url ?? "").toLowerCase().includes(value);
+    return (bookmark.url ?? "").toLowerCase().includes(value);
   }
-  if (filter.op === "status") return filter.ids.includes(bubble.statusId);
+  if (filter.op === "status") return filter.ids.includes(bookmark.statusId);
   if (filter.op === "tags") {
     return filter.mode === "all"
       ? filter.ids.every((id) => tags.some((tag) => tag.id === id))
@@ -86,10 +86,10 @@ function matchesLeaf(
     return tags.some((tag) => filter.ids.includes(tag.statusId));
   if (filter.op === "asset")
     return filter.present
-      ? Boolean(bubble.asset && (!filter.kind || bubble.asset.kind === filter.kind))
-      : !bubble.asset || Boolean(filter.kind && bubble.asset.kind !== filter.kind);
+      ? Boolean(bookmark.asset && (!filter.kind || bookmark.asset.kind === filter.kind))
+      : !bookmark.asset || Boolean(filter.kind && bookmark.asset.kind !== filter.kind);
   if (filter.op === "date") {
-    const timestamp = Date.parse(bubble[filter.field]);
+    const timestamp = Date.parse(bookmark[filter.field]);
     return (
       (filter.from === undefined || timestamp >= Date.parse(filter.from)) &&
       (filter.to === undefined || timestamp <= Date.parse(filter.to))
@@ -104,19 +104,19 @@ function matchesLeaf(
         distanceCache.set(key, result);
         return result;
       })();
-    return (matches.get(bubble.id)?.distance ?? Infinity) <= filter.hops;
+    return (matches.get(bookmark.id)?.distance ?? Infinity) <= filter.hops;
   }
   if (filter.op === "missing") {
     return filter.field === "title"
-      ? Boolean(bubble.missingTitle || !bubble.title.trim())
+      ? Boolean(bookmark.missingTitle || !bookmark.title.trim())
       : filter.field === "description"
-        ? !bubble.description.trim()
+        ? !bookmark.description.trim()
         : filter.field === "url"
-          ? !bubble.url
-          : !bubble.asset;
+          ? !bookmark.url
+          : !bookmark.asset;
   }
   if (filter.op === "no-tags") return tags.length === 0;
-  if (filter.op === "batch") return bubble.importBatchId === filter.id;
+  if (filter.op === "batch") return bookmark.importBatchId === filter.id;
   if (filter.op === "same-tag") {
     return tags.some(
       (tag) =>
@@ -130,27 +130,27 @@ function matchesLeaf(
 
 export function matchesFilter(
   filter: Filter,
-  bubble: Bubble,
+  bookmark: Bookmark,
   workspace: Workspace,
   distanceCache = new Map<string, Map<string, DistanceMatch>>(),
 ): boolean {
   if (filter.op === "all")
     return filter.rules.every((rule) =>
-      matchesFilter(rule, bubble, workspace, distanceCache),
+      matchesFilter(rule, bookmark, workspace, distanceCache),
     );
   if (filter.op === "any")
     return filter.rules.length === 0 || filter.rules.some((rule) =>
-      matchesFilter(rule, bubble, workspace, distanceCache),
+      matchesFilter(rule, bookmark, workspace, distanceCache),
     );
   if (filter.op === "not")
-    return !matchesFilter(filter.rule, bubble, workspace, distanceCache);
-  return matchesLeaf(filter, bubble, workspace, distanceCache);
+    return !matchesFilter(filter.rule, bookmark, workspace, distanceCache);
+  return matchesLeaf(filter, bookmark, workspace, distanceCache);
 }
 
-export function filterBubbles(workspace: Workspace, filter: Filter): Bubble[] {
+export function filterBookmarks(workspace: Workspace, filter: Filter): Bookmark[] {
   const distanceCache = new Map<string, Map<string, DistanceMatch>>();
-  return workspace.bubbles.filter((bubble) =>
-    matchesFilter(filter, bubble, workspace, distanceCache),
+  return workspace.bookmarks.filter((bookmark) =>
+    matchesFilter(filter, bookmark, workspace, distanceCache),
   );
 }
 
@@ -160,7 +160,7 @@ function tagName(id: string, workspace: Workspace) {
 
 export function filterSummary(filter: Filter, workspace: Workspace): string {
   if (filter.op === "all" || filter.op === "any") {
-    if (!filter.rules.length) return filter.op === "all" ? "All bubbles" : "Any condition";
+    if (!filter.rules.length) return filter.op === "all" ? "All bookmarks" : "Any condition";
     return `${filter.op === "all" ? "All" : "Any"} (${filter.rules.map((rule) => filterSummary(rule, workspace)).join(" · ")})`;
   }
   if (filter.op === "not") return `Not ${filterSummary(filter.rule, workspace)}`;
@@ -185,7 +185,7 @@ export function pathSummary(path: string[], workspace: Workspace): string {
   return path
     .map((id) =>
       workspace.tags.find((tag) => tag.id === id)?.name ??
-      workspace.bubbles.find((bubble) => bubble.id === id)?.title ??
+      workspace.bookmarks.find((bookmark) => bookmark.id === id)?.title ??
       id,
     )
     .join(" → ");

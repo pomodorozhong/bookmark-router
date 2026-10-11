@@ -35,7 +35,7 @@ export interface SourceNote {
   label: string;
   text: string;
 }
-export interface Bubble extends RecordMeta {
+export interface Bookmark extends RecordMeta {
   id: string;
   title: string;
   description: string;
@@ -74,7 +74,7 @@ export interface TagType {
 }
 export interface Membership {
   id: string;
-  bubbleId: string;
+  bookmarkId: string;
   tagId: string;
 }
 export type Filter =
@@ -126,8 +126,8 @@ export interface ImportBatch {
   id: string;
   source: string;
   createdAt: string;
-  bubbleIds: string[];
-  beforeMerged: Bubble[];
+  bookmarkIds: string[];
+  beforeMerged: Bookmark[];
   afterRevisions: Record<string, number>;
   beforeMemberships?: Membership[];
   createdTagIds?: string[];
@@ -144,11 +144,11 @@ export interface StatusChange {
   afterRevisions: Record<string, number>;
 }
 export interface Workspace {
-  schemaVersion: 1;
+  schemaVersion: 2;
   id: string;
   name: string;
   revision: number;
-  bubbles: Bubble[];
+  bookmarks: Bookmark[];
   tags: Tag[];
   tagTypes: TagType[];
   statuses: Status[];
@@ -167,8 +167,8 @@ export interface Geometry {
   viewport?: { zoom: number; x: number; y: number; anchor?: "center" };
 }
 export interface Backup {
-  format: "bubble-tag";
-  version: 1;
+  format: "bookmark-tag";
+  version: 2;
   workspace: Workspace;
   geometry?: Geometry;
   media: { id: string; filename: string; mime: string; base64: string }[];
@@ -180,11 +180,11 @@ export const defaultAppearance: Appearance = {
 };
 export function emptyWorkspace(name = "My collection"): Workspace {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: crypto.randomUUID(),
     name,
     revision: 0,
-    bubbles: [],
+    bookmarks: [],
     tags: [],
     tagTypes: [],
     memberships: [],
@@ -241,10 +241,32 @@ export function appearanceFor(tag: Tag, workspace: Workspace): Appearance {
 function fail(message: string): never {
   throw new Error(`Invalid workspace: ${message}`);
 }
+// Collections and backups saved before October 12, 2026 (schema version 1) call bookmarks
+// "bubbles": `bubbles`, and `bubbleId` / `bubbleIds` in memberships and import batches.
+// This renames those fields; anything else passes through unchanged.
+export function upgradeWorkspace<T>(raw: T): T {
+  type Legacy = Record<string, unknown> & { bubbleId?: unknown; bubbleIds?: unknown; beforeMemberships?: unknown };
+  const w = raw as Legacy;
+  if (!w || typeof w !== "object" || w.schemaVersion !== 1) return raw;
+  const membership = ({ bubbleId, ...m }: Legacy) => ({ ...m, bookmarkId: bubbleId });
+  const list = (value: unknown, map: (item: Legacy) => unknown) => (Array.isArray(value) ? value.map(map) : value);
+  const { bubbles, ...rest } = w;
+  return {
+    ...rest,
+    schemaVersion: 2,
+    bookmarks: bubbles,
+    memberships: list(rest.memberships, membership),
+    batches: list(rest.batches, ({ bubbleIds, ...batch }) => ({
+      ...batch,
+      bookmarkIds: bubbleIds,
+      ...(batch.beforeMemberships ? { beforeMemberships: list(batch.beforeMemberships, membership) } : {}),
+    })),
+  } as T;
+}
 export function validateWorkspace(value: unknown): asserts value is Workspace {
   if (!value || typeof value !== "object") fail("expected an object");
   const w = value as Workspace;
-  if (w.schemaVersion !== 1) fail("unsupported schema version");
+  if (w.schemaVersion !== 2) fail("unsupported schema version");
   if (
     typeof w.id !== "string" ||
     !w.id ||
@@ -254,7 +276,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
   )
     fail("invalid identity or revision");
   for (const key of [
-    "bubbles",
+    "bookmarks",
     "tags",
     "tagTypes",
     "statuses",
@@ -271,10 +293,10 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
     }
   }
   const statuses = new Set(w.statuses.map((s) => s.id));
-  const bubbleIds = new Set(w.bubbles.map((b) => b.id)),
+  const bookmarkIds = new Set(w.bookmarks.map((b) => b.id)),
     tagIds = new Set(w.tags.map((t) => t.id));
-  if ([...bubbleIds].some((id) => tagIds.has(id)))
-    fail("bubble and tag IDs must be globally unique");
+  if ([...bookmarkIds].some((id) => tagIds.has(id)))
+    fail("bookmark and tag IDs must be globally unique");
   if (!statuses.size) fail("at least one status is required");
   for (const s of w.statuses)
     if (
@@ -308,7 +330,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
     if (!t.name) fail("tag type needs a name");
     checkAppearance(t.appearance);
   }
-  for (const record of [...w.bubbles, ...w.tags]) {
+  for (const record of [...w.bookmarks, ...w.tags]) {
     if (!statuses.has(record.statusId)) fail("unknown assigned status");
     if (
       !Number.isInteger(record.revision) ||
@@ -320,13 +342,13 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
     if (record.url !== undefined && typeof record.url !== "string")
       fail("URL must be text");
   }
-  for (const b of w.bubbles) {
+  for (const b of w.bookmarks) {
     if (
       typeof b.title !== "string" ||
       !b.title ||
       typeof b.description !== "string"
     )
-      fail("invalid bubble fields");
+      fail("invalid bookmark fields");
     if (
       b.notes !== undefined &&
       (!Array.isArray(b.notes) ||
@@ -334,7 +356,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
           (n) => !n || typeof n.label !== "string" || typeof n.text !== "string",
         ))
     )
-      fail("invalid bubble notes");
+      fail("invalid bookmark notes");
     if (
       b.source !== undefined &&
       (!b.source ||
@@ -343,7 +365,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
         typeof b.source.fields !== "object" ||
         Object.values(b.source.fields).some((v) => typeof v !== "string"))
     )
-      fail("invalid bubble source");
+      fail("invalid bookmark source");
     if (
       b.importBatchId &&
       !w.batches.some((batch) => batch.id === b.importBatchId)
@@ -374,9 +396,9 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
   }
   const pairs = new Set<string>();
   for (const edge of w.memberships) {
-    if (!bubbleIds.has(edge.bubbleId) || !tagIds.has(edge.tagId))
+    if (!bookmarkIds.has(edge.bookmarkId) || !tagIds.has(edge.tagId))
       fail("dangling membership");
-    const pair = JSON.stringify([edge.bubbleId, edge.tagId]);
+    const pair = JSON.stringify([edge.bookmarkId, edge.tagId]);
     if (pairs.has(pair)) fail("repeated membership");
     pairs.add(pair);
   }
@@ -469,13 +491,13 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
     if (
       typeof batch.source !== "string" ||
       !Number.isFinite(Date.parse(batch.createdAt)) ||
-      !Array.isArray(batch.bubbleIds) ||
+      !Array.isArray(batch.bookmarkIds) ||
       !Array.isArray(batch.beforeMerged) ||
       !batch.afterRevisions
     )
       fail("invalid import batch");
-    if (batch.bubbleIds.some((id) => !bubbleIds.has(id)))
-      fail("unknown imported bubble");
+    if (batch.bookmarkIds.some((id) => !bookmarkIds.has(id)))
+      fail("unknown imported bookmark");
   }
   if (!w.settings || typeof w.settings !== "object") fail("missing settings");
   if (w.settings.extractorUrl) urlKey(w.settings.extractorUrl);
@@ -525,7 +547,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
         !["tag", "selection"].includes(change.source) ||
         !Array.isArray(change.targetIds) ||
         !change.targetIds.length ||
-        change.targetIds.some((id) => !bubbleIds.has(id) && !tagIds.has(id)) ||
+        change.targetIds.some((id) => !bookmarkIds.has(id) && !tagIds.has(id)) ||
         !statuses.has(change.statusId) ||
         !change.before ||
         !change.afterRevisions
