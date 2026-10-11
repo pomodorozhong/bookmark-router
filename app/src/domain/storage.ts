@@ -180,6 +180,15 @@ export class WorkspaceStore {
       throw e;
     }
   }
+  /** Deletes a collection with its graph positions and media, in one transaction. */
+  async remove(id: string) {
+    const tx = (await this.database).transaction(["workspaces", "geometry", "media"], "readwrite");
+    const media = tx.objectStore("media");
+    await tx.objectStore("workspaces").delete(id);
+    await tx.objectStore("geometry").delete(id);
+    for (const m of await media.getAll()) if (m.workspaceId === id) await media.delete(m.id);
+    await tx.done;
+  }
   async media(id: string) {
     return (await this.database).get("media", id);
   }

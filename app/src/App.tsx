@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TriageScreen } from "./components/TriageScreen";
 import { CollectionMenu, MoreMenu } from "./components/AppMenus";
-import { WorkspaceFeedback } from "./components/WorkspaceFeedback";
+import { Toast, type ToastMessage } from "./components/Toast";
 import {
   fields,
   guessMapping,
@@ -89,11 +89,13 @@ export default function App() {
     [editing, setEditing] = useState<string>(),
     [history, setHistory] = useState(false),
     [undoBatch, setUndoBatch] = useState<string>(),
-    [notice, setNotice] = useState(""),
+    [toast, setToast] = useState<ToastMessage>(),
+    [deleting, setDeleting] = useState<Workspace>(),
     [promptKind, setPromptKind] = useState<"collection" | "tag">(),
     [promptValue, setPromptValue] = useState("");
-  const [nextUndo, setNextUndo] = useState<Awaited<ReturnType<WorkspaceStore["nextUndo"]>>>(),
-    [undoMessage, setUndoMessage] = useState<string>();
+  const [nextUndo, setNextUndo] = useState<Awaited<ReturnType<WorkspaceStore["nextUndo"]>>>();
+  const toastId = useRef(0);
+  const notify = (text: string, undo?: () => void) => setToast({ id: ++toastId.current, text, undo });
   const [statusMapping, setStatusMapping] = useState<Record<string, string>>(
       {},
     ),
@@ -141,10 +143,7 @@ export default function App() {
         if (w && w.revision !== workspaceRef.current.revision) {
           setWorkspace(w);
           void store.nextUndo(w.id).then(setNextUndo);
-          setUndoMessage(undefined);
-          setNotice(
-            "This collection changed in another tab. Review pending changes again.",
-          );
+          notify("This collection changed in another tab. Review pending changes again.");
         }
       });
     };
@@ -160,19 +159,22 @@ export default function App() {
     setWorkspace(w);
     rememberCollection(w.id);
     setNextUndo(await store.nextUndo(w.id));
-    setUndoMessage(undefined);
+    setToast(undefined);
     setScreen("workspace");
   }
   async function publish(w: Workspace) {
     setWorkspace(w);
-    setNextUndo(await store.nextUndo(w.id));
+    const entry = await store.nextUndo(w.id);
+    setNextUndo(entry);
     setCollections(await store.list());
+    return entry;
   }
   async function save(command: Command | Command[], label?: string) {
     try {
       const current = await store.command(workspace.id, workspace.revision, command, label);
-      await publish(current);
-      setUndoMessage(undefined);
+      const entry = await publish(current);
+      // Every saved change can be undone from its toast.
+      if (entry?.revision === current.revision) notify(entry.label, () => void undoRef.current());
     } catch (e) {
       const latest = await store.get(workspace.id);
       if (latest) await publish(latest);
@@ -187,11 +189,51 @@ export default function App() {
     try {
       const next = await store.undoLast(workspace.id, workspace.revision, nextUndo.id);
       await publish(next);
-      setUndoMessage(`Undid: ${nextUndo.label}`);
+      notify(`Undid: ${nextUndo.label}`);
     } catch (e) {
       setError(String(e));
       const latest = await store.get(workspace.id);
       if (latest) await publish(latest);
+    } finally {
+      submitting.current = false;
+      setBusy(false);
+    }
+  }
+  const undoRef = useRef(undoLastAction);
+  undoRef.current = undoLastAction;
+  const undoAvailable = Boolean(nextUndo && nextUndo.revision === workspace.revision);
+  // Cmd/Ctrl+Z undoes the last saved change anywhere outside a text field or dialog.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "z") return;
+      if ((e.target instanceof Element && e.target.closest("input, textarea, select, [contenteditable]")) || document.querySelector("dialog[open]")) return;
+      e.preventDefault();
+      void undoRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  async function deleteCollection(target: Workspace) {
+    if (submitting.current) return;
+    submitting.current = true;
+    setBusy(true);
+    try {
+      await store.remove(target.id);
+      let rest = await store.list();
+      if (!rest.length) {
+        await store.create(emptyWorkspace());
+        rest = await store.list();
+      }
+      setCollections(rest);
+      if (target.id === workspace.id) {
+        const next = rest.find((w) => w.id !== target.id)!;
+        await openWorkspace(next);
+        if (!next.bubbles.length) setScreen("import");
+      }
+      setDeleting(undefined);
+      notify(`Deleted: ${target.name}`);
+    } catch (e) {
+      setError(String(e));
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -216,9 +258,9 @@ export default function App() {
       throw e;
     }
   }
-  async function backup() {
+  async function backup(id = workspace.id) {
     try {
-      const data = await store.backup(workspace.id);
+      const data = await store.backup(id);
       const url = URL.createObjectURL(
         new Blob([JSON.stringify(data)], { type: "application/json" }),
       );
@@ -227,9 +269,7 @@ export default function App() {
       a.download = "bubble-tag-backup.json";
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setNotice(
-        "Backup downloaded. Remote media remains linked; uploaded media is bundled.",
-      );
+      notify("Backup downloaded. Remote media remains linked; uploaded media is bundled.");
     } catch (e) {
       setError(String(e));
     }
@@ -244,7 +284,7 @@ export default function App() {
         const next = await store.restore(parsed.restore);
         setCollections(await store.list());
         await openWorkspace(next);
-        setNotice("Backup restored into a new collection.");
+        notify("Backup restored into a new collection.");
       } else if (preview) {
         const next = await store.import(workspace.id, {
           type: "import.commit",
@@ -265,8 +305,9 @@ export default function App() {
         });
         await publish(next);
         await openWorkspace(next);
-        setNotice(
-          `${selectedRows.length} source rows applied: ${next.bubbles.length - workspace.bubbles.length} new bubbles and ${selectedRows.filter((c) => choices[c.row] === "merge").length} merges. Use Undo to reverse this import.`,
+        notify(
+          `${selectedRows.length} source rows applied: ${next.bubbles.length - workspace.bubbles.length} new bubbles and ${selectedRows.filter((c) => choices[c.row] === "merge").length} merges.`,
+          () => void undoRef.current(),
         );
       }
       setStep(0);
@@ -304,7 +345,7 @@ export default function App() {
       );
       await publish(next);
       setUndoBatch(undefined);
-      setUndoMessage(changed.length ? `Import undone · ${changed.length} edited ${changed.length === 1 ? "bubble" : "bubbles"} kept` : "Import undone");
+      notify(changed.length ? `Import undone · ${changed.length} edited ${changed.length === 1 ? "bubble" : "bubbles"} kept` : "Import undone");
     } catch (e) {
       setError(String(e));
       const latest = await store.get(workspace.id);
@@ -419,13 +460,15 @@ export default function App() {
         {error && <div role="alert">{error}</div>}
       </main>
     );
-  const workspaceFeedback = <WorkspaceFeedback
-    message={undoMessage}
-    actionLabel={nextUndo?.label}
-    undoAvailable={Boolean(nextUndo && nextUndo.revision === workspace.revision)}
-    busy={busy}
-    onUndo={() => void undoLastAction()}
-  />;
+  // In the triage screen the message sits over the graph; an error outranks it and stays until closed.
+  const shown: ToastMessage | undefined = screen === "workspace" && error ? { id: -1, text: error, error: true } : toast;
+  const toastElement = shown && <Toast key={shown.id} toast={shown} onClose={() => (shown.error ? setError("") : setToast(undefined))} />;
+  const undoButton = (
+    <button className="header-undo" disabled={!undoAvailable || busy} onClick={() => void undoLastAction()}
+      title={undoAvailable ? `Undo: ${nextUndo!.label} (⌘Z)` : "Nothing to undo"}>
+      <Icon name="undo" size={15} /><span>Undo</span>
+    </button>
+  );
   function restoreBackup() {
     setScreen("import");
     setFormat("json");
@@ -434,7 +477,7 @@ export default function App() {
     setFilename("");
   }
   const collectionMenu = (
-    <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w)}
+    <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w)} onDelete={setDeleting}
       onNew={() => { setPromptKind("collection"); setPromptValue(""); }} />
   );
   const moreMenu = (
@@ -444,6 +487,7 @@ export default function App() {
       onHistory={() => setHistory(true)}
       onDownload={() => void backup()}
       onRestore={restoreBackup}
+      onDelete={() => setDeleting(workspace)}
     />
   );
   return (
@@ -454,21 +498,10 @@ export default function App() {
         {screen === "import" && (
           <header className="topbar">
             {collectionMenu}
-            {moreMenu}
+            <span className="topbar-end">{undoButton}{moreMenu}</span>
           </header>
         )}
-        {notice && (
-          <div className="toast" role="status">
-            {notice}
-            <IconButton label="Dismiss notice" icon="close" onClick={() => setNotice("")} />
-          </div>
-        )}
-        {screen === "workspace" && error && (
-          <div className="toast alert" role="alert">
-            {error}
-            <button onClick={() => setError("")}>Dismiss</button>
-          </div>
-        )}
+        {screen === "import" && toastElement}
         {screen === "import" ? (
           <div className="import-page">
             <button className="back-link" onClick={() => setScreen("workspace")}>
@@ -859,7 +892,6 @@ export default function App() {
               >
                 {step > 0 ? <><Icon name="arrow-left" size={15} /> Back</> : <><Icon name="close" size={15} /> Clear source</>}
               </button>
-              {workspaceFeedback}
               </div>
               <span className="subtle">
                 Your original file stays unchanged.
@@ -924,12 +956,13 @@ export default function App() {
             }}
             save={save}
             loadMedia={(id) => store.media(id)}
-            feedback={workspaceFeedback}
+            toast={toastElement}
+            notify={notify}
             onEdit={setEditing}
             onImport={() => setScreen("import")}
             onError={setError}
             headerStart={collectionMenu}
-            headerEnd={moreMenu}
+            headerEnd={<>{undoButton}{moreMenu}</>}
           />
         )}
       </main>
@@ -957,6 +990,27 @@ export default function App() {
             setPromptValue("");
           }}
         />
+      )}
+      {deleting && (
+        <Dialog labelledBy="delete-title" className="delete-modal" onClose={() => { if (!busy) setDeleting(undefined); }}>
+          <h2 id="delete-title">Delete “{deleting.name}”?</h2>
+          <p>This removes it from this device and can't be undone:</p>
+          <ul>
+            <li>{deleting.bubbles.length} bubbles and {deleting.tags.length} tags</li>
+            <li>Their images, notes, and import history</li>
+            <li>Graph positions and pins</li>
+          </ul>
+          <div className="delete-backup">
+            <span>Keep a copy you can restore later.</span>
+            <button onClick={() => void backup(deleting.id)}><Icon name="download" size={15} /> Download backup</button>
+          </div>
+          <footer>
+            <button disabled={busy} onClick={() => setDeleting(undefined)}>Cancel</button>
+            <button className="danger" disabled={busy} onClick={() => void deleteCollection(deleting)}>
+              <Icon name="trash" size={15} /> {busy ? "Deleting…" : "Delete collection"}
+            </button>
+          </footer>
+        </Dialog>
       )}
       {history && !undoBatch && (
         <Dialog labelledBy="history-title" onClose={() => setHistory(false)}>

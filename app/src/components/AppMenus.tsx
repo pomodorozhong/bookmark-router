@@ -54,9 +54,9 @@ function MenuButton({ label, button, className = "", align = "start", children }
   );
 }
 
-function Item({ icon, children, onSelect, current, meta }: { icon?: IconName; children: ReactNode; onSelect: () => void; current?: boolean; meta?: ReactNode }) {
+function Item({ icon, children, onSelect, current, meta, className }: { icon?: IconName; children: ReactNode; onSelect: () => void; current?: boolean; meta?: ReactNode; className?: string }) {
   return (
-    <button type="button" role="menuitem" aria-current={current || undefined} onClick={onSelect}>
+    <button type="button" role="menuitem" className={className} aria-current={current || undefined} onClick={onSelect}>
       <span className="menu-icon">{current ? <Icon name="check" size={15} /> : icon ? <Icon name={icon} size={15} /> : null}</span>
       <span className="menu-label">{children}</span>
       {meta && <span className="menu-meta">{meta}</span>}
@@ -64,11 +64,12 @@ function Item({ icon, children, onSelect, current, meta }: { icon?: IconName; ch
   );
 }
 
-export function CollectionMenu({ workspace, collections, onOpen, onNew }: {
+export function CollectionMenu({ workspace, collections, onOpen, onNew, onDelete }: {
   workspace: Workspace;
   collections: Workspace[];
   onOpen: (w: Workspace) => void;
   onNew: () => void;
+  onDelete: (w: Workspace) => void;
 }) {
   return (
     <MenuButton label="Collections" className="collection-menu-root" button={<><Logo /><span className="collection-name">{workspace.name}</span><Icon name="chevron-down" size={15} /></>}>
@@ -76,8 +77,12 @@ export function CollectionMenu({ workspace, collections, onOpen, onNew }: {
         <>
           <div className="menu-heading">Collections</div>
           {collections.map((w) => (
-            <Item key={w.id} current={w.id === workspace.id} onSelect={() => { close(); onOpen(w); }}
-              meta={<span title="Bubbles · tags">{w.bubbles.length} · {w.tags.length}</span>}>{w.name}</Item>
+            <div key={w.id} className="menu-row">
+              <Item current={w.id === workspace.id} onSelect={() => { close(); onOpen(w); }}
+                meta={<span title="Bubbles · tags">{w.bubbles.length} · {w.tags.length}</span>}>{w.name}</Item>
+              <button type="button" role="menuitem" className="menu-row-delete" aria-label={`Delete ${w.name}…`} title={`Delete ${w.name}…`}
+                onClick={() => { close(); onDelete(w); }}><Icon name="trash" size={15} /></button>
+            </div>
           ))}
           <hr />
           <Item icon="plus" onSelect={() => { close(); onNew(); }}>New collection…</Item>
@@ -87,7 +92,8 @@ export function CollectionMenu({ workspace, collections, onOpen, onNew }: {
   );
 }
 
-export function MoreMenu({ onAddBubble, onAddTag, onHistory, onDownload, onRestore }: {
+export function MoreMenu({ onAddBubble, onAddTag, onHistory, onDownload, onRestore, onDelete }: {
+  onDelete: () => void;
   onAddBubble: () => void;
   onAddTag: () => void;
   onHistory: () => void;
@@ -104,6 +110,8 @@ export function MoreMenu({ onAddBubble, onAddTag, onHistory, onDownload, onResto
           <hr />
           <Item icon="download" onSelect={() => { close(); onDownload(); }}>Download backup</Item>
           <Item icon="upload" onSelect={() => { close(); onRestore(); }}>Restore backup…</Item>
+          <hr />
+          <Item icon="trash" className="danger-item" onSelect={() => { close(); onDelete(); }}>Delete this collection…</Item>
           <hr />
           <p className="menu-note">Changes are saved on this device.</p>
         </>
