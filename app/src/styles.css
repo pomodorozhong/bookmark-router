@@ -603,3 +603,29 @@ details.appearance-editor > summary .subtle { margin-left: auto; font-size: 12px
 .type-form input[type=color] { height: 38px; padding: 3px; }
 .types-modal .type-form footer { margin-top: 12px; }
 @media (max-width: 480px) { .type-form-grid { grid-template-columns: 1fr; } }
+
+/* Appearance pickers: preset color swatches, node styles, and the direction compass. */
+.color-picker { display: grid; grid-template-columns: repeat(6, 30px); gap: 7px; position: relative; }
+.swatch-button { position: relative; width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 8px; color: #fff; cursor: pointer; }
+.swatch-button[aria-checked=true]::after { content: ""; position: absolute; inset: -4px; border: 2px solid var(--ink); border-radius: 11px; }
+.swatch-button:disabled { cursor: default; opacity: .45; }
+.swatch-button:focus-visible { outline: 3px solid #2e9586; outline-offset: 4px; }
+.swatch-button.custom { background: conic-gradient(#dc2626, #f59e0b, #16a34a, #0ea5e9, #7c3aed, #db2777, #dc2626); }
+.swatch-plus { width: 16px; height: 16px; border-radius: 50%; background: #fff; color: var(--ink); display: grid; place-items: center; font-size: 13px; font-weight: 700; line-height: 1; }
+.swatch-used { position: absolute; right: 3px; bottom: 3px; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+.swatch-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.style-picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.style-picker button { display: grid; justify-items: center; gap: 1px; padding: 5px 2px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--muted); font-size: 11px; line-height: 1.2; cursor: pointer; }
+.style-picker button[aria-checked=true] { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; background: #f1f8f5; color: var(--ink); }
+.style-picker button:disabled { cursor: default; opacity: .5; }
+.points-field { display: flex; gap: 12px; align-items: center; }
+.points-field .subtle { font-size: 12px; line-height: 1.45; }
+.points-picker { display: grid; grid-template-columns: repeat(3, 32px); grid-template-rows: repeat(3, 32px); gap: 4px; flex-shrink: 0; }
+.points-picker button { padding: 0; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--muted); font-size: 15px; cursor: pointer; }
+.points-picker button[aria-checked=true] { background: var(--teal); border-color: var(--teal); color: #fff; }
+.points-picker button:disabled { cursor: default; opacity: .4; }
+.points-preview { display: grid; place-items: center; }
+.appearance-field.wide { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 10px 0; }
+.type-form-wide { grid-column: 1 / -1; display: grid; gap: 6px; margin-bottom: 12px; }
+.field-label { font-size: 13px; font-weight: 500; }
+.appearance-field.wide > label.appearance-field-label { display: inline-flex; align-items: center; gap: 8px; margin: 0; }

@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
 import { NodePreview } from "./NodePreview";
+import { ColorPicker, PointsPicker, StylePicker } from "./AppearancePickers";
 import type { Command } from "../domain/commands";
 import type { Appearance, TagType, Workspace } from "../domain/model";
 
-const blank = { name: "", appearance: { color: "#2563eb", size: 56, shape: "circle", icon: "" } as Appearance };
+const blank = { name: "", appearance: { color: "#1d4ed8", size: 56, shape: "price-tag", icon: "" } as Appearance };
 
 /** Lists tag types with their node, and creates or edits them. Types are never deleted. */
 export function TagTypesDialog({ workspace, save, onClose }: {
@@ -53,7 +54,7 @@ export function TagTypesDialog({ workspace, save, onClose }: {
             <NodePreview appearance={t.appearance} />
             <div className="type-row-text">
               <strong>{t.name}</strong>
-              <span className="subtle">{count(t.id)} tag{count(t.id) === 1 ? "" : "s"} · {t.appearance.shape.replace("-", " ")} · {t.appearance.size} px{t.appearance.icon ? ` · ${t.appearance.icon}` : ""}</span>
+              <span className="subtle">{count(t.id)} tag{count(t.id) === 1 ? "" : "s"} · {t.appearance.shape.replace("-", " ")}{t.appearance.points ? ` (${t.appearance.points.replace("-", " ")})` : ""} · {t.appearance.size} px{t.appearance.icon ? ` · ${t.appearance.icon}` : ""}</span>
             </div>
             <button onClick={() => edit(t)}>Edit</button>
           </div>
@@ -66,14 +67,13 @@ export function TagTypesDialog({ workspace, save, onClose }: {
         </div>
         <label>Name<input value={draft.name} placeholder="e.g. Reading list" onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
         <div className="type-form-grid">
-          <label>Color<input type="color" value={draft.appearance.color} onChange={(e) => set({ color: e.target.value })} /></label>
-          <label>Shape
-            <select value={draft.appearance.shape} onChange={(e) => set({ shape: e.target.value as Appearance["shape"] })}>
-              <option value="circle">Circle</option>
-              <option value="rounded-square">Rounded square</option>
-              <option value="diamond">Diamond</option>
-            </select>
-          </label>
+          <div className="type-form-wide"><span className="field-label">Color</span>
+            <ColorPicker value={draft.appearance.color} onChange={(color) => set({ color })}
+              used={workspace.tagTypes.filter((t) => t.id !== editing?.id).map((t) => t.appearance.color)} /></div>
+          <div className="type-form-wide"><span className="field-label">Style</span><StylePicker value={draft.appearance} onChange={set} /></div>
+          <div className="type-form-wide"><span className="field-label">Points</span>
+            <div className="points-field"><PointsPicker value={draft.appearance} onChange={(points) => set({ points })} />
+              <span className="subtle">Which way the end with the hole points. Tags of this type follow unless they set their own.</span></div></div>
           <label>Size<input type="number" min={20} max={160} value={draft.appearance.size} onChange={(e) => set({ size: Math.max(20, Math.min(160, Number(e.target.value) || 56)) })} /></label>
           <label>Icon<input maxLength={4} placeholder="Optional" value={draft.appearance.icon ?? ""} onChange={(e) => set({ icon: e.target.value })} /></label>
         </div>
