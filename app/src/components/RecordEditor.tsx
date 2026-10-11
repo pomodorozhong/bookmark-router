@@ -2,6 +2,7 @@ import { Dialog } from "./Dialog";
 import { useState } from "react";
 import { NodePreview } from "./NodePreview";
 import { ColorPicker, PointsPicker, StylePicker } from "./AppearancePickers";
+import { initialOf } from "./tag-shapes";
 import {
   appearanceFor,
   defaultAppearance,
@@ -286,7 +287,7 @@ export function RecordEditor({
               </label>
             )}
             </div>
-            <div className="appearance-preview"><NodePreview appearance={effective} box={96} /><span className="subtle">Preview</span></div>
+            <div className="appearance-preview"><NodePreview appearance={{ ...effective, icon: effective.icon?.trim() || initialOf(title) }} box={96} /><span className="subtle">Preview</span></div>
             </div>
           </details>
         )}

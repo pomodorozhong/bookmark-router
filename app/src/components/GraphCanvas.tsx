@@ -2,7 +2,7 @@ import { bubbleImageMinZoom, bubbleLabelMinZoom, tagLabelOutside } from "./graph
 import { placeNear, type Point } from "./graph-placement";
 import "./focus-adapt-label";
 import "./tag-node";
-import { isTagStyle } from "./tag-shapes";
+import { initialOf, isTagStyle } from "./tag-shapes";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from "react";
 import {
   CanvasEvent,
@@ -51,9 +51,10 @@ function roundThumbnail(img: HTMLImageElement, key: string): HTMLCanvasElement {
 }
 
 // A tag's node follows its appearance: shape picks the node type (tag styles share
-// the "tag-shape" node, turned by `points`), color fills it, and the icon is drawn inside.
-function tagNode(a: Appearance) {
-  const tag = isTagStyle(a.shape);
+// the "tag-shape" node, turned by `points`), color fills it, and the icon, or else the
+// name's initial, is drawn inside.
+function tagNode(a: Appearance, name: string) {
+  const tag = isTagStyle(a.shape), icon = a.icon || initialOf(name);
   return {
     type: tag ? "tag-shape" : a.shape === "rounded-square" ? "rect" : a.shape,
     style: {
@@ -62,8 +63,8 @@ function tagNode(a: Appearance) {
       ...(tag ? { tagStyle: a.shape, points: a.points } : {}),
       fill: a.color,
       stroke: a.color,
-      icon: Boolean(a.icon),
-      iconText: a.icon ?? "",
+      icon: Boolean(icon),
+      iconText: icon,
       iconFill: "#fff",
       iconFontSize: Math.round(a.size * (tag ? 0.27 : 0.42)),
       iconFontWeight: 600,
@@ -389,7 +390,7 @@ export function GraphCanvas({
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const nodes: NodeData[] = [
       ...workspace.tags.map<NodeData>((tag, i) => {
-        const node = tagNode(appearanceFor(tag, workspace));
+        const node = tagNode(appearanceFor(tag, workspace), tag.name);
         return {
           id: tag.id,
           type: node.type,
@@ -852,15 +853,16 @@ export function GraphCanvas({
         nodes: added.map((n) => {
           const tag = "name" in n;
           const a = tag ? appearanceFor(n, workspace) : undefined;
+          const node = tag && a ? tagNode(a, n.name) : undefined;
           const [x, y] = positions.get(n.id)!;
           return {
             id: n.id,
-            type: a ? tagNode(a).type : "circle",
+            type: node ? node.type : "circle",
             data: { label: tag ? n.name : n.title, tag },
             style: {
               x,
               y,
-              ...(a ? tagNode(a).style : { size: 25, fill: "#fff", stroke: "#94a3b8" }),
+              ...(node ? node.style : { size: 25, fill: "#fff", stroke: "#94a3b8" }),
               lineWidth: 2,
               labelFill: tag ? "#fff" : "#475569",
               labelPlacement: tag ? "center" : "bottom",
@@ -880,7 +882,7 @@ export function GraphCanvas({
       ...workspace.tags.map((t) => {
         // Restyle on every change, so appearance edits reach nodes drawn earlier;
         // a new shape swaps the node type.
-        const node = tagNode(appearanceFor(t, workspace));
+        const node = tagNode(appearanceFor(t, workspace), t.name);
         return {
           id: t.id,
           ...(g.getNodeData(t.id).type !== node.type ? { type: node.type } : {}),
