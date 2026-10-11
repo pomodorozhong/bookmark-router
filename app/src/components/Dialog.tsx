@@ -13,7 +13,9 @@ export function Dialog({ children, labelledBy, onClose, className = "" }: {
     return () => { dialog.close(); opener?.focus(); };
   }, []);
   return <dialog ref={ref} className={`modal ${className}`} aria-labelledby={labelledBy}
-    onCancel={(event) => { event.preventDefault(); onClose(); }}>
+    onCancel={(event) => { event.preventDefault(); onClose(); }}
+    // Chrome can skip the cancel event for a dialog opened from a keystroke.
+    onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); onClose(); } }}>
     {children}
   </dialog>;
 }

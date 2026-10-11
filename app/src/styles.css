@@ -415,3 +415,109 @@ th { background: #f4f7f5; color: var(--muted); }
   .toast { right: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* Triage: queue | graph | bookmark panel. */
+.triage { height: 100dvh; display: flex; flex-direction: column; position: relative; }
+.triage-header { display: flex; align-items: center; gap: 16px; padding: 10px 20px; border-bottom: 1px solid var(--line); background: white; }
+.panel-closed .triage-header { padding-left: 68px; }
+.triage-progress { flex: 1; display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; min-width: 0; }
+.triage-bar { flex: 1; max-width: 260px; height: 6px; border-radius: 3px; background: #e5ece8; overflow: hidden; display: flex; }
+.triage-bar span { height: 100%; }
+.triage-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 280px minmax(0, 1fr) 400px; }
+.triage.queue-closed .triage-body { grid-template-columns: 0 minmax(0, 1fr) 400px; }
+.triage-queue { border-right: 1px solid var(--line); overflow: auto; background: #fbfcfb; min-width: 0; }
+.triage.queue-closed .triage-queue { visibility: hidden; border: 0; }
+.queue-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px 6px 14px; background: #f4f7f5; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+.queue-bar.selection { background: #eff4ff; border-color: #c7d6fb; color: #1e3a8a; }
+.queue-bar button { min-height: 28px; padding: 3px 9px; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
+.queue-bar-actions { display: flex; gap: 6px; }
+.queue-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid #edf2ef; border-radius: 0; padding: 9px 14px; background: transparent; }
+.queue-item:hover { background: #f1f6f3; }
+.queue-item.current { background: var(--tint); box-shadow: inset 3px 0 var(--teal); }
+.queue-title { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; font-size: 13px; }
+.queue-meta { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.queue-domain { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-status { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: #e5ece8; }
+.queue-groups { margin-left: auto; font-variant-numeric: tabular-nums; }
+.queue-empty { padding: 16px; color: var(--muted); }
+.warn-dot { width: 7px; height: 7px; border-radius: 50%; background: #b45309; display: inline-block; flex-shrink: 0; }
+.triage-stage { position: relative; min-width: 0; min-height: 0; }
+.triage-stage .canvas-shell { position: absolute; inset: 0; }
+.triage-tools { position: absolute; left: 12px; top: 12px; right: 12px; z-index: 5; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; pointer-events: none; }
+.triage-tools > * { pointer-events: auto; }
+.triage-tools > button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 10px; background: white; }
+.triage-tools > button[aria-pressed=true] { background: var(--tint); border-color: #a5ccbc; }
+.triage-filter { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-left: auto; padding: 3px 6px 3px 10px; background: #ffffffeb; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); }
+.triage-filter.active { border-color: #a5ccbc; }
+.triage-filter input[type=search] { width: 200px; min-height: 30px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 7px; font: inherit; }
+.type-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; padding: 4px 6px; border-radius: 6px; cursor: pointer; user-select: none; }
+.type-toggle:has(input:not(:checked)) { opacity: .5; text-decoration: line-through; }
+.type-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.type-toggle:has(input:focus-visible) { outline: 2px solid var(--teal); }
+.filter-count { font-size: 12px; padding: 0 4px; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+.triage-panel { border-left: 1px solid var(--line); background: white; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.triage-detail { flex: 1; overflow: auto; padding: 18px 20px 12px; }
+.triage-top { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
+.triage-top h2 { font-size: 18px; line-height: 1.3; margin: 0 0 6px; overflow-wrap: anywhere; }
+.triage-links { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; }
+.triage-links a { color: var(--teal); display: inline-flex; gap: 4px; align-items: center; }
+.triage-links .text-button { display: inline-flex; gap: 4px; align-items: center; font-size: 13px; }
+.triage-cover { width: 88px; height: 88px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); flex-shrink: 0; }
+.triage-desc { color: #334d45; line-height: 1.55; margin: 12px 0; white-space: pre-line; font-size: 13.5px; overflow-wrap: anywhere; }
+.triage-raindrop { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+.triage-raindrop .chip { background: #eef2f0; border-radius: 10px; padding: 2px 8px; }
+.triage-warning { background: #fff7e8; border: 1px solid #f2d7a6; border-radius: 8px; padding: 9px 11px; font-size: 12.5px; margin: 8px 0; }
+.triage-warning strong { color: #b45309; display: block; margin-bottom: 2px; }
+.triage-section { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.triage-section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+.triage-groups { display: flex; flex-direction: column; gap: 6px; }
+.triage-group { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 7px 6px 7px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.triage-group .swatch { margin-top: 5px; }
+.group-name { font-weight: 600; font-size: 13px; }
+.group-type { font-size: 11px; color: var(--muted); margin-left: 6px; }
+.group-why { color: var(--muted); font-size: 12px; margin: 3px 0 0; line-height: 1.45; }
+.group-add { position: relative; margin-top: 8px; }
+.group-add input { width: 100%; padding: 8px 11px; border: 1px dashed #b9cbc2; border-radius: 8px; background: #fbfcfb; font: inherit; }
+.group-menu { position: absolute; z-index: 10; left: 0; right: 0; top: 100%; margin-top: 4px; max-height: 280px; overflow: auto; background: white; border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+.group-menu-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 8px 12px 4px; }
+.group-menu button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; border: 0; border-radius: 0; padding: 6px 12px; min-height: 32px; }
+.group-menu button.highlighted { background: var(--tint); }
+.triage-related { display: flex; flex-direction: column; }
+.triage-related button { display: flex; gap: 8px; align-items: baseline; text-align: left; border: 0; padding: 5px 6px; min-height: 30px; }
+.related-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.related-via { color: var(--muted); font-size: 11.5px; margin-left: auto; white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+.triage-decisions { border-top: 1px solid var(--line); padding: 12px 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.triage-decisions button { display: flex; flex-direction: column; align-items: center; padding: 7px 4px; }
+.triage-decisions small { color: var(--muted); font-size: 11px; }
+.triage-decisions .primary small { color: #cfe8df; }
+.triage-decisions button:disabled { opacity: .45; cursor: default; }
+.triage-empty { padding: 32px 24px; }
+.triage-toast { position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; gap: 12px; align-items: center; background: #183e35; color: white; padding: 8px 14px; border-radius: 8px; font-size: 13px; max-width: calc(100% - 32px); }
+.triage-toast button { background: transparent; border: 0; color: #9fe0c8; padding: 0; min-height: 0; }
+.copy-modal { width: min(640px, calc(100% - 32px)); }
+.copy-modal .modal-heading h2 { font-size: 18px; margin: 0; }
+.copy-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.copy-presets button { padding: 5px 10px; font-size: 13px; min-height: 32px; }
+.copy-presets button[aria-pressed=true] { background: var(--tint); border-color: #a5ccbc; color: #115e59; }
+.copy-modal label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--muted); margin: 12px 0 0; }
+.copy-modal textarea { font: 13px ui-monospace, monospace; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; resize: vertical; color: var(--ink); }
+.copy-modal select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; color: var(--ink); }
+.copy-fields { margin: 6px 0 0; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.copy-fields code { background: #f0f4f2; border-radius: 4px; padding: 1px 4px; }
+.copy-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.copy-preview { margin: 14px 0 0; max-height: 260px; overflow: auto; background: #f8faf9; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: 12.5px/1.55 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.copy-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+@media (max-width: 1200px) {
+  .triage-body { grid-template-columns: 240px minmax(0, 1fr) 340px; }
+  .triage.queue-closed .triage-body { grid-template-columns: 0 minmax(0, 1fr) 340px; }
+  .triage-filter input[type=search] { width: 150px; }
+}
+@media (max-width: 820px) {
+  .triage-header { padding-left: 68px; flex-wrap: wrap; }
+  .triage-body, .triage.queue-closed .triage-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 46%); }
+  .triage-queue { position: absolute; z-index: 20; top: 0; bottom: 0; left: 0; width: min(300px, 85%); box-shadow: var(--shadow); }
+  .triage-panel { border-left: 0; border-top: 1px solid var(--line); }
+  .triage-filter { margin-left: 0; }
+  .triage-body { position: relative; }
+}
