@@ -92,7 +92,8 @@ export function CollectionMenu({ workspace, collections, onOpen, onNew, onDelete
   );
 }
 
-export function MoreMenu({ onAddBubble, onAddTag, onHistory, onDownload, onRestore, onDelete }: {
+export function MoreMenu({ onAddBubble, onAddTag, onTagTypes, onHistory, onDownload, onRestore, onDelete }: {
+  onTagTypes: () => void;
   onDelete: () => void;
   onAddBubble: () => void;
   onAddTag: () => void;
@@ -106,6 +107,7 @@ export function MoreMenu({ onAddBubble, onAddTag, onHistory, onDownload, onResto
         <>
           <Item icon="plus" onSelect={() => { close(); onAddBubble(); }}>Add bubble…</Item>
           <Item icon="tag" onSelect={() => { close(); onAddTag(); }}>Add tag…</Item>
+          <Item icon="layout" onSelect={() => { close(); onTagTypes(); }}>Tag types…</Item>
           <Item icon="history" onSelect={() => { close(); onHistory(); }}>Import history…</Item>
           <hr />
           <Item icon="download" onSelect={() => { close(); onDownload(); }}>Download backup</Item>
