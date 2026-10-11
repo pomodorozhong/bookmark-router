@@ -88,9 +88,9 @@ export function convertPrototype(data: Prototype, now: string): Backup {
   const meta = { revision: 0, createdAt: now, updatedAt: now };
   const status = (key: string) => statusIds[data.node_progress[key]] ?? "pending";
   const types: TagType[] = [
-    { id: "type:existing-issue", name: "Existing issue", appearance: { color: "#0f766e", size: 72, shape: "circle" } },
-    { id: "type:proposal-issue", name: "Proposal issue", appearance: { color: "#b45309", size: 64, shape: "circle" } },
-    { id: "type:topic", name: "Topic", appearance: { color: "#475569", size: 52, shape: "rounded-square" } },
+    { id: "type:existing-issue", name: "Existing issue", appearance: { color: "#0f766e", size: 72, shape: "price-tag" } },
+    { id: "type:proposal-issue", name: "Proposal issue", appearance: { color: "#b45309", size: 64, shape: "rounded-tag" } },
+    { id: "type:topic", name: "Topic", appearance: { color: "#475569", size: 52, shape: "hang-tag" } },
   ];
   const issueTag = (n: number) => `issue:${n}`;
   const tags: Tag[] = [
