@@ -1,4 +1,4 @@
-# Bubble & Tag
+# Bookmark & Tag
 
 A local-first app for triaging bookmarks into project ideas. The current plan is [../docs/plan.md](../docs/plan.md); progress is in [../docs/progress.md](../docs/progress.md).
 
@@ -21,7 +21,7 @@ The collection screen is triage: a queue on the left, the force-directed graph i
 - **Filter** (`F`): text over titles, URLs, descriptions, and group names; group-type toggles; hide decided bookmarks. The filter narrows the graph and the queue.
 - **Copy** (`C`): the selection, the current list, or the current bookmark through a template with presets and fields; the template is remembered on this device.
 - **Edit** opens the bookmark editor; clicking a tag in the graph opens the tag editor.
-- **Header:** the collection menu (logo and name) switches or creates collections; **⋯** holds Add bubble (Import), Add tag, Import history, Download backup, and Restore backup. There is no sidebar; Import has a Back link.
+- **Header:** the collection menu (logo and name) switches or creates collections; **⋯** holds Add bookmark (Import), Add tag, Import history, Download backup, and Restore backup. There is no sidebar; Import has a Back link.
 - **Graph toolbar:** Queue, Whole collection (zoom out to everything), and Current (center on the current bookmark).
 
 Every decision and group change is a revision-checked command with a labeled entry in the per-collection **Undo** (up to 50 actions, kept across reloads). Selection, filter, and graph positions are not undoable. Node positions, existing pins, and the viewport are stored separately from content; Layout → Reset positions clears pins.
