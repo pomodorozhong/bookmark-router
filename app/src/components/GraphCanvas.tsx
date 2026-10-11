@@ -19,7 +19,7 @@ import {
   type SimulationLinkDatum,
   type Simulation,
 } from "d3-force";
-import { appearanceFor, type Bubble, type Geometry, type Workspace } from "../domain/model";
+import { appearanceFor, type Appearance, type Bubble, type Geometry, type Workspace } from "../domain/model";
 import { Icon, IconButton } from "./Icon";
 export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
@@ -46,6 +46,25 @@ function roundThumbnail(img: HTMLImageElement, key: string): HTMLCanvasElement {
   const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
   context.drawImage(img, (thumbnailSize - width) / 2, (thumbnailSize - height) / 2, width, height);
   return Object.assign(canvas, { src: `thumbnail:${key}`, complete: true });
+}
+
+// A tag's node follows its appearance: shape picks the node type, color fills
+// it, and the icon is drawn inside.
+function tagNode(a: Appearance) {
+  return {
+    type: a.shape === "rounded-square" ? "rect" : a.shape,
+    style: {
+      size: a.size,
+      radius: 14,
+      fill: a.color,
+      stroke: a.color,
+      icon: Boolean(a.icon),
+      iconText: a.icon ?? "",
+      iconFill: "#fff",
+      iconFontSize: Math.round(a.size * 0.42),
+      iconFontWeight: 600,
+    },
+  };
 }
 
 export function GraphCanvas({
@@ -361,18 +380,15 @@ export function GraphCanvas({
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const nodes: NodeData[] = [
       ...workspace.tags.map<NodeData>((tag, i) => {
-        const a = appearanceFor(tag, workspace);
+        const node = tagNode(appearanceFor(tag, workspace));
         return {
           id: tag.id,
-          type: a.shape === "rounded-square" ? "rect" : a.shape,
-          data: { label: a.icon ? `${a.icon} ${tag.name}` : tag.name, tag: true },
+          type: node.type,
+          data: { label: tag.name, tag: true },
           style: {
             x: 140 + i * 170,
             y: 200,
-            size: a.size,
-            radius: 14,
-            fill: a.color,
-            stroke: a.color,
+            ...node.style,
             labelFill: "#fff",
             labelPlacement: "center",
             labelFontWeight: 600,
@@ -830,24 +846,12 @@ export function GraphCanvas({
           const [x, y] = positions.get(n.id)!;
           return {
             id: n.id,
-            type:
-              a?.shape === "rounded-square" ? "rect" : (a?.shape ?? "circle"),
-            data: {
-              label: tag
-                ? (() => {
-                    const appearance = a!;
-                    return appearance.icon ? `${appearance.icon} ${n.name}` : n.name;
-                  })()
-                : n.title,
-              tag,
-            },
+            type: a ? tagNode(a).type : "circle",
+            data: { label: tag ? n.name : n.title, tag },
             style: {
               x,
               y,
-              size: a?.size ?? 25,
-              fill: a?.color ?? "#fff",
-              stroke: a?.color ?? "#94a3b8",
-              radius: 14,
+              ...(a ? tagNode(a).style : { size: 25, fill: "#fff", stroke: "#94a3b8" }),
               lineWidth: 2,
               labelFill: tag ? "#fff" : "#475569",
               labelPlacement: tag ? "center" : "bottom",
@@ -864,15 +868,17 @@ export function GraphCanvas({
         })),
       });
     g.updateNodeData([
-      ...workspace.tags.map((t) => ({
-        id: t.id,
-        data: {
-          label: appearanceFor(t, workspace).icon
-            ? `${appearanceFor(t, workspace).icon} ${t.name}`
-            : t.name,
-          tag: true,
-        },
-      })),
+      ...workspace.tags.map((t) => {
+        // Restyle on every change, so appearance edits reach nodes drawn earlier;
+        // a new shape swaps the node type.
+        const node = tagNode(appearanceFor(t, workspace));
+        return {
+          id: t.id,
+          ...(g.getNodeData(t.id).type !== node.type ? { type: node.type } : {}),
+          data: { label: t.name, tag: true },
+          style: node.style,
+        };
+      }),
       ...workspace.bubbles.map((b) => ({ id: b.id, data: { label: b.title } })),
     ]);
     g.updateNodeData(
