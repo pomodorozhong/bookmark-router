@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TriageScreen } from "./components/TriageScreen";
+import { CollectionMenu, MoreMenu } from "./components/AppMenus";
 import { WorkspaceFeedback } from "./components/WorkspaceFeedback";
 import {
   fields,
@@ -21,7 +22,6 @@ import { WorkspaceStore } from "./domain/storage";
 import { ConflictError, type Command } from "./domain/commands";
 import { undoConflicts } from "./domain/import-commands";
 import { RecordEditor } from "./components/RecordEditor";
-import { usePanelFocus } from "./components/usePanelFocus";
 import { Dialog } from "./components/Dialog";
 import { Icon, IconButton, type IconName } from "./components/Icon";
 const store = new WorkspaceStore();
@@ -82,8 +82,7 @@ export default function App() {
   const [choices, setChoices] = useState<
       Record<number, "skip" | "keep" | "merge">
     >({}),
-    [excluded, setExcluded] = useState<Set<number>>(new Set()),
-    [panelOpen, setPanelOpen] = useState(true);
+    [excluded, setExcluded] = useState<Set<number>>(new Set());
   const [loaded, setLoaded] = useState(false),
     [collections, setCollections] = useState<Workspace[]>([]),
     [geometry, setGeometry] = useState<Geometry>(),
@@ -101,41 +100,9 @@ export default function App() {
     [typeMapping, setTypeMapping] = useState<Record<string, string>>({}),
     [invalidAcknowledged, setInvalidAcknowledged] = useState(false),
     [reviewTarget, setReviewTarget] = useState<Workspace>();
-  const collectionPickerRef = useRef<HTMLDivElement>(null);
-  usePanelFocus(panelOpen && loaded, "#left-panel", 820, () => setPanelOpen(false));
-  const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
   const submitting = useRef(false),
     workspaceRef = useRef(workspace);
   workspaceRef.current = workspace;
-  useEffect(() => {
-    if (!collectionMenuOpen) return;
-    collectionPickerRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
-    const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!collectionPickerRef.current?.contains(event.target as Node)) {
-        setCollectionMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        setCollectionMenuOpen(false);
-        collectionPickerRef.current?.querySelector<HTMLElement>(".collection-select")?.focus();
-      }
-      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-        event.preventDefault();
-        const options = Array.from(collectionPickerRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
-        const current = options.indexOf(document.activeElement as HTMLElement);
-        const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : (current + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
-        options[next]?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [collectionMenuOpen]);
   useEffect(() => {
     let active = true;
     const storageTimeout = window.setTimeout(() => {
@@ -192,11 +159,8 @@ export default function App() {
     setGeometry(await store.getGeometry(w.id));
     setWorkspace(w);
     rememberCollection(w.id);
-    setCollectionMenuOpen(false);
     setNextUndo(await store.nextUndo(w.id));
     setUndoMessage(undefined);
-    // Triage needs the width for queue, graph, and panel; navigation stays one click away.
-    if (window.innerWidth < 1600) setPanelOpen(false);
     setScreen("workspace");
   }
   async function publish(w: Workspace) {
@@ -462,131 +426,37 @@ export default function App() {
     busy={busy}
     onUndo={() => void undoLastAction()}
   />;
+  function restoreBackup() {
+    setScreen("import");
+    setFormat("json");
+    setStep(0);
+    setText("");
+    setFilename("");
+  }
+  const collectionMenu = (
+    <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w)}
+      onNew={() => { setPromptKind("collection"); setPromptValue(""); }} />
+  );
+  const moreMenu = (
+    <MoreMenu
+      onAddBubble={() => setScreen("import")}
+      onAddTag={() => { setPromptKind("tag"); setPromptValue(""); }}
+      onHistory={() => setHistory(true)}
+      onDownload={() => void backup()}
+      onRestore={restoreBackup}
+    />
+  );
   return (
     <div
-      className={`app-shell ${screen === "workspace" ? "workspace-mode" : "import-mode"} ${panelOpen ? "panel-open" : "panel-closed"}`}
+      className={`app-shell ${screen === "workspace" ? "workspace-mode" : "import-mode"}`}
     >
-      <button
-        className="panel-toggle"
-        aria-label={panelOpen ? "Retract left panel" : "Open left panel"}
-        aria-expanded={panelOpen}
-        aria-controls="left-panel"
-        onClick={() => setPanelOpen((v) => !v)}
-      >
-        <Icon name={panelOpen ? "chevron-left" : "menu"} size={18} />
-      </button>
-      <aside id="left-panel" className={`sidebar ${panelOpen ? "" : "hidden"}`}>
-        <IconButton className="sidebar-close" label="Close navigation" icon="close" onClick={() => setPanelOpen(false)} />
-        <a
-          className="brand"
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setScreen("import");
-            if (window.innerWidth <= 820) setPanelOpen(false);
-          }}
-        >
-          <span className="brand-mark" aria-hidden="true">
-            <span />
-            <span />
-          </span>
-          <span>Bubble &amp; Tag</span>
-        </a>
-        <section className="collection-context">
-          <div className="sidebar-section">COLLECTION</div>
-          <div className="collection-picker" ref={collectionPickerRef}>
-            <button
-              type="button"
-              className="collection-select"
-              aria-label="Collection"
-              aria-haspopup="listbox"
-              aria-expanded={collectionMenuOpen}
-              aria-controls="collection-menu"
-              onClick={() => setCollectionMenuOpen((open) => !open)}
-            >
-              <span className="collection-select-name">{workspace.name}</span>
-              <Icon name="chevron-down" size={15} />
-            </button>
-            {collectionMenuOpen && (
-              <div
-                id="collection-menu"
-                className="collection-menu"
-                role="listbox"
-                aria-label="Collections"
-              >
-                {collections.map((w) => (
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={w.id === workspace.id}
-                    className={`collection-option ${w.id === workspace.id ? "selected" : ""}`}
-                    key={w.id}
-                    onClick={() => void openWorkspace(w)}
-                  >
-                    <span className="collection-option-copy">
-                      <strong>{w.name}</strong>
-                      <span>{w.bubbles.length} bubbles · {w.tags.length} tags</span>
-                    </span>
-                    {w.id === workspace.id && <Icon name="check" size={15} />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <IconButton className="new-collection" label="New collection" icon="plus" onClick={() => { setPromptKind("collection"); setPromptValue(""); }} />
-          <p className="collection-count">
-            <span>{workspace.bubbles.length} bubbles</span>
-            <span>{workspace.tags.length} tags</span>
-          </p>
-        </section>
-
-        <button
-          className={screen === "workspace" ? "nav active" : "nav"}
-          onClick={() => { setScreen("workspace"); if (window.innerWidth <= 820) setPanelOpen(false); }}
-        >
-          <Icon name="collection" /> <span>Collection</span>
-        </button>
-        <button
-          className={screen === "import" ? "nav active" : "nav"}
-          onClick={() => { setScreen("import"); if (window.innerWidth <= 820) setPanelOpen(false); }}
-        >
-          <Icon name="import" /> <span>Import</span>
-        </button>
-        <div className="sidebar-divider" />
-        <button className="nav" onClick={() => { setPromptKind("tag"); setPromptValue(""); }}>
-          <Icon name="tag" /> <span>New tag</span>
-        </button>
-        <div className="sidebar-utilities">
-        <div className="sidebar-section">COLLECTION TOOLS</div>
-        <button className="nav" onClick={() => {
-          setScreen("import");
-          if (window.innerWidth <= 820) setPanelOpen(false);
-          setFormat("json");
-          setStep(0);
-          setText("");
-          setFilename("");
-        }}>
-          <Icon name="upload" /> <span>Restore backup</span>
-        </button>
-        <button className="nav" onClick={() => void backup()}>
-          <Icon name="download" /> <span>Download backup</span>
-        </button>
-        <button className="nav" onClick={() => setHistory(true)}>
-          <Icon name="history" /> <span>Import history</span>
-        </button>
-        </div>
-        <div className="sidebar-footer">
-          <span className="subtle">Changes are saved on this device.</span>
-        </div>
-      </aside>
-      {panelOpen && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setPanelOpen(false)} />}
-      <main className="main-area" onClick={() => { if (window.innerWidth <= 820) setPanelOpen(false); }}>
-        <header className="topbar">
-          <span>
-            {screen === "import" ? "Import a collection" : workspace.name}
-          </span>
-          <span className="badge">Browser-local collection</span>
-        </header>
+      <main className="main-area">
+        {screen === "import" && (
+          <header className="topbar">
+            {collectionMenu}
+            {moreMenu}
+          </header>
+        )}
         {notice && (
           <div className="toast" role="status">
             {notice}
@@ -601,6 +471,9 @@ export default function App() {
         )}
         {screen === "import" ? (
           <div className="import-page">
+            <button className="back-link" onClick={() => setScreen("workspace")}>
+              <Icon name="arrow-left" size={15} /> Back to {workspace.name}
+            </button>
             <div className="page-heading">
               <div className="eyebrow">START WITH YOUR OWN DATA</div>
               <h1>Bring your collection in.</h1>
@@ -1055,6 +928,8 @@ export default function App() {
             onEdit={setEditing}
             onImport={() => setScreen("import")}
             onError={setError}
+            headerStart={collectionMenu}
+            headerEnd={moreMenu}
           />
         )}
       </main>

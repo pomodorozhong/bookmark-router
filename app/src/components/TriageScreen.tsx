@@ -42,7 +42,9 @@ function Cover({ asset, load }: { asset?: Asset; load: LoadMedia }) {
 }
 
 /** The main collection screen: triage bookmarks into groups beside the force-directed graph. */
-export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, feedback, onEdit, onImport, onError }: {
+export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, feedback, onEdit, onImport, onError, headerStart, headerEnd }: {
+  headerStart?: ReactNode;
+  headerEnd?: ReactNode;
   workspace: Workspace;
   geometry?: Geometry;
   onGeometry: (geometry: Geometry) => void;
@@ -212,6 +214,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   return (
     <div className={`triage ${queueOpen ? "" : "queue-closed"}`}>
       <header className="triage-header">
+        {headerStart}
         <div className="triage-progress" aria-label="Triage progress">
           <div className="triage-bar" aria-hidden="true">
             <span style={{ width: `${(counts.done / total) * 100}%`, background: "var(--teal)" }} />
@@ -224,6 +227,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""} onClick={() => { setTab(key); show(undefined, false); }}>{label}</button>
           ))}
         </div>
+        {headerEnd}
       </header>
       <div className="triage-body">
         <nav className="triage-queue" aria-label="Bookmarks to triage">
@@ -260,8 +264,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         </nav>
         <div className="triage-stage">
           <div className="triage-tools">
-            <button onClick={() => setQueueOpen((v) => !v)} aria-pressed={queueOpen} title="Show or hide the queue (Q)"><Icon name="list" size={15} /> Queue</button>
-            <button onClick={() => current && graphRef.current?.frame([current.id, ...groups.map((g) => g.id)])} disabled={!current} title="Center on the current bookmark"><Icon name="fit" size={15} /> Current</button>
+            <button onClick={() => setQueueOpen((v) => !v)} aria-pressed={queueOpen} title="Show or hide the queue (Q)"><Icon name="list" size={17} strokeWidth={2} /> Queue</button>
+            <button onClick={() => graphRef.current?.fitAll()} title="Zoom out to every bookmark"><Icon name="fit" size={17} strokeWidth={2} /> Whole collection</button>
+            <button onClick={() => current && graphRef.current?.frame([current.id, ...groups.map((g) => g.id)])} disabled={!current} title="Center on the current bookmark"><Icon name="scope" size={17} strokeWidth={2} /> Current</button>
             <div className={`triage-filter ${filtering ? "active" : ""}`}>
               <Icon name="filter" size={15} />
               <input ref={filterInput} type="search" aria-label="Filter bookmarks and groups" placeholder="Filter bookmarks and groups… (F)" value={filter.text}

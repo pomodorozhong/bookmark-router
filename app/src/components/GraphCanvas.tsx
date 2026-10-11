@@ -21,6 +21,8 @@ export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
   /** Zoom and center so these nodes, with room for titles, fill the view. */
   frame(ids: string[]): void;
+  /** Zoom out until every visible node fits. */
+  fitAll(): void;
   positionOf(id: string): readonly [number, number] | undefined;
 }
 // Titles show for related or box-selected bookmarks only while there are few enough to read.
@@ -248,6 +250,12 @@ export function GraphCanvas({
           return g.translateBy([width / 2 - x, height / 2 - y], { duration: 300 });
         })
         .catch((e) => setError(String(e)));
+    },
+    fitAll() {
+      const g = graph.current;
+      if (!g || renderedGraph.current !== g) return;
+      autoFit.current = false;
+      void g.fitView({}, { duration: 300 }).catch((e) => setError(String(e)));
     },
     positionOf(id) {
       const g = graph.current;
