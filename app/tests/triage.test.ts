@@ -47,15 +47,17 @@ test("queue follows tab outcomes, filter text, group names, and the selection", 
   assert.deepEqual(ids(triageQueue(w, { tab: "all", filter: emptyTriageFilter, selection: new Set(["b", "c"]) })), ["b", "c"]);
 });
 
-test("graph visibility hides decided bookmarks and unmatched groups on request", () => {
+test("graph visibility follows the queue tab and hides unmatched groups", () => {
   const w = fixture();
-  const v = graphVisibility(w, { ...emptyTriageFilter, showDecided: false });
+  const v = graphVisibility(w, emptyTriageFilter, "todo");
   assert.deepEqual(v.bubbleIds, ["a"]);
   assert.deepEqual(v.hiddenTagIds, []);
   const typed = graphVisibility(w, { ...emptyTriageFilter, text: "keywords" });
   assert.deepEqual(typed.bubbleIds, ["b"]);
   assert.deepEqual(typed.hiddenTagIds, ["t-pricing"]);
-  assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, showDecided: false }, ["b"]).bubbleIds, ["a", "b"]);
+  assert.deepEqual(graphVisibility(w, emptyTriageFilter, "todo", ["b"]).bubbleIds, ["a", "b"]);
+  assert.deepEqual(graphVisibility(w, emptyTriageFilter, "done").bubbleIds, ["b"]);
+  assert.deepEqual(graphVisibility(w, emptyTriageFilter, "dropped").bubbleIds, ["c"]);
 });
 
 test("hiding empty groups hides groups with no shown bookmark", () => {
@@ -63,7 +65,7 @@ test("hiding empty groups hides groups with no shown bookmark", () => {
   assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, text: "keywords", showEmptyGroups: false }).hiddenTagIds, ["t-pricing"]);
   assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, text: "pricing" }).hiddenTagIds, []);
   w.bubbles[0].statusId = "done";
-  assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, showDecided: false, showEmptyGroups: false }).hiddenTagIds, ["t-pricing", "t-seo"]);
+  assert.deepEqual(graphVisibility(w, { ...emptyTriageFilter, showEmptyGroups: false }, "todo").hiddenTagIds, ["t-pricing", "t-seo"]);
 });
 
 test("clockwise ordering starts at 12 o'clock and sweeps right", () => {
