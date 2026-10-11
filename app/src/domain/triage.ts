@@ -75,8 +75,10 @@ export function graphVisibility(workspace: Workspace, filter: TriageFilter, tab:
   return { bubbleIds, hiddenTagIds, peekTagIds };
 }
 
-// A box selection is ordered clockwise from 12 o'clock around `center`, or its own
-// center (screen coordinates, y down), nearer first on ties, so the queue sweeps around the graph.
+// A box selection is ordered clockwise around `center`, or its own center (screen
+// coordinates, y down), nearer first on ties, so the queue sweeps around the graph. It
+// starts at 12 o'clock, or, when the items leave more than a quarter of the ring empty,
+// at the clockwise edge of that gap, so the order runs along the cluster from one end.
 export function clockwise<T extends { id: string }>(items: T[], positionOf: (id: string) => Point | undefined, center?: Point): T[] {
   const placed = items.map((item) => ({ item, at: positionOf(item.id) }));
   const known = placed.filter((p) => p.at);
@@ -87,7 +89,15 @@ export function clockwise<T extends { id: string }>(items: T[], positionOf: (id:
   ];
   const angle = (at: Point) => (Math.atan2(at[0] - cx, cy - at[1]) + 2 * Math.PI) % (2 * Math.PI);
   const distance = (at: Point) => Math.hypot(at[0] - cx, at[1] - cy);
-  return [...known.sort((a, b) => angle(a.at!) - angle(b.at!) || distance(a.at!) - distance(b.at!)), ...placed.filter((p) => !p.at)].map((p) => p.item);
+  const sorted = known.sort((a, b) => angle(a.at!) - angle(b.at!) || distance(a.at!) - distance(b.at!));
+  const angles = sorted.map((p) => angle(p.at!));
+  let start = 0, widest = 0;
+  for (const [i, a] of angles.entries()) {
+    const gap = i ? a - angles[i - 1] : a + 2 * Math.PI - angles[angles.length - 1];
+    if (gap > widest) [widest, start] = [gap, i];
+  }
+  if (widest <= Math.PI / 2) start = 0;
+  return [...sorted.slice(start), ...sorted.slice(0, start), ...placed.filter((p) => !p.at)].map((p) => p.item);
 }
 
 export function triageQueue(
