@@ -24,9 +24,11 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 - **Round 2 follow-up — tag styles and the rename, October 12, 2026:** following the approved mockup (https://claude.ai/artifact/ECiVsc5BL5R7WtfwhKoF4B): four flat tag styles (price, rounded, shipping, hang), each pointing any of eight ways, with the hole cut through; a style's size is its longer side. The icon tilts 45° on a diagonal tag and stays upright otherwise; a tag's title always sits below it, never inside (user rule). Links end on the tag's outline, not its bounding box. Converted collections give Existing issue a price tag, Proposal issue a rounded tag, and Topic a hang tag. Both editors pick color from 11 presets (custom last), style from buttons, and direction from a 3×3 compass. Tried and reverted: showing the title's initial inside tags without an icon (too busy). **Rename (user decision):** "bubble" is now "bookmark" everywhere, code and saved format included, and the app is **Bookmark & Tag**. The saved format is version 2; the app does not read version 1 (user: an in-app upgrade was too complex), its browser database is now `bookmark-tag`, and `npm run upgrade-backup` converts old `bubble-tag` backups. The user moved their collection over with a backup from 3ce0b00. 69 tests pass.
 - **Round 2 approved — October 12, 2026.** Round 3 (the rest of the filters redesign) starts with mockup options.
 
+- **Round 3 built — October 12, 2026:** following the approved mockup (https://claude.ai/artifact/1bzFb7QCkvPXk1n69UuJss), direction A with counts: **+ Filter** adds a chip (Status, Group, Domain, Has: image / description / warning / no group, Import, Added month) after the type toggles; its menu lists values with how many bookmarks each would leave given the other chips, a search for long lists, and **Not**. Chips combine with and, values with or. **Views** saves the chips and search by name, applies or deletes one, with Undo. Chips compile to the existing filter engine (saved views store a plain Filter), which gains an exact domain match and a warning rule. Peeking groups follow the chips too. Verified in headless Chrome with the converted collection: Has warning 15 of 148; saved as a view, cleared, and re-applied; twitter.com or x.com, Pending: 57. 71 tests pass. Not used: linked tag status, same group as, distance, nested any/all groups. Not verified: Import (the converted collection has no imports).
+
 ## Status at the end of the October 12, 2026 session
 
-**Where things stand.** Rounds 0, 1, and 2 are approved; round 1.5 is skipped. Round 3 is next.
+**Where things stand.** Rounds 0, 1, and 2 are approved; round 1.5 is skipped. Round 3 is built and waits for the user's try.
 
 **Decisions made this session**
 - Peeking groups stay where they last sat; the layout never re-runs for them. Placing them beside the current bookmark is a later option if they land off-screen or on top of other nodes.
@@ -46,5 +48,5 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 - Untracked in the repo root, not created by the assistant: `bookmarks-converted_.json`, `bookmarks-visible.json` (both old-format backups); `.claude/launch.json` starts the dev server for the browser preview. The in-app browser pane is too throttled to lay out the graph; headless Chrome over CDP with a restored backup works (localStorage does not survive between headless runs).
 
 **Next**
-1. Round 3: the rest of the filters redesign (for example status filters and saved filter setups), starting from mockup options. The More menu and peeking groups are its starting point.
+1. User tries round 3 (filter chips and views) and reports anything to fix.
 2. Round 4: WebMCP — needs the user's browser and agent pair.
