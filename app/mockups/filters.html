@@ -1,0 +1,311 @@
+<title>Filters Redesign</title>
+<style>
+  /* Layout: tabs for three directions over one shared example collection; each shows its filter UI above a result list. Then the rule-type checklist. Single light look, matching the app. */
+  :root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --ink: #243b35; --muted: #536b62; --line: #dce5e0; --teal: #0f766e; --tint: #e8f3ee;
+    --bg: #f6f8f7; --card: #ffffff; --dark: #183e35; --amber: #b45309; --slate: #475569;
+    --shadow: 0 10px 30px rgba(24, 62, 53, .14);
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-size: 14px; }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { padding: 16px; padding-block: 16px 48px; max-width: 1180px; margin: 0 auto; display: grid; gap: 18px; }
+  .banner { background: var(--dark); color: #eef7f3; border-radius: 10px; padding: 10px 16px; font-size: 13px; line-height: 1.55; }
+  .banner strong { color: #fff; }
+  .caption { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--teal); font-weight: 600; margin: 0 0 8px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tabs button { border: 1px solid var(--line); background: var(--card); border-radius: 9px; padding: 8px 14px; cursor: pointer; text-align: left; display: grid; gap: 2px; }
+  .tabs button small { color: var(--muted); font-size: 12px; }
+  .tabs button[aria-selected=true] { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; background: #f1f8f5; }
+  button:focus-visible, input:focus-visible { outline: 3px solid #2e9586; outline-offset: 2px; }
+
+  .stage { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: visible; display: grid; grid-template-columns: minmax(0, 1fr); }
+  .bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); background: #fbfcfb; border-radius: 12px 12px 0 0; position: relative; }
+  .search { flex: 0 1 200px; min-width: 140px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+  .type-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; padding: 4px 6px; border-radius: 6px; color: var(--muted); }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .spacer { flex: 1; }
+  .ghost { border: 1px dashed #b7ccc1; background: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12.5px; cursor: pointer; color: var(--teal); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #a5ccbc; background: var(--tint); border-radius: 999px; padding: 3px 4px 3px 10px; font-size: 12.5px; cursor: pointer; }
+  .chip.not { background: #fdf0ec; border-color: #ecc2b5; }
+  .chip b { font-weight: 600; }
+  .chip .x { border: 0; background: transparent; cursor: pointer; width: 20px; height: 20px; border-radius: 50%; color: var(--muted); }
+  .chip .x:hover { background: #fff; }
+  .anchor.end .pop { left: auto; right: 0; }
+  .kept { font-size: 12px; color: var(--muted); padding: 0 4px; }
+  .usecases { display: grid; gap: 8px; }
+  .usecases .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .usecases button { text-align: left; border: 1px solid var(--line); background: var(--card); border-radius: 9px; padding: 9px 12px; cursor: pointer; display: grid; gap: 3px; }
+  .usecases button strong { font-size: 13px; }
+  .usecases button small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+  .usecases button[aria-pressed=true] { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; background: #fffaf2; }
+  .copy-btn { border: 1px solid var(--line); background: #fff; border-radius: 7px; padding: 3px 10px; font-size: 12px; cursor: pointer; color: var(--ink); }
+  .facet .row-v { display: flex; align-items: center; gap: 4px; }
+  .facet .row-v label { flex: 1; min-width: 0; }
+  .facet .row-v.not label span { text-decoration: line-through; color: #b42318; }
+  .facet .row-v .notb { opacity: 0; }
+  .facet .row-v:hover .notb, .facet .notb:focus-visible, .facet .row-v.not .notb { opacity: 1; }
+  .facet .notb { all: unset; cursor: pointer; font-size: 11px; color: var(--muted); padding: 1px 5px; border-radius: 5px; border: 1px solid transparent; }
+  .facet .notb:hover, .facet .row-v.not .notb { border-color: #ecc2b5; background: #fdf0ec; color: #b42318; }
+  .views { border: 1px solid var(--line); background: #fff; border-radius: 7px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; }
+  .anchor { position: relative; display: inline-flex; }
+  .pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; width: 300px; max-width: calc(100% - 24px); background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 8px; display: grid; gap: 2px; }
+  .pop h4 { margin: 4px 8px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .pop button.item { all: unset; cursor: pointer; padding: 7px 8px; border-radius: 7px; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; }
+  .pop button.item:hover { background: #f3f7f5; }
+  .pop button.item small { color: var(--muted); }
+  .pop label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; font-size: 13px; cursor: pointer; }
+  .pop label:hover { background: #f3f7f5; }
+  .pop label small { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .body { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .body.with-facets { grid-template-columns: 250px minmax(0, 1fr); }
+  .facets { border-right: 1px solid var(--line); padding: 12px; display: grid; gap: 14px; align-content: start; font-size: 13px; }
+  .facet h4 { margin: 0 0 6px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+  .facet h4 button { all: unset; cursor: pointer; color: var(--teal); text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .facet label { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+  .facet label small { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .facet label.zero { opacity: .45; }
+  .facet input { accent-color: var(--teal); margin: 0; }
+  .results { padding: 0; min-width: 0; }
+  .results-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; font-size: 12.5px; color: var(--muted); border-bottom: 1px solid #edf2ef; }
+  .results-head strong { color: var(--ink); }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 14px; border-bottom: 1px solid #edf2ef; }
+  .row:last-child { border-bottom: 0; }
+  .row .t { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .m { font-size: 11.5px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; line-height: 1.5; padding: 1px 7px; border-radius: 999px; background: #f0f4f2; color: var(--ink); white-space: nowrap; }
+  .pill .dot { width: 7px; height: 7px; border-radius: 2px; }
+  .pill.warn { background: #fff4e5; color: #8a4b08; }
+  .empty { padding: 30px 14px; color: var(--muted); font-size: 13px; text-align: center; }
+
+  .query { flex: 1 1 420px; min-width: 220px; position: relative; }
+  .query input { width: 100%; padding: 7px 10px; border: 1px solid #a5ccbc; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: #fff; }
+  .query .hint { font-size: 11.5px; color: var(--muted); margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .query .hint code { background: #f0f4f2; border-radius: 5px; padding: 1px 6px; cursor: pointer; }
+  .query .bad { color: #b42318; }
+
+  .rules { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
+  .rules p { margin: 0; font-size: 13px; line-height: 1.55; color: var(--muted); }
+  .rule-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+  .rule { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; }
+  .rule small { grid-column: 2; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+  .rule .tagline { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+  .tagline span { white-space: nowrap; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: #f0f4f2; color: var(--muted); }
+  .tagline span.yes { background: var(--tint); color: var(--teal); }
+  .notes { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }
+
+  @media (max-width: 760px) { .body.with-facets { grid-template-columns: 1fr; } .facets { border-right: 0; border-bottom: 1px solid var(--line); grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
+</style>
+
+<div class="wrap">
+  <div class="banner"><strong>Filters, redesigned.</strong> Pick a use case, then switch between the three directions to see how each one sets it up. All three filter the same 16 made-up example bookmarks; you can also change the rules by hand. Today's search box, type toggles and More menu stay as they are, so they're left out here.</div>
+
+  <section class="usecases">
+    <p class="caption" style="margin:0">1 · Pick a use case</p>
+    <div class="list" id="usecases"></div>
+  </section>
+  <p class="caption" style="margin:0">2 · See it in each direction</p>
+  <div class="tabs" role="tablist" aria-label="Direction">
+    <button role="tab" id="tab-a" data-d="a" aria-selected="true"><strong>A · Filter chips</strong><small>“+ Filter” adds a rule as a chip; click a chip to change it</small></button>
+    <button role="tab" id="tab-b" data-d="b" aria-selected="false"><strong>B · Facet panel</strong><small>Checkbox lists with live counts, beside the queue</small></button>
+    <button role="tab" id="tab-c" data-d="c" aria-selected="false"><strong>C · Query line</strong><small>Type <code>status:pending -has:image</code>, with suggestions</small></button>
+  </div>
+
+  <div class="stage" id="stage"></div>
+
+  <section class="rules">
+    <p class="caption">Rule types</p>
+    <p>The old filter engine has all of these. The mockup uses the ones marked <em>in mockup</em>. Tell me which to keep, drop or add; the rest of the round follows that list.</p>
+    <div class="rule-grid" id="rules"></div>
+  </section>
+
+  <section class="rules">
+    <p class="caption">In all three</p>
+    <ul class="notes">
+      <li>Rules combine with <b>and</b>; values inside one rule combine with <b>or</b> (Status: Pending or Review). Any rule can be flipped to <b>not</b> (shown in rose).</li>
+      <li><b>Views</b> saves the current rules and search under a name, such as “Unreviewed tweets”. Picking a view replaces the current rules.</li>
+      <li>Filters narrow the queue and the graph together, as the search and type toggles do now; the queue tabs still apply on top.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+// Example data in the style of the user's collection (made up).
+const groups = { g141: ["#141 App Store Optimization", "#0f766e"], g143: ["#143 Pricing", "#0f766e"], p1: ["Build in public", "#b45309"], t1: ["Product positioning", "#475569"], t2: ["Indie game marketing", "#475569"] };
+const B = (title, domain, status, gs, extra = {}) => ({ title, domain, status, groups: gs, image: !!extra.image, desc: extra.desc !== false, warn: extra.warn, batch: extra.batch ?? "Raindrop export", added: extra.added ?? "Sep" });
+const data = [
+  B("Ratings and keyword rankings", "x.com", "Pending", ["g141", "t1"], { image: true }),
+  B("Black Friday discount testing", "news.tonydinh.com", "Pending", ["g143"], { image: true }),
+  B("Subscription versus one-time purchase math", "twitter.com", "Review", ["g143", "t1"], { desc: false }),
+  B("Weekly-rate consulting", "news.ycombinator.com", "Pending", ["g143"]),
+  B("Reviving a dead app", "twitter.com", "Pending", ["g141", "p1"], { image: true }),
+  B("Screenshot-test sample-size planning", "twitter.com", "Done", ["g141"]),
+  B("The Mom Test: customer interviews", "mycustomer.com", "Pending", ["t1"], { warn: "Link check" }),
+  B("Common build-in-public formats", "twitter.com", "Done", ["p1"], { image: true }),
+  B("Taiwanese game studio closure analysis", "disp.cc", "Pending", ["t2"], { image: true, batch: "Pasted links", added: "Oct" }),
+  B("Steam tag research for indies", "store.steampowered.com", "Review", ["t2"], { desc: false, added: "Oct" }),
+  B("Pricing page teardown", "x.com", "Pending", ["g143"], { warn: "Possible duplicate" }),
+  B("Dribbble", "dribbble.com", "Pending", [], { desc: false, warn: "Link check" }),
+  B("Mobbin", "mobbin.com", "Dropped", [], { image: true }),
+  B("Apple's requirements are about to change", "youtube.com", "Pending", ["g141"], { image: true, batch: "Pasted links", added: "Oct" }),
+  B("Paywalls and checkout flows", "revenuecat.com", "Review", ["g143"], { image: true }),
+  B("Duolingo freemium-to-premium flow", "uxdesign.cc", "Pending", ["g143", "t1"], { image: true }),
+];
+
+// Rule kinds the mockup can build. values: options with labels; test(bookmark, value).
+const kinds = {
+  status: { label: "Status", values: () => ["Pending", "Review", "Done", "Dropped"], test: (b, v) => b.status === v },
+  group: { label: "Group", values: () => Object.keys(groups), name: (v) => groups[v][0], test: (b, v) => b.groups.includes(v) },
+  domain: { label: "Domain", values: () => [...new Set(data.map((b) => b.domain))].sort(), test: (b, v) => b.domain === v },
+  content: { label: "Has", values: () => ["image", "description", "warning", "no group"], test: (b, v) => v === "image" ? b.image : v === "description" ? b.desc : v === "warning" ? !!b.warn : !b.groups.length },
+  batch: { label: "Import", values: () => ["Raindrop export", "Pasted links"], test: (b, v) => b.batch === v },
+  added: { label: "Added", values: () => ["Sep", "Oct"], test: (b, v) => b.added === v },
+};
+const usecases = [
+  ["Clean up", "Bookmarks with a warning: failed link check or possible duplicate", [{ kind: "content", values: ["warning"], not: false }], "has:warning"],
+  ["Tweets only", "Pending tweets, to go through together", [{ kind: "domain", values: ["twitter.com", "x.com"], not: false }, { kind: "status", values: ["Pending"], not: false }], "domain:twitter domain:x.com status:pending"],
+  ["Copy for an issue", "#143 Pricing, not done, ready for Copy…", [{ kind: "group", values: ["g143"], not: false }, { kind: "status", values: ["Done", "Dropped"], not: true }], 'group:"#143" -status:done -status:dropped'],
+  ["Fresh import", "Only the links pasted in today's import", [{ kind: "batch", values: ["Pasted links"], not: false }], 'import:pasted'],
+  ["Fill gaps", "Bookmarks without a description", [{ kind: "content", values: ["description"], not: true }], "-has:description"],
+];
+const nameOf = (k, v) => (kinds[k].name ? kinds[k].name(v) : v);
+// A rule: { kind, values: [...], not: bool }
+const state = { d: "a", text: "", rules: structuredClone(usecases[0][2]), pop: null, query: usecases[0][3], usecase: 0 };
+const views = { "Unreviewed tweets": [{ kind: "domain", values: ["twitter.com", "x.com"], not: false }, { kind: "status", values: ["Pending", "Review"], not: false }], "Needs a look": [{ kind: "content", values: ["warning"], not: false }], "Pricing, not done": [{ kind: "group", values: ["g143"], not: false }, { kind: "status", values: ["Done", "Dropped"], not: true }] };
+
+const passes = (b, rules) => rules.every((r) => !r.values.length || (r.values.some((v) => kinds[r.kind].test(b, v)) !== r.not))
+  && (!state.text || b.title.toLowerCase().includes(state.text.toLowerCase()));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function results(rules) {
+  const list = data.filter((b) => passes(b, rules));
+  return `<div class="results"><div class="results-head"><span><strong>${list.length}</strong> of ${data.length} bookmarks</span><span>The queue and graph show these · <button class="copy-btn" title="Copy… takes the shown list">Copy ${list.length}…</button></span></div>
+    ${list.map((b) => `<div class="row"><div><div class="t">${esc(b.title)}</div><div class="m"><span>${b.domain}</span>${b.groups.map((g) => `<span class="pill"><i class="dot" style="background:${groups[g][1]}"></i>${esc(groups[g][0])}</span>`).join("")}${b.warn ? `<span class="pill warn">${b.warn}</span>` : ""}</div></div><span class="pill">${b.status}</span></div>`).join("") || `<p class="empty">Nothing matches. Remove a rule or clear the search.</p>`}</div>`;
+}
+const typeToggles = "";
+const search = `<input class="search" id="search" placeholder="Filter… (F)" value="${esc(state.text)}" aria-label="Filter bookmarks and groups">`;
+const viewsButton = () => `<span class="anchor end"><button class="views" data-pop="views">Views ▾</button>${state.pop === "views" ? viewsPop() : ""}</span>`;
+function viewsPop() {
+  return `<div class="pop"><h4>Views</h4>${Object.keys(views).map((n) => `<button class="item" data-view="${esc(n)}">${esc(n)}<small>${data.filter((b) => passes(b, views[n])).length}</small></button>`).join("")}
+    <button class="item" data-save>Save current as…<small>＋</small></button></div>`;
+}
+
+// A · chips
+function renderA() {
+  const editPop = (i) => {
+    const r = state.rules[i], k = kinds[r.kind];
+    return `<div class="pop"><h4>${k.label}</h4>${k.values().map((v) => `<label><input type="checkbox" data-toggle="${i}|${esc(v)}" ${r.values.includes(v) ? "checked" : ""}>${esc(nameOf(r.kind, v))}<small>${data.filter((b) => k.test(b, v)).length}</small></label>`).join("")}
+      <label style="border-top:1px solid var(--line);margin-top:4px;padding-top:9px"><input type="checkbox" data-not="${i}" ${r.not ? "checked" : ""}>Not (exclude these)</label></div>`;
+  };
+  const chip = (r, i) => `<span class="anchor"><span class="chip ${r.not ? "not" : ""}" data-pop="edit-${i}">${r.not ? "Not " : ""}<b>${kinds[r.kind].label}:</b> ${esc(r.values.map((v) => nameOf(r.kind, v)).join(" or ") || "any")}<button class="x" data-remove="${i}" aria-label="Remove rule">✕</button></span>${state.pop === `edit-${i}` ? editPop(i) : ""}</span>`;
+  const addPop = state.pop === "add" ? `<div class="pop"><h4>Add a rule</h4>${Object.entries(kinds).map(([k, v]) => `<button class="item" data-add="${k}">${v.label}<small>${v.values().length} options</small></button>`).join("")}</div>` : "";
+  return `<div class="bar">${search}${state.rules.map(chip).join("")}<span class="anchor"><button class="ghost" data-pop="add">＋ Filter</button>${addPop}</span><span class="spacer"></span>${viewsButton()}</div>
+    <div class="body">${results(state.rules)}</div>`;
+}
+
+// B · facets
+function renderB() {
+  // Each value can be ticked (include) or struck out with "not" (exclude).
+  const facet = (k) => {
+    const inc = state.rules.find((x) => x.kind === k && !x.not), exc = state.rules.find((x) => x.kind === k && x.not);
+    const others = state.rules.filter((x) => x.kind !== k);
+    const any = (inc?.values.length ?? 0) + (exc?.values.length ?? 0);
+    return `<div class="facet"><h4>${kinds[k].label}${any ? `<button data-clear="${k}">Clear</button>` : ""}</h4>${kinds[k].values().map((v) => {
+      const n = data.filter((b) => passes(b, others) && kinds[k].test(b, v)).length, isNot = !!exc?.values.includes(v);
+      return `<div class="row-v ${isNot ? "not" : ""}"><label class="${n || isNot ? "" : "zero"}"><input type="checkbox" data-facet="${k}|${esc(v)}" ${inc?.values.includes(v) ? "checked" : ""} ${isNot ? "disabled" : ""}><span>${esc(nameOf(k, v))}</span><small>${n}</small></label><button class="notb" data-facet-not="${k}|${esc(v)}" title="Exclude ${esc(nameOf(k, v))}">not</button></div>`;
+    }).join("")}</div>`;
+  };
+  return `<div class="bar">${search}<span class="spacer"></span>${viewsButton()}</div>
+    <div class="body with-facets"><aside class="facets" aria-label="Facets">${["status", "group", "content", "domain", "batch", "added"].map(facet).join("")}</aside>${results(state.rules)}</div>`;
+}
+
+// C · query line
+const toQuery = (rules) => rules.map((r) => r.values.map((x) => `${r.not ? "-" : ""}${Object.keys(qkeys).find((k) => qkeys[k] === r.kind)}:${/\s/.test(nameOf(r.kind, x)) ? `"${nameOf(r.kind, x)}"` : nameOf(r.kind, x).toLowerCase()}`).join(" ")).join(" ");
+const qkeys = { status: "status", group: "group", domain: "domain", has: "content", import: "batch", added: "added" };
+function parseQuery(q) {
+  const rules = [], bad = [], text = [];
+  for (const m of q.match(/-?\w+:"[^"]*"|-?\w+:\S+|\S+/g) ?? []) {
+    const not = m.startsWith("-"), [key, raw] = m.replace(/^-/, "").split(/:(.*)/s);
+    if (raw === undefined) { text.push(m); continue; }
+    const kind = qkeys[key.toLowerCase()];
+    if (!kind) { bad.push(m); continue; }
+    const want = raw.replace(/"/g, "").toLowerCase();
+    const values = kinds[kind].values().filter((v) => nameOf(kind, v).toLowerCase().includes(want) || v.toLowerCase() === want);
+    const same = rules.find((r) => r.kind === kind && r.not === not);
+    if (!values.length) bad.push(m); else if (same) same.values.push(...values); else rules.push({ kind, values, not });
+  }
+  return { rules, bad, text: text.join(" ") };
+}
+function renderC() {
+  const p = parseQuery(state.query);
+  state.text = p.text;
+  const examples = ["status:pending", "-has:image", "domain:twitter", 'group:"#143"', "has:warning", "added:oct"];
+  return `<div class="bar"><div class="query"><input id="query" value="${esc(state.query)}" aria-label="Filter query" spellcheck="false">
+      <div class="hint">${p.bad.length ? `<span class="bad">Not understood: ${p.bad.map(esc).join(", ")}</span>` : "Try:"} ${examples.map((e) => `<code data-ex="${esc(e)}">${esc(e)}</code>`).join("")}</div></div>
+      <span class="spacer"></span>${viewsButton()}</div>
+    <div class="body">${results(p.rules)}</div>`;
+}
+
+const ruleTypes = [
+  ["Text", "Title, URL, description, or group name contains…", true, "Today's search box"],
+  ["Status", "Pending, Review, Done, Dropped", true],
+  ["Group", "In any of these groups (or all of them)", true],
+  ["Group type", "Has a group of this type", true, "Today's type toggles"],
+  ["Domain / URL", "Domain is, or URL contains…", true],
+  ["Has image / description", "Missing or present", true],
+  ["Has a warning", "Link check failed, or possible duplicate", true, "New, for triage"],
+  ["No group", "In no group at all", true],
+  ["Import", "Came from this import", true],
+  ["Added / updated", "In a date range", true, "Simplified to month here"],
+  ["Linked tag status", "In a group whose own status is…", false],
+  ["Same group as…", "Shares a group with a named one", false],
+  ["Distance", "Within N hops of a group in the graph", false, "Plan: keep only if you want it"],
+  ["Any / all / not groups", "Nested or-groups of rules", false, "Mockup only flips one rule to not"],
+];
+document.getElementById("rules").innerHTML = ruleTypes.map(([name, what, used, note]) => `
+  <div class="rule"><span style="font-weight:600">${name}</span><small>${what}</small><div class="tagline"><span class="${used ? "yes" : ""}">${used ? "in mockup" : "not in mockup"}</span>${note ? `<span>${note}</span>` : ""}</div></div>`).join("");
+
+function renderUsecases() {
+  document.getElementById("usecases").innerHTML = usecases.map(([name, what], i) => `<button data-usecase="${i}" aria-pressed="${state.usecase === i}"><strong>${name}</strong><small>${what}</small></button>`).join("");
+}
+function render() {
+  renderUsecases();
+  const focus = document.activeElement?.id, pos = document.activeElement?.selectionStart;
+  document.getElementById("stage").innerHTML = state.d === "a" ? renderA() : state.d === "b" ? renderB() : renderC();
+  if (focus) { const el = document.getElementById(focus); if (el) { el.focus(); if (pos != null && el.setSelectionRange) el.setSelectionRange(pos, pos); } }
+}
+document.addEventListener("click", (e) => {
+  const t = e.target;
+  const tab = t.closest("[data-d]"); if (tab) { state.d = tab.dataset.d; state.pop = null; document.querySelectorAll("[data-d]").forEach((x) => x.setAttribute("aria-selected", x === tab)); if (state.d === "c") state.query = state.usecase != null ? usecases[state.usecase][3] : toQuery(state.rules); else state.text = ""; render(); return; }
+  const uc = t.closest("[data-usecase]"); if (uc) { const i = Number(uc.dataset.usecase); state.usecase = i; state.rules = structuredClone(usecases[i][2]); state.query = usecases[i][3]; state.text = ""; state.pop = null; render(); return; }
+  const fn = t.closest("[data-facet-not]"); if (fn) { const [k, v] = fn.dataset.facetNot.split("|"); let r = state.rules.find((x) => x.kind === k && x.not); if (!r) state.rules.push(r = { kind: k, values: [], not: true });
+    r.values = r.values.includes(v) ? r.values.filter((x) => x !== v) : [...r.values, v]; const inc = state.rules.find((x) => x.kind === k && !x.not); if (inc) inc.values = inc.values.filter((x) => x !== v);
+    state.rules = state.rules.filter((x) => x.values.length); state.usecase = null; render(); return; }
+  const rm = t.closest("[data-remove]"); if (rm) { state.usecase = null; state.rules.splice(Number(rm.dataset.remove), 1); state.pop = null; render(); return; }
+  const add = t.closest("[data-add]"); if (add) { state.usecase = null; state.rules.push({ kind: add.dataset.add, values: [], not: false }); state.pop = `edit-${state.rules.length - 1}`; render(); return; }
+  const v = t.closest("[data-view]"); if (v) { state.rules = structuredClone(views[v.dataset.view]); state.pop = null;
+    state.usecase = null; if (state.d === "c") state.query = toQuery(state.rules);
+    render(); return; }
+  if (t.closest("[data-save]")) { const name = `My view ${Object.keys(views).length - 2}`; views[name] = structuredClone(state.d === "c" ? parseQuery(state.query).rules : state.rules); state.pop = null; render(); return; }
+  const clr = t.closest("[data-clear]"); if (clr) { state.usecase = null; state.rules = state.rules.filter((r) => r.kind !== clr.dataset.clear); render(); return; }
+  const ex = t.closest("[data-ex]"); if (ex) { state.usecase = null; state.query = (state.query.trim() + " " + ex.dataset.ex).trim(); render(); return; }
+  const p = t.closest("[data-pop]"); if (p && !t.closest(".x")) { state.pop = state.pop === p.dataset.pop ? null : p.dataset.pop; render(); return; }
+  if (!t.closest(".pop")) { if (state.pop) { state.pop = null; render(); } }
+});
+document.addEventListener("change", (e) => {
+  const t = e.target;
+  state.usecase = null;
+  if (t.dataset.toggle) { const [i, v] = t.dataset.toggle.split("|"); const r = state.rules[Number(i)]; r.values = t.checked ? [...r.values, v] : r.values.filter((x) => x !== v); render(); }
+  else if (t.dataset.not) { state.rules[Number(t.dataset.not)].not = t.checked; render(); }
+  else if (t.dataset.facet) { const [k, v] = t.dataset.facet.split("|"); let r = state.rules.find((x) => x.kind === k && !x.not); if (!r) state.rules.push(r = { kind: k, values: [], not: false }); r.values = t.checked ? [...r.values, v] : r.values.filter((x) => x !== v); if (!r.values.length) state.rules = state.rules.filter((x) => x !== r); render(); }
+});
+document.addEventListener("input", (e) => {
+  if (e.target.id === "search") { state.text = e.target.value; render(); }
+  else if (e.target.id === "query") { state.query = e.target.value; state.usecase = null; state.rules = parseQuery(state.query).rules; render(); }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.pop) { state.pop = null; render(); } });
+render();
+</script>
