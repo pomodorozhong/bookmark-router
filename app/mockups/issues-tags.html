@@ -1,0 +1,268 @@
+<title>Issues and Tags Mockup</title>
+<style>
+  /* Layout: three panels side by side (issue view, tag editor, tag types), then the graph nodes they produce. Single light look, matching the app. */
+  :root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --ink: #243b35; --muted: #536b62; --line: #dce5e0; --teal: #0f766e; --tint: #e8f3ee;
+    --bg: #f6f8f7; --card: #ffffff; --dark: #183e35; --amber: #b45309; --slate: #475569; --blue: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-size: 14px; }
+  button, input, select, textarea { font: inherit; }
+  button { cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 6px; }
+  button:hover { background: #f0f5f2; border-color: #b7ccc1; }
+  button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #2e9586; outline-offset: 2px; }
+  .primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .primary:hover { background: #115e59; color: #fff; }
+  .text-btn { border: 0; background: transparent; color: var(--teal); padding: 2px 4px; font-size: 13px; }
+  input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #c9d8d0; border-radius: 8px; background: #fff; color: var(--ink); }
+  label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; }
+  input[type=color] { height: 36px; padding: 3px; cursor: pointer; }
+
+  .wrap { padding: 16px; padding-block: 16px 48px; max-width: 1320px; margin: 0 auto; display: grid; gap: 20px; }
+  .banner { background: var(--dark); color: #eef7f3; border-radius: 10px; padding: 10px 16px; font-size: 13px; line-height: 1.5; }
+  .banner strong { color: #fff; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+  .caption { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--teal); font-weight: 600; margin: 0 0 8px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .panel-body { padding: 18px 20px; display: grid; gap: 14px; }
+  .panel-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--line); }
+
+  /* Issue view */
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; background: #f0f4f2; font-size: 12px; color: var(--ink); }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+  h2 { font-size: 18px; line-height: 1.3; margin: 0; text-wrap: balance; }
+  .links { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; }
+  .links a { color: var(--teal); text-decoration: none; }
+  .desc { font-size: 13.5px; line-height: 1.6; }
+  .desc p { margin: 0 0 8px; }
+  .section-h { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .bm { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 0; border-top: 1px solid #edf2ef; }
+  .bm:first-of-type { border-top: 0; }
+  .thumb { width: 56px; height: 40px; border-radius: 8px; overflow: hidden; }
+  .thumb.has { border: 1px solid var(--line); }
+  .bm-title { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bm-sub { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; margin-top: 1px; }
+  .bm-why { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+  .status { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #eef2f0; color: var(--muted); }
+
+  /* Editor */
+  details.appearance { border-top: 1px solid var(--line); padding-top: 12px; }
+  details.appearance summary { cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; list-style: none; }
+  details.appearance summary::-webkit-details-marker { display: none; }
+  details.appearance summary .chev { transition: transform .15s; }
+  details.appearance[open] summary .chev { transform: rotate(90deg); }
+  summary .hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: auto; }
+  .appear-grid { display: grid; grid-template-columns: 1fr 120px; gap: 14px; margin-top: 12px; align-items: start; }
+  .appear-fields { display: grid; gap: 10px; min-width: 0; }
+  .ov { display: grid; grid-template-columns: 22px 64px 1fr; align-items: center; gap: 8px; font-size: 13px; }
+  .ov input[type=checkbox] { width: auto; accent-color: var(--teal); }
+  .ov input[type=color] { width: 44px; height: 32px; padding: 2px; }
+  .ov .inherit { color: var(--muted); font-size: 12px; }
+  .preview { border: 1px dashed #c9d8d0; border-radius: 10px; height: 150px; display: grid; place-items: center; background: #f6f9f7; }
+  .preview small { display: block; text-align: center; font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .typedefault { display: flex; gap: 8px; align-items: center; font-weight: 400; color: var(--muted); grid-template-columns: none; }
+  .typedefault input { width: auto; }
+
+  /* Tag types */
+  .type-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid #edf2ef; }
+  .type-row:first-child { border-top: 0; }
+  .type-name { font-weight: 600; }
+  .type-sub { font-size: 12px; color: var(--muted); }
+  .new-type { display: grid; gap: 10px; padding: 12px; border-radius: 10px; background: var(--tint); }
+  .new-type .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* Graph strip */
+  .strip { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .strip figure { margin: 0; display: grid; gap: 6px; }
+  .strip figcaption { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+  .strip svg { width: 100%; height: 150px; background: #f3f7f5; border-radius: 8px; }
+  .notes { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .notes h3 { margin: 0 0 6px; font-size: 15px; }
+  .notes ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.6; }
+  .q { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #fff7e8; color: #7a4a0b; font-size: 13px; line-height: 1.5; }
+  @media (max-width: 420px) { .appear-grid { grid-template-columns: 1fr; } .new-type .two { grid-template-columns: 1fr; } }
+</style>
+
+<div class="wrap">
+  <div class="banner"><strong>Round 2 mockup, for review.</strong> Uses your issue #141 and your three tag types. Click <strong>Edit</strong> and <strong>Back</strong>, open <strong>Appearance</strong> and change overrides to see the node update, and add a type under <strong>Tag types</strong>. Nothing here touches your data.</div>
+
+  <div class="row">
+    <div>
+      <p class="caption">1 · Click a tag in the graph → issue view in the right panel</p>
+      <div class="panel" id="issuePanel"></div>
+    </div>
+    <div>
+      <p class="caption">2 · Edit → the same panel, Appearance collapsed</p>
+      <div class="panel" id="editPanel"></div>
+    </div>
+    <div>
+      <p class="caption">3 · ⋯ menu → Tag types… (a dialog)</p>
+      <div class="panel" id="typesPanel"></div>
+    </div>
+  </div>
+
+  <div>
+    <p class="caption">4 · What the graph draws</p>
+    <div class="strip" id="strip"></div>
+  </div>
+
+  <div class="notes">
+    <h3>What changes</h3>
+    <ul>
+      <li><strong>Issue view:</strong> clicking a tag still selects its bookmarks in the queue, and the right panel now shows the tag to read: type, status, link, description (with bold and lists rendered), and its bookmarks with the reason each one belongs. Clicking a bookmark there opens it. <strong>Copy…</strong> copies the issue's bookmarks; <strong>Edit</strong> opens the form.</li>
+      <li><strong>Appearance</strong> is a collapsed section in the editor, with a live preview of the node. An unchecked field shows the value it inherits from the type.</li>
+      <li><strong>Overrides change the node:</strong> color fills it, size and shape change it, and the icon is drawn inside it. Today only the border color updates after the first draw.</li>
+      <li><strong>Tag types:</strong> a new “Tag types…” item in ⋯ lists every type with its node, tag count, and Edit. <strong>New type</strong> sets a name, color, shape, size, and icon. The tag editor's type list ends with “New type…”. The filter bar's type toggles follow automatically.</li>
+    </ul>
+    <div class="q">Types can't be deleted in this mockup, in line with “no deletion of bubbles or tags”. Should an empty type (no tags) be deletable?</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const types = [
+    { id: "issue", name: "Existing issue", color: "#0f766e", size: 72, shape: "circle", icon: "", tags: 15 },
+    { id: "proposal", name: "Proposal issue", color: "#b45309", size: 64, shape: "circle", icon: "", tags: 6 },
+    { id: "topic", name: "Topic", color: "#475569", size: 52, shape: "rounded-square", icon: "", tags: 29 },
+  ];
+  const tag = {
+    name: "#141 App Store Optimization (ASO)", typeId: "issue", status: "Pending",
+    url: "https://github.com/pomodorozhong/rabbit-holes/issues/141",
+    desc: "Learn how App Store Optimization helps an app get discovered and convert store visitors into downloads.\n\nCover keyword research, titles and subtitles, descriptions, screenshots, previews, ratings and reviews, localization, experiments, and measuring results across Apple's App Store and Google Play.",
+    over: { color: null, size: null, shape: null, icon: null },
+  };
+  const bookmarks = [
+    ["Ratings and keyword rankings", "x.com", "Ratings and reviews as discovery and conversion inputs.", ["#ede9fe", "#7c3aed"]],
+    ["Reviving a dead app", "twitter.com", "A turnaround case for store growth.", ["#f1f5f9", "#0f172a"]],
+    ["Screenshot-test sample-size planning", "twitter.com", "Experiment feasibility and sample size for screenshots.", ["#fff", "#64748b"]],
+    ["Keyword-first App Store naming", "twitter.com", "A keyword-demand and naming case.", ["#e0f2fe", "#0369a1"]],
+    ["Getting featured in the App Store", "twitter.com", "Editorial featuring as a store-discovery mechanism.", ["#fef3c7", "#b45309"]],
+    ["Early users and reviews at launch", "twitter.com", "A launch sequence connecting validation, reviews, and ASO.", null],
+    ["Google Play keyword targeting", "twitter.com", "A keyword-led app strategy on another marketplace.", ["#dcfce7", "#15803d"]],
+  ];
+  const cover = ([bg, fg]) => "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="112" height="80"><rect width="112" height="80" fill="${bg}"/><rect x="14" y="18" width="50" height="8" rx="3" fill="${fg}"/><rect x="14" y="34" width="84" height="5" rx="2" fill="${fg}" opacity=".45"/><rect x="14" y="45" width="70" height="5" rx="2" fill="${fg}" opacity=".45"/><circle cx="88" cy="22" r="9" fill="${fg}" opacity=".7"/></svg>`);
+  const typeOf = (id) => types.find((t) => t.id === id);
+  const eff = () => { const t = typeOf(tag.typeId); return { color: tag.over.color ?? t.color, size: tag.over.size ?? t.size, shape: tag.over.shape ?? t.shape, icon: tag.over.icon ?? t.icon }; };
+  // A tiny Markdown subset: paragraphs, **bold**, and "- " lists.
+  const md = (text) => text.split(/\n{2,}/).map((block) => {
+    const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    const lines = block.split("\n");
+    return lines.every((l) => l.startsWith("- ")) ? `<ul>${lines.map((l) => `<li>${inline(l.slice(2))}</li>`).join("")}</ul>` : `<p>${inline(block)}</p>`;
+  }).join("");
+
+  function node(a, label, cx = 60, cy = 62, scale = 1, fontSize = 12) {
+    const r = (a.size / 2) * scale;
+    const shape = a.shape === "circle" ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${a.color}"/>`
+      : a.shape === "diamond" ? `<rect x="${cx - r * .75}" y="${cy - r * .75}" width="${r * 1.5}" height="${r * 1.5}" rx="4" transform="rotate(45 ${cx} ${cy})" fill="${a.color}"/>`
+      : `<rect x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" rx="${r * .3}" fill="${a.color}"/>`;
+    const icon = a.icon ? `<text x="${cx}" y="${cy + r * .32}" font-size="${r * .9}" text-anchor="middle" fill="#fff">${esc(a.icon)}</text>` : "";
+    const lab = label ? `<text x="${cx}" y="${cy + r + 16}" font-size="${fontSize}" font-weight="600" text-anchor="middle" fill="#3b544c" font-family="Inter, sans-serif">${esc(label)}</text>` : "";
+    return shape + icon + lab;
+  }
+
+  let editing = false;
+  function renderIssue() {
+    const t = typeOf(tag.typeId), a = eff();
+    $("issuePanel").innerHTML = `
+      <div class="panel-body">
+        <div class="meta"><span class="chip"><i class="swatch" style="background:${a.color}"></i>${esc(t.name)}</span><span class="status">${esc(tag.status)}</span><span style="margin-left:auto">7 bookmarks</span></div>
+        <h2>${esc(tag.name)}</h2>
+        <div class="links"><a href="${esc(tag.url)}" target="_blank" rel="noreferrer">github.com/…/issues/141 ↗</a><button class="text-btn">⧉ Copy…</button><button class="text-btn" id="toEdit">✎ Edit</button></div>
+        <div class="desc">${md(tag.desc)}</div>
+        <div><div class="section-h">Bookmarks (7)<span style="text-transform:none;letter-spacing:0;font-weight:400">all pending</span></div>
+        ${bookmarks.map(([title, domain, why, img]) => `<div class="bm"><span class="thumb ${img ? "has" : ""}">${img ? `<img src="${cover(img)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">` : ""}</span><div style="min-width:0"><div class="bm-title">${esc(title)}</div><div class="bm-sub">${esc(domain)}<span class="status">Pending</span></div><div class="bm-why">${esc(why)}</div></div></div>`).join("")}
+        </div>
+      </div>`;
+    $("toEdit").onclick = () => { editing = true; $("editPanel").scrollIntoView({ behavior: "smooth", block: "nearest" }); $("editPanel").animate([{ boxShadow: "0 0 0 3px #2e9586" }, { boxShadow: "0 0 0 0 #2e9586" }], 900); };
+  }
+
+  function renderEdit() {
+    const t = typeOf(tag.typeId), a = eff();
+    const row = (key, label, control, inherited) => `<div class="ov"><input type="checkbox" id="ov-${key}" ${tag.over[key] !== null ? "checked" : ""} aria-label="Override ${label}"><span>${label}</span>${tag.over[key] !== null ? control : `<span class="inherit">${inherited} · from ${esc(t.name)}</span>`}</div>`;
+    $("editPanel").innerHTML = `
+      <div class="panel-body">
+        <div style="display:flex;justify-content:space-between;align-items:center"><button class="text-btn" id="back">← Back to issue</button><span class="meta">Edit tag</span></div>
+        <label>Name<input id="f-name" value="${esc(tag.name)}"></label>
+        <label>Description<textarea rows="4">${esc(tag.desc)}</textarea></label>
+        <label>URL<input value="${esc(tag.url)}"></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label>Status<select><option>Pending</option><option>In progress</option><option>Done</option><option>Dropped</option></select></label>
+          <label>Type<select id="f-type">${types.map((x) => `<option value="${x.id}" ${x.id === tag.typeId ? "selected" : ""}>${esc(x.name)}</option>`).join("")}<option value="__new">New type…</option></select></label>
+        </div>
+        <details class="appearance" id="appear" ${renderEdit.open ? "open" : ""}>
+          <summary><span class="chev">›</span>Appearance<span class="hint">${Object.values(tag.over).some((v) => v !== null) ? "Overridden" : "From " + esc(t.name)}</span></summary>
+          <div class="appear-grid">
+            <div class="appear-fields">
+              ${row("color", "Color", `<input type="color" id="c-color" value="${a.color}">`, `<i class="swatch" style="background:${t.color}"></i>`)}
+              ${row("size", "Size", `<input type="range" id="c-size" min="24" max="140" value="${a.size}"> `, t.size + " px")}
+              ${row("shape", "Shape", `<select id="c-shape"><option value="circle">Circle</option><option value="rounded-square">Rounded square</option><option value="diamond">Diamond</option></select>`, t.shape.replace("-", " "))}
+              ${row("icon", "Icon", `<input id="c-icon" maxlength="2" placeholder="★" value="${esc(a.icon)}">`, t.icon || "none")}
+              <label class="typedefault"><input type="checkbox"> Also make these the ${esc(t.name)} defaults</label>
+            </div>
+            <div><div class="preview"><svg width="120" height="140" viewBox="0 0 120 140" aria-label="Node preview">${node(a, "", 60, 66, Math.min(1, 100 / a.size))}</svg></div><small style="display:block;text-align:center;font-size:11px;color:var(--muted);margin-top:4px">Preview</small></div>
+          </div>
+        </details>
+      </div>
+      <div class="panel-foot"><button>Cancel</button><button class="primary">✓ Save changes</button></div>`;
+    $("back").onclick = () => $("issuePanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    $("appear").ontoggle = (e) => (renderEdit.open = e.target.open);
+    $("f-type").onchange = (e) => { if (e.target.value === "__new") { $("newName").focus(); e.target.value = tag.typeId; return; } tag.typeId = e.target.value; all(); };
+    for (const key of ["color", "size", "shape", "icon"]) {
+      $("ov-" + key).onchange = (e) => { tag.over[key] = e.target.checked ? eff()[key] : null; all(); };
+    }
+    const bind = (id, key, num) => { const el = $(id); if (!el) return; if (key === "shape") el.value = a.shape; el.oninput = () => { tag.over[key] = num ? Number(el.value) : el.value; renderIssue(); renderStrip(); renderPreviewOnly(); }; };
+    bind("c-color", "color"); bind("c-size", "size", true); bind("c-shape", "shape"); bind("c-icon", "icon");
+  }
+  function renderPreviewOnly() { const a = eff(); document.querySelector("#editPanel .preview svg").innerHTML = node(a, "", 60, 66, Math.min(1, 100 / a.size)); }
+
+  let editingType = null;
+  function renderTypes() {
+    $("typesPanel").innerHTML = `
+      <div class="panel-body">
+        <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-size:17px">Tag types</h2><span class="meta">${types.length} types</span></div>
+        <div>${types.map((t) => `<div class="type-row"><svg width="52" height="52" viewBox="0 0 120 120" aria-hidden="true">${node(t, "", 60, 60, Math.min(1, 100 / t.size))}</svg><div style="min-width:0"><div class="type-name">${esc(t.name)}</div><div class="type-sub">${t.tags} tag${t.tags === 1 ? "" : "s"} · ${t.shape.replace("-", " ")} · ${t.size} px${t.icon ? " · " + esc(t.icon) : ""}</div></div><button data-edit="${t.id}">Edit</button></div>`).join("")}</div>
+        <form class="new-type" id="newForm">
+          <strong style="font-size:13px">${editingType ? "Edit " + esc(typeOf(editingType).name) : "New type"}</strong>
+          <label>Name<input id="newName" required placeholder="e.g. Reading list" value="${editingType ? esc(typeOf(editingType).name) : ""}"></label>
+          <div class="two">
+            <label>Color<input type="color" id="newColor" value="${editingType ? typeOf(editingType).color : "#2563eb"}"></label>
+            <label>Shape<select id="newShape"><option value="circle">Circle</option><option value="rounded-square">Rounded square</option><option value="diamond">Diamond</option></select></label>
+            <label>Size<input type="number" id="newSize" min="24" max="140" value="${editingType ? typeOf(editingType).size : 56}"></label>
+            <label>Icon<input id="newIcon" maxlength="2" placeholder="optional" value="${editingType ? esc(typeOf(editingType).icon) : ""}"></label>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px">${editingType ? '<button type="button" id="cancelType">Cancel</button>' : ""}<button class="primary" type="submit">${editingType ? "Save type" : "+ Add type"}</button></div>
+        </form>
+      </div>`;
+    if (editingType) $("newShape").value = typeOf(editingType).shape;
+    document.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => { editingType = b.dataset.edit; renderTypes(); $("newName").focus(); }));
+    if ($("cancelType")) $("cancelType").onclick = () => { editingType = null; renderTypes(); };
+    $("newForm").onsubmit = (e) => {
+      e.preventDefault();
+      const v = { name: $("newName").value.trim(), color: $("newColor").value, shape: $("newShape").value, size: Number($("newSize").value) || 56, icon: $("newIcon").value.trim() };
+      if (!v.name) return;
+      if (editingType) Object.assign(typeOf(editingType), v); else types.push({ id: "t" + types.length, tags: 0, ...v });
+      editingType = null;
+      all();
+    };
+  }
+
+  function renderStrip() {
+    const a = eff();
+    $("strip").innerHTML = `
+      <figure><svg viewBox="0 0 300 150" aria-label="Today"><circle cx="150" cy="62" r="34" fill="${typeOf(tag.typeId).color}" stroke="${a.color}" stroke-width="3"/><text x="150" y="118" font-size="12" font-weight="600" text-anchor="middle" fill="#3b544c">${a.icon ? esc(a.icon) + " " : ""}#141 App Store Optimization</text></svg>
+        <figcaption><strong>Today.</strong> After the first draw, an override only recolors the border; size, shape, and fill stay as they were. The icon is glued to the title.</figcaption></figure>
+      <figure><svg viewBox="0 0 300 150" aria-label="Round 2">${node(a, "#141 App Store Optimization", 150, 62, Math.min(1, 90 / a.size))}</svg>
+        <figcaption><strong>Round 2.</strong> The node redraws on save: color fills it, size and shape apply, and the icon sits inside. Change the overrides in panel 2 to see it here.</figcaption></figure>
+      <figure><svg viewBox="0 0 300 150" aria-label="Types">${types.slice(0, 4).map((t, i, arr) => node(t, t.name, 300 / arr.length * (i + .5), 56, Math.min(.7, 50 / t.size), 10)).join("")}</svg>
+        <figcaption><strong>Types.</strong> Each type's defaults, including any type you add in panel 3.</figcaption></figure>`;
+  }
+
+  function all() { renderIssue(); renderEdit(); renderTypes(); renderStrip(); }
+  all();
+})();
+</script>
