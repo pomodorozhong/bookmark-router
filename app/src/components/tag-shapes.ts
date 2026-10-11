@@ -15,12 +15,6 @@ const directionAngles: Record<Direction, number> = {
 };
 export const directions = Object.keys(directionAngles) as Direction[];
 
-/** What a tag shows inside when it has no icon: its name's first letter, after any issue number. */
-export function initialOf(name: string): string {
-  const [first = ""] = Array.from(name.replace(/^#\d+\s*/, "").trim());
-  return first.toUpperCase();
-}
-
 export function isTagStyle(shape: Appearance["shape"]): shape is TagStyle {
   return (tagStyles as string[]).includes(shape);
 }
