@@ -1,6 +1,8 @@
 import { bubbleImageMinZoom, bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
 import { placeNear, type Point } from "./graph-placement";
 import "./focus-adapt-label";
+import "./tag-node";
+import { isTagStyle } from "./tag-shapes";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from "react";
 import {
   CanvasEvent,
@@ -48,20 +50,22 @@ function roundThumbnail(img: HTMLImageElement, key: string): HTMLCanvasElement {
   return Object.assign(canvas, { src: `thumbnail:${key}`, complete: true });
 }
 
-// A tag's node follows its appearance: shape picks the node type, color fills
-// it, and the icon is drawn inside.
+// A tag's node follows its appearance: shape picks the node type (tag styles share
+// the "tag-shape" node, turned by `points`), color fills it, and the icon is drawn inside.
 function tagNode(a: Appearance) {
+  const tag = isTagStyle(a.shape);
   return {
-    type: a.shape === "rounded-square" ? "rect" : a.shape,
+    type: tag ? "tag-shape" : a.shape === "rounded-square" ? "rect" : a.shape,
     style: {
       size: a.size,
       radius: 14,
+      ...(tag ? { tagStyle: a.shape, points: a.points } : {}),
       fill: a.color,
       stroke: a.color,
       icon: Boolean(a.icon),
       iconText: a.icon ?? "",
       iconFill: "#fff",
-      iconFontSize: Math.round(a.size * 0.42),
+      iconFontSize: Math.round(a.size * (tag ? 0.27 : 0.42)),
       iconFontWeight: 600,
     },
   };
