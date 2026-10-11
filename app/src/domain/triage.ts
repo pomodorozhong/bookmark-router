@@ -6,8 +6,10 @@ export interface TriageFilter {
   hiddenTypeIds: string[];
   /** Off hides groups that no shown bookmark belongs to. */
   showEmptyGroups: boolean;
+  /** Off hides bookmarks that are in no group of a shown type. */
+  showUngrouped: boolean;
 }
-export const emptyTriageFilter: TriageFilter = { text: "", hiddenTypeIds: [], showEmptyGroups: true };
+export const emptyTriageFilter: TriageFilter = { text: "", hiddenTypeIds: [], showEmptyGroups: true, showUngrouped: true };
 type Point = readonly [number, number];
 
 // Tabs follow status outcomes, so collections with their own statuses still work.
@@ -39,22 +41,38 @@ export function matchesFilter(bubble: Bubble, workspace: Workspace, filter: Tria
   return groupsOf(workspace, bubble.id).some((t) => !filter.hiddenTypeIds.includes(t.typeId ?? "") && t.name.toLowerCase().includes(q));
 }
 
+// Whether a bookmark passes the filter: its text matches, and with showUngrouped
+// off, it belongs to a group of a shown type.
+function passesFilter(bubble: Bubble, workspace: Workspace, filter: TriageFilter): boolean {
+  return matchesFilter(bubble, workspace, filter)
+    && (filter.showUngrouped || groupsOf(workspace, bubble.id).some((t) => !filter.hiddenTypeIds.includes(t.typeId ?? "")));
+}
+
 // Bookmarks and groups the graph shows for a filter and queue tab. A group shows when its type
 // is visible and it has a shown bookmark, or its name matches (or, with
-// showEmptyGroups, it has no text filter to fail).
+// showEmptyGroups, it has no text filter to fail). The kept bookmarks always show, and
+// their groups of a hidden type peek: they show, with their bookmarks that pass the
+// text filter and tab, as peekTagIds.
 export function graphVisibility(workspace: Workspace, filter: TriageFilter, tab: TriageTab = "all", keepIds: string[] = []) {
+  const typeHidden = (t: Tag) => filter.hiddenTypeIds.includes(t.typeId ?? "");
+  const tagsOf = new Map<string, string[]>();
+  for (const m of workspace.memberships) tagsOf.set(m.bubbleId, [...(tagsOf.get(m.bubbleId) ?? []), m.tagId]);
+  const kept = new Set(keepIds.flatMap((id) => tagsOf.get(id) ?? []));
+  const peekTagIds = workspace.tags.filter((t) => typeHidden(t) && kept.has(t.id)).map((t) => t.id);
+  const peeking = new Set(peekTagIds);
   const bubbleIds = workspace.bubbles
-    .filter((b) => keepIds.includes(b.id) || (matchesFilter(b, workspace, filter) && inTab(b, workspace, tab)))
+    .filter((b) => keepIds.includes(b.id) || (inTab(b, workspace, tab) && (passesFilter(b, workspace, filter)
+      || ((tagsOf.get(b.id) ?? []).some((id) => peeking.has(id)) && matchesFilter(b, workspace, filter)))))
     .map((b) => b.id);
   const shown = new Set(bubbleIds);
   const q = filter.text.trim().toLowerCase();
-  const hasShown = (tagId: string) => workspace.memberships.some((m) => m.tagId === tagId && shown.has(m.bubbleId));
+  const withShown = new Set(workspace.memberships.filter((m) => shown.has(m.bubbleId)).map((m) => m.tagId));
   const hiddenTagIds = workspace.tags
-    .filter((t) => filter.hiddenTypeIds.includes(t.typeId ?? "")
-      || (!filter.showEmptyGroups && !hasShown(t.id))
-      || (q && !t.name.toLowerCase().includes(q) && !hasShown(t.id)))
+    .filter((t) => !peeking.has(t.id) && (typeHidden(t)
+      || (!filter.showEmptyGroups && !withShown.has(t.id))
+      || (q && !t.name.toLowerCase().includes(q) && !withShown.has(t.id))))
     .map((t) => t.id);
-  return { bubbleIds, hiddenTagIds };
+  return { bubbleIds, hiddenTagIds, peekTagIds };
 }
 
 // A box selection is ordered clockwise from 12 o'clock around its center (screen
@@ -75,7 +93,7 @@ export function triageQueue(
   options: { tab: TriageTab; filter: TriageFilter; selection?: ReadonlySet<string>; positionOf?: (id: string) => Point | undefined },
 ): Bubble[] {
   const list = workspace.bubbles.filter((b) =>
-    (!options.selection || options.selection.has(b.id)) && matchesFilter(b, workspace, options.filter) && inTab(b, workspace, options.tab));
+    (!options.selection || options.selection.has(b.id)) && passesFilter(b, workspace, options.filter) && inTab(b, workspace, options.tab));
   return options.selection && options.positionOf ? clockwise(list, options.positionOf) : list;
 }
 

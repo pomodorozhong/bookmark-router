@@ -207,7 +207,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showEmptyGroups);
+  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showEmptyGroups || !filter.showUngrouped);
   const total = workspace.bubbles.length || 1;
   return (
     <div className={`triage ${queueOpen ? "" : "queue-closed"}`}>
@@ -283,6 +283,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                 <input type="checkbox" checked={filter.showEmptyGroups} onChange={(e) => changeFilter({ ...filter, showEmptyGroups: e.target.checked })} />
                 Empty groups
               </label>
+              <label className="type-toggle" title="Bookmarks in no shown group">
+                <input type="checkbox" checked={filter.showUngrouped} onChange={(e) => changeFilter({ ...filter, showUngrouped: e.target.checked })} />
+                Ungrouped bookmarks
+              </label>
             </div>
           </div>
           {toast}
@@ -302,6 +306,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             matchingBubbleIds={visibility.bubbleIds}
             filtering={Boolean(filter.text.trim())}
             hiddenTagIds={visibility.hiddenTagIds}
+            peekTagIds={visibility.peekTagIds}
             boxSelection={selectionSet}
             tools={<IconButton label="Center on the current bookmark" icon="scope" disabled={!current} onClick={() => current && graphRef.current?.frame([current.id, ...groups.map((g) => g.id)])} />}
             onBoxSelect={boxSelect}
@@ -351,11 +356,12 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   <div className="triage-groups">
                     {groups.map((t) => {
                       const why = reasonFor(current, t, workspace);
+                      const peek = visibility.peekTagIds.includes(t.id);
                       return (
-                        <div key={t.id} className="triage-group">
+                        <div key={t.id} className={`triage-group ${peek ? "peek" : ""}`}>
                           <i className="swatch" style={{ background: typeColor(t.typeId) }} />
                           <div>
-                            <span className="group-name">{t.name}</span><span className="group-type">{typeName(t.typeId)}</span>
+                            <span className="group-name">{t.name}</span><span className="group-type" title={peek ? `${typeName(t.typeId)} is hidden in the filter` : undefined}>{typeName(t.typeId)}{peek && " · hidden"}</span>
                             {why && <p className="group-why">{why}</p>}
                           </div>
                           <IconButton label={`Remove from ${t.name}`} icon="close" size={14} disabled={busy} onClick={() => link(t.id, false)} />

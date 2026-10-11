@@ -67,6 +67,8 @@ function tagNode(a: Appearance) {
   };
 }
 
+const noTags: string[] = [];
+
 export function GraphCanvas({
   ref,
   onPinsChanged,
@@ -77,6 +79,7 @@ export function GraphCanvas({
   matchingBubbleIds,
   filtering,
   hiddenTagIds = [],
+  peekTagIds = noTags,
   geometry,
   onGeometry,
   onImport, onClearSearch, onShowList,
@@ -105,6 +108,8 @@ export function GraphCanvas({
   matchingBubbleIds?: string[];
   filtering?: boolean;
   hiddenTagIds?: string[];
+  /** Groups of a hidden type shown anyway because the current bookmark is in them; drawn faded and dashed. */
+  peekTagIds?: string[];
   geometry?: Geometry;
   onGeometry: (geometry: Geometry) => void;
 }) {
@@ -946,13 +951,16 @@ export function GraphCanvas({
     const { groups, related, box } = emphasis;
     const focusing = Boolean(selected && workspace.bubbles.some((b) => b.id === selected));
     const decided = new Set(workspace.statuses.filter((s) => s.outcome !== "active").map((s) => s.id));
+    const peeking = new Set(peekTagIds);
     g.updateNodeData([
       ...workspace.tags.map((tag) => ({
         id: tag.id,
         style: {
           opacity: !focusing || groups.has(tag.id) ? 1 : 0.28,
           stroke: appearanceFor(tag, workspace).color,
-          lineWidth: 1,
+          lineWidth: peeking.has(tag.id) ? 2.5 : 1,
+          lineDash: peeking.has(tag.id) ? [5, 4] : [],
+          fillOpacity: peeking.has(tag.id) ? 0.32 : 1,
           halo: false,
         },
       })),
@@ -979,6 +987,7 @@ export function GraphCanvas({
         stroke: (edge) => (edge.source === selected ? "#0f766e" : "#a9bdba"),
         lineWidth: (edge) => (edge.source === selected ? 2.5 : 1.2),
         opacity: (edge) => (!focusing || edge.source === selected ? 1 : groups.has(tagOf.get(String(edge.id)) ?? "") ? 0.45 : 0.08),
+        lineDash: (edge) => (peeking.has(tagOf.get(String(edge.id)) ?? "") ? [5, 4] : []),
         endArrow: false,
       },
     });
@@ -999,7 +1008,7 @@ export function GraphCanvas({
       .catch((e) => {
         if (graph.current === g) setError(String(e));
       });
-  }, [ready, selected, query, matchingBubbleIds, filtering, hiddenTagIds, workspace, emphasis]);
+  }, [ready, selected, query, matchingBubbleIds, filtering, hiddenTagIds, peekTagIds, workspace, emphasis]);
   async function action(work: (g: Graph) => Promise<unknown>) {
     if (!graph.current || !ready) return;
     autoFit.current = false;
