@@ -58,6 +58,7 @@ Triage **replaces the current graph screen** (decided October 11, 2026). The app
 - A filter bar narrows the graph and the queue by text, group type, and whether decided bookmarks show.
 - Decisions: **Done**, **Drop**, and **Deselect** (removes the bookmark from the selection without deciding it). Each moves to the next bookmark, with Undo. Done does not require a group; a hint shows when there is none.
 - **Copy** (the core feature kept from the old screen): copies the selected bookmarks, the current list (filter + tab), or the current bookmark, in queue order, through a template with presets and fields (`{title}`, `{url}`, `{groups}`, …), with a live preview.
+- **Header** (decided October 11, 2026): no sidebar. The header starts with the logo and a collection menu and ends with a ⋯ menu: Add bubble… (the Import screen), Add tag…, Import history…, Download backup, Restore backup…. The graph toolbar has Queue, Whole collection, and Current (scope icon).
 - **You try:** triage 10 real bookmarks and copy one selection into a real destination.
 
 ### 1.5. Fetch title, description, and image from the URL

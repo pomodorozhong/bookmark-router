@@ -1,6 +1,6 @@
 # Progress
 
-One line per round of [plan.md](plan.md): what shipped, what is still open.
+One line per round of [plan.md](plan.md): what shipped, what is still open. The newest status is at the end.
 
 - **Before the new plan:** import, graph/list, editing, backup/restore, Undo, filters, copy composer, and media are built (history in [product-progress.md](product-progress.md)). Open from the Checkpoint C review: tag types cannot be created; appearance overrides show as a border only or do nothing; the filter UI needs a redesign.
 - **Round 0 — October 11, 2026:** `npm run convert` (in `app/`) turns `bookmarks-working.json` into `bookmarks-converted.json` for **Restore backup**: 148 bubbles; 15 Existing issue, 6 Proposal issue, and 29 Topic tags (types renamed from Project idea / Proposed idea at the user's request); all decided and suggested placements are links (user decision: plain links, October 11), 240 in all; reasons, link checks, and duplicate groups appear under **From import** in Details. Fixed: blank graph until **Fit graph** after an import, new nodes from a later import placed in a detached line, and a transform error during graph start-up. Open: Raindrop cover images are remote and some do not load (round 1.5 downloads images).
@@ -13,3 +13,29 @@ One line per round of [plan.md](plan.md): what shipped, what is still open.
 - **Round 0 approved — October 11, 2026.** Round 1 (triage) starts with a mockup.
 - **Round 1 built — October 11, 2026:** triage replaces the graph/list/details screen, following the approved mockup: queue, graph emphasis (current, groups, related, faded rest), framing, box selection with clockwise order, filter bar, Done/Drop/Deselect, group add/remove with reasons, related list, and the copy composer (selection, list, or current; presets and template). Decisions and group changes save as labeled undo entries. The old filter, copy, status-propagation, bulk-status, and media dialogs are removed; the filter and copy domain code stays. Verified in headless Chrome with the converted collection: add group, Done, Undo, box select (74), Deselect with undo, copy presets, Esc, reload, node drag versus box select, and 1400/1100/390 px layouts. 61 tests pass. Not verified: real trackpad gestures and the system clipboard.
 - **Round 1 follow-up — header, October 11, 2026:** the left sidebar is gone (mockup: https://claude.ai/artifact/7GiUtni4xu5W728ivKPEko). The triage header starts with the Web logo and a collection menu and ends with a ⋯ menu (Add bubble…, Add tag…, Import history…, Download backup, Restore backup…). Import has a Back link. The graph toolbar has icons and a new Whole collection button; Current uses a scope icon. The name stays Bubble & Tag; the logo is also the tab icon.
+
+## Status at the end of the October 11, 2026 session
+
+**Where things stand.** Round 0 is approved. Round 1 (triage) is built and the user's first feedback is fixed: bottom overflow (it was the mockup page), the filter no longer moves the current bookmark, images show from 40% zoom, the sidebar is replaced by header menus, and toolbar icons are in. Round 1 still needs the user's "You try": triage 10 real bookmarks and paste one copied selection into a real destination.
+
+**Decisions made this session**
+- The product name stays **Bubble & Tag**; the logo is "Web" (one tag joined to three bubbles). Name alternatives explored and declined: Asterism, Seedbed, Orbit, Umbel, Ripple, Venn.
+- The fetcher (round 1.5) is a local-only deterministic helper; GitHub Pages ships without it, and the agent is only a fallback.
+- Converted suggestions are plain links; no deletion of records or collections; high-zoom panning cost is acceptable.
+- Menu wording: **Add bubble…** (the Import screen) and **Add tag…**.
+
+**Open items**
+- Not verified on real hardware: trackpad pan and pinch (Chrome and Safari) and the system clipboard for Copy.
+- Titles of non-focused bubbles can be partly covered by nearby nodes when zoomed in; hover or select to read them.
+- Zooming in above 60% still stutters slightly while titles resize.
+- Some Raindrop covers are remote and fail to load (403); round 1.5 downloads images locally.
+- **Add bubble…** keeps a half-finished import source from earlier (existing behavior, so work is not lost).
+- Untracked in the repo root: `bookmarks-converted_.json` (not created by the assistant) and `.claude/launch.json` (starts the dev server for the browser preview).
+- The dev server on port 5199 was restarted from the preview launcher after it stopped; `npm run dev` in `app/` works as before.
+
+**Next**
+1. User tries round 1 and reports anything to fix.
+2. Round 1.5: local fetcher for title, description, and image (mockup first).
+3. Round 2: issues and tags — create tag types, an issue view, collapsed appearance settings that actually change the node.
+4. Round 3: filters redesign (the triage filter bar is the starting point).
+5. Round 4: WebMCP — needs the user's browser and agent pair.
