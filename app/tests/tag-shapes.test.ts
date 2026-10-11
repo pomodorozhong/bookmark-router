@@ -7,8 +7,8 @@ const close = (actual: readonly number[], expected: number[]) =>
   assert.ok(actual.every((v, i) => Math.abs(v - expected[i]) < 0.6), `${actual} ≈ ${expected}`);
 
 test("a tag's size is its longer side, and turning it swaps its box", () => {
-  close(tagGeometry("price-tag", 80).box, [80, 50]);
-  close(tagGeometry("price-tag", 80, "up").box, [50, 80]);
+  close(tagGeometry("price-tag", 80).box, [77.4, 50]); // its rounded point stops short of the full width
+  close(tagGeometry("price-tag", 80, "up").box, [50, 77.4]);
   close(tagGeometry("rounded-tag", 80, "right").box, [79, 50]); // its rounded tip stops just short
   close(tagGeometry("hang-tag", 80).box, [57.6, 80]);
   close(tagGeometry("hang-tag", 80, "left").box, [80, 57.6]);
@@ -35,14 +35,14 @@ test("workspaces accept tag styles and directions, and reject unknown directions
 });
 
 test("links meet a tag's outline, not its bounding box", () => {
-  // A price tag 80 wide pointing left: its tip is at x = -40, straight left of center.
+  // A price tag 80 wide pointing left: its rounded tip is at x ≈ -37.4, straight left of center.
   const left = tagGeometry("price-tag", 80, "left");
-  close(exitPoint(left.contour, [-100, 0])!, [-40, 0]);
+  close(exitPoint(left.contour, [-100, 0])!, [-37.4, 0]);
   // Toward the top-left corner of the box, the slanted edge is reached well inside it.
   const corner = exitPoint(left.contour, [-40, -25])!;
   assert.ok(Math.hypot(...corner) < Math.hypot(40, 25) - 5);
   // Turned to point up, the tip is straight above.
-  close(exitPoint(tagGeometry("price-tag", 80, "up").contour, [0, -100])!, [0, -40]);
+  close(exitPoint(tagGeometry("price-tag", 80, "up").contour, [0, -100])!, [0, -37.4]);
   // The rounded tag's round end reaches the full half width.
   close(exitPoint(tagGeometry("rounded-tag", 80, "left").contour, [100, 0])!, [40, 0]);
 });
