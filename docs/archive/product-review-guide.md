@@ -1,4 +1,4 @@
-> **Superseded October 11, 2026** by [plan.md](plan.md). Kept as history.
+> **Superseded October 11, 2026** by [plan.md](../plan.md). Kept as history.
 
 # Product review checklist
 
@@ -97,7 +97,7 @@ Open [the app](http://127.0.0.1:5199/). Allow about 15–20 minutes. Confirmed c
 - [ ] Edit an imported bookmark, then review undo. Expect that bookmark listed under **Keep these later edits**; confirm undo and check its later edit survives while unchanged records are removed/restored.
 - [ ] Download a backup, then import that JSON. Expect a restore confirmation and a new collection; the current collection should remain intact.
 - [ ] Switch collections and check that restored content, tags, memberships, statuses, appearance, saved views (if present), and layout match the backup.
-- [ ] For bundled-media recovery, choose [the included media backup fixture](../app/fixtures/media-backup.json) as an import file. Confirm restore, select **Backup item**, and expect a small teal image and `fixture.svg` in its details. Reload and check it again. Media uploads arrive in Stage C.
+- [ ] For bundled-media recovery, choose [the included media backup fixture](../../app/fixtures/media-backup.json) as an import file. Confirm restore, select **Backup item**, and expect a small teal image and `fixture.svg` in its details. Reload and check it again. Media uploads arrive in Stage C.
 - [ ] Download a backup of that restored fixture and restore it again. Expect the image to remain available. Remote media remains a URL reference rather than being downloaded into backups.
 - [ ] Report import or recovery blockers using **task → expected → actual → impact** before moving to Stage C.
 
