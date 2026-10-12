@@ -44,6 +44,7 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 
 **Open items**
 - Not verified on real hardware: the system clipboard for Copy, and the Custom color swatch's system picker.
+- Below about 1150 px with the queue open, the filter bar still wraps.
 - At phone width the header is crowded (progress text wraps) and tapping a tag was not verified there.
 - Titles of non-focused bookmarks can be partly covered by nearby nodes when zoomed in; zooming above 60% still stutters slightly.
 - Some remote covers fail to load (403, for example Twitter profile images); they stay blank.
@@ -53,10 +54,10 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 - The branch `codex/bubble-tag-product` (its name predates the rename) is 83 commits ahead of `origin/main` and not pushed.
 
 **Next**
-1. User tries round 3 and reports anything to fix:
-   - Copy for an issue: add Group: #143 Pricing, then Status: Done and Dropped with Not ticked, and press Copy….
-   - Save a view, clear the chips, then pick the view from Views.
-   - Fill gaps: add Has: description with Not ticked, then go through what's left.
+1. User tries round 3 and its follow-ups (pinning, the compact filter bar, the floating toolbar), then approves or reports fixes:
+   - Copy for an issue: Filters → Group: #143 Pricing, then Status: Done and Dropped with Not ticked, and press Copy….
+   - Save the filters under Saved filters, clear them with Clear all, then pick the saved filter again.
+   - Pin a bookmark, switch to Done and back, and check it stayed put.
 2. Round 4: WebMCP — needs the user's browser and agent pair.
 
 **How the user likes to work**
