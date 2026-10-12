@@ -2,7 +2,7 @@
 
 A local-first app for triaging bookmarks into project ideas. The current plan is [../docs/plan.md](../docs/plan.md); progress is in [../docs/progress.md](../docs/progress.md).
 
-Rounds 0–3 are approved as of October 12, 2026. Round 1.5 was skipped because the user's local fetcher works; round 4 (WebMCP) is next. Completed plans and reviews are in [the documentation archive](../docs/archive/README.md).
+Rounds 0–3 are approved as of October 12, 2026. Round 1.5 was skipped because the user's local fetcher works; round 4 (WebMCP) has its approved review flow implemented. Codex desktop reads work; human batch-flow acceptance remains pending. See [WebMCP setup](../docs/webmcp.md), including copying selected bookmarks into the agent conversation and proposing missing-field updates. Completed plans and reviews are in [the documentation archive](../docs/archive/README.md).
 
 ## Run
 
@@ -38,7 +38,7 @@ G6 is pinned to 5.1.1.
 
 ## Current limitations
 
-WebMCP, archive/unarchive, and individual record deletion are not implemented. Add bookmark opens Import. Media-upload and bulk-status dialogs are frozen; backup/restore still supports existing local media. The compact UI does not expose the domain engine's distance, same-group, linked-tag-status, or nested filter rules.
+Agent integration is implemented; all MCP setup, tool contracts, review behavior, and verification are in the standalone [WebMCP document](../docs/webmcp.md). Archive/unarchive and individual record deletion are not implemented. Add bookmark opens Import. Media-upload and bulk-status dialogs are frozen; backup/restore still supports existing local media. The compact UI does not expose the domain engine's distance, same-group, linked-tag-status, or nested filter rules.
 
 The filter bar can wrap below about 1150 px with the queue open, and the phone header is crowded. Some remote covers fail to load; non-focused graph titles can overlap nodes, and zooming above 60% may stutter. See [open items](../docs/progress.md#open-items) for verification gaps and remaining graph issues.
 

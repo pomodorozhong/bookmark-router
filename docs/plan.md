@@ -1,6 +1,6 @@
 # Plan — triage bookmarks into project ideas
 
-Updated October 12, 2026. Rounds 0–3 are approved; round 1.5 is skipped. Round 4 (WebMCP) is next. [Progress](progress.md) records current behavior and open items; [the archive](archive/README.md) preserves completed rounds and superseded checkpoint plans.
+Updated October 13, 2026. Rounds 0–3 are approved; round 1.5 is skipped. Round 4 (WebMCP) is in progress. [Progress](progress.md) records current behavior and open items; [the archive](archive/README.md) preserves completed rounds and superseded checkpoint plans.
 
 ## What the app is for
 
@@ -33,15 +33,9 @@ Keep rounds small. There are no checkpoint tags, deferred-verification registers
 | 2 — Issues and tags | Readable issue view, create/edit tag types, appearance overrides, four tag styles in eight directions, hidden-group peeking, Bookmark & Tag rename | Approved October 12, 2026 |
 | 3 — Filters | Compact search/Show/Filters bar, counted filter values, Saved filters, restored pinning, matching floating graph toolbar | Approved October 12, 2026 |
 
-## Next: round 4 — WebMCP for the user's agent
+## In progress: round 4 — WebMCP for the user's agent
 
-Starting this round requires naming the browser and agent pair. No WebMCP integration has been implemented yet.
-
-- Tools: **add item**, **update item details** (description, URL, tags, status), **read an issue** (its bookmarks and details), plus **search and filter** for finding things.
-- Writes use the same domain commands as the UI and appear in Undo.
-- Decide at the start whether the user approves each agent write or reviews changes afterwards.
-- Prepare a mockup for any visible agent controls and review flow before implementation.
-- **User review:** have the agent add two bookmarks to an issue and summarize one group.
+The approved integration is implemented. Its scope, accepted review flow, client setup, verification, and remaining Codex acceptance are maintained together in the standalone [WebMCP document](webmcp.md). Claude testing is deferred at the user’s request; finish Codex acceptance before closing this round.
 
 ## Later, only if needed
 
@@ -57,6 +51,6 @@ Starting this round requires naming the browser and agent pair. No WebMCP integr
 | Media upload and bulk status propagation | Frozen; old dialogs were removed in round 1. Existing backup media support remains. |
 | C.1 undo rework (change sets, Redo) | Cut. Current Undo stays until it causes a real problem. The rename's schema version 2 does not implement C.1. |
 | Record lifecycle | Collections can be deleted with confirmation and a backup offer. Bookmarks, tags, and tag types have no individual deletion. Archive/unarchive is not implemented. |
-| Single bookmark creation | Add bookmark currently opens Import; WebMCP needs an add-item command in round 4. |
+| Single bookmark creation | Add bookmark opens Import; agent creation is covered in [WebMCP](webmcp.md). |
 | Advanced filter rules | Linked tag status, same-group, distance, and nested any/all remain in the domain engine but are not exposed by the compact filter UI. |
 | 1,000/5,000 measurements and release review | Cut. |
