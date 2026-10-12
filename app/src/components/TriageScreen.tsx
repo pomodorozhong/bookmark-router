@@ -54,6 +54,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   // The tag shown in the detail panel after a tag is clicked in the graph, read or edited.
   const [tagPanel, setTagPanel] = useState<{ id: string; editing: boolean }>();
   const [currentId, setCurrentId] = useState<string>();
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [queueOpen, setQueueOpen] = useState(() => window.innerWidth > 1000);
   const [groupQuery, setGroupQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -341,7 +342,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             onGeometry={onGeometry}
             onImport={onImport}
             onClearSearch={() => changeFilter(emptyTriageFilter)}
-            onPinsChanged={() => {}}
+            onPinsChanged={setPinnedIds}
             loadMedia={loadMedia}
           />
         </div>
@@ -352,7 +353,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                 ? <RecordEditor key={panelTag.id} inline workspace={workspace} id={panelTag.id} onSave={(c) => save(c)} onNewType={onTagTypes}
                     onClose={() => setTagPanel({ id: panelTag.id, editing: false })} />
                 : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
-                    onCopy={() => openCopy("selection")} onEdit={() => setTagPanel({ id: panelTag.id, editing: true })} onClose={() => setTagPanel(undefined)} />}
+                    onCopy={() => openCopy("selection")} onEdit={() => setTagPanel({ id: panelTag.id, editing: true })}
+                    pin={<PinButton pinned={pinnedIds.includes(panelTag.id)} onToggle={(on) => graphRef.current?.setPinned(panelTag.id, on)} />} onClose={() => setTagPanel(undefined)} />}
             </div>
           ) : current ? (
             <>
@@ -366,6 +368,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                         : current.url ? <span className="url-warning">{current.url}<span className="url-warning-label">Not a link</span></span> : <span className="subtle">No URL</span>}
                       <button className="text-button" onClick={() => openCopy("current")}><Icon name="copy" size={13} /> Copy</button>
                       <button className="text-button" onClick={() => onEdit(current.id)}><Icon name="edit" size={13} /> Edit</button>
+                      <PinButton pinned={pinnedIds.includes(current.id)} onToggle={(on) => graphRef.current?.setPinned(current.id, on)} />
                     </div>
                   </div>
                   <Cover asset={current.asset} load={loadMedia} />
@@ -480,5 +483,14 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         />
       )}
     </div>
+  );
+}
+
+/** Pins a node where it sits in the graph, so layouts leave it there. */
+function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: (pinned: boolean) => void }) {
+  return (
+    <button className="text-button" aria-pressed={pinned} title={pinned ? "Let the layout move it again" : "Keep it where it is in the graph"} onClick={() => onToggle(!pinned)}>
+      <Icon name="pin" size={13} /> {pinned ? "Unpin" : "Pin"}
+    </button>
   );
 }
