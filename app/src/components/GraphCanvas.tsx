@@ -28,8 +28,8 @@ export interface GraphCanvasHandle {
   /** Zoom and center so these nodes, with room for titles, fill the view. */
   frame(ids: string[]): void;
   /** Zoom out until every visible node fits. */
-  /** Clears pins and lays every node out again from a grid. */
-  resetPositions(): void;
+  /** Lays every shown node out again from a grid; pinned nodes stay put unless `clearPins`. */
+  resetPositions(options?: { clearPins?: boolean }): void;
   positionOf(id: string): readonly [number, number] | undefined;
 }
 // Titles show for related or box-selected bookmarks only while there are few enough to read.
@@ -295,9 +295,11 @@ export function GraphCanvas({
     handle.frame(g.getNodeData().map((n) => n.id).filter((id) => g.getElementVisibility(id) !== "hidden"));
   }
   const collideRadius = (id: string) => (tagSizes.current.has(id) ? tagSizes.current.get(id)! / 2 + 20 : 34);
-  function resetPositions() {
-    pins.current.clear();
-    refreshPins();
+  function resetPositions({ clearPins = false } = {}) {
+    if (clearPins) {
+      pins.current.clear();
+      refreshPins();
+    }
     const sim = simulation.current;
     if (!sim) return;
     // Lay out only what is shown: hidden nodes hold still and exert no force.
@@ -305,7 +307,7 @@ export function GraphCanvas({
     (sim.force("charge") as ReturnType<typeof forceManyBody<ForceNode>> | undefined)?.strength((n) => (hidden(n) ? 0 : -250));
     (sim.force("collide") as ReturnType<typeof forceCollide<ForceNode>> | undefined)?.radius((n) => (hidden(n) ? 0 : collideRadius(n.id)));
     (sim.force("link") as ReturnType<typeof forceLink<ForceNode, SimulationLinkDatum<ForceNode>>> | undefined)?.strength((l) => (hidden(l.source as ForceNode) || hidden(l.target as ForceNode) ? 0 : 0.45));
-    const shown = sim.nodes().filter((n) => !hidden(n));
+    const shown = sim.nodes().filter((n) => !hidden(n) && !pins.current.has(n.id));
     const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
     for (const [i, n] of shown.entries()) {
       n.x = 90 + (i % columns) * 90;
@@ -443,6 +445,7 @@ export function GraphCanvas({
         .filter(([, p]) => p.pinned)
         .map(([id]) => id),
     );
+    pinsChangedRef.current([...pins.current]);
     frozen.current = hasSavedPositions;
     autoFit.current = !geometry?.viewport && !hasSavedPositions;
     const sim = forceSimulation<ForceNode>();
@@ -1064,7 +1067,7 @@ export function GraphCanvas({
                 <button onClick={() => {
                   setLayoutOpen(false);
                   if (window.confirm("Reset positions and clear all pins?")) {
-                    resetPositions();
+                    resetPositions({ clearPins: true });
                   }
                 }}>
                   <Icon name="refresh" size={15} /> Reset positions
