@@ -189,9 +189,9 @@ test("selected missing fields can be read, proposed, reviewed and undone without
   const tools = createAgentTools({ session, getWorkspace: async () => w, getCopyContext: () => ({ collectionId: w.id, selection: selectedIds, list: [selectedIds[0]] }) });
   const call = async (name: string, input: unknown = {}) => JSON.parse(await tools.find((t) => t.name === name)!.execute(input));
   const selected = await call("get_copy_content");
-  assert.deepEqual(selected.bookmarks[0].missingFields, ["title"]);
-  assert.deepEqual(selected.bookmarks[1].missingFields, ["description"]);
-  assert.deepEqual(selected.bookmarks[2].missingFields, ["url"]);
+  assert.deepEqual(selected.bookmarks[0].missingFields, ["title", "asset"]);
+  assert.deepEqual(selected.bookmarks[1].missingFields, ["description", "asset"]);
+  assert.deepEqual(selected.bookmarks[2].missingFields, ["url", "asset"]);
   const changes: ProposalInput["changes"] = [
     { kind: "update", bookmarkId: selected.bookmarks[0].id, expectedRecordRevision: selected.bookmarks[0].revision, patch: { title: "Source title" } },
     { kind: "update", bookmarkId: selected.bookmarks[1].id, expectedRecordRevision: selected.bookmarks[1].revision, patch: { description: "Source description" } },
@@ -215,4 +215,80 @@ test("selected missing fields can be read, proposed, reviewed and undone without
   assert.equal(w.bookmarks[1].description, before.bookmarks[1].description);
   assert.equal(w.bookmarks[2].url, "");
   await store.close();
+});
+
+test("agent can fill a selected missing image while preserving existing assets and undo the whole batch", async () => {
+  let w = demoWorkspace();
+  w.bookmarks[1].asset = { kind: "image", source: "remote", url: "https://images.example/existing.jpg" };
+  const before = structuredClone(w), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession();
+  await store.create(w);
+  const tools = createAgentTools({ session, getWorkspace: async () => w, getCopyContext: () => ({ collectionId: w.id, selection: w.bookmarks.slice(0, 2).map((b) => b.id), list: [] }) });
+  const call = async (name: string, value: unknown = {}) => JSON.parse(await tools.find((t) => t.name === name)!.execute(value));
+  const selected = await call("get_copy_content");
+  assert.deepEqual(selected.bookmarks[0].missingFields, ["asset"]);
+  assert.deepEqual(selected.bookmarks[1].missingFields, []);
+  for (const result of [await call("search_bookmarks", { text: w.bookmarks[0].title }), await call("read_group", { groupId: w.tags[0].id })])
+    assert.deepEqual(result.bookmarks.find((b: { id: string }) => b.id === w.bookmarks[0].id).missingFields, ["asset"]);
+  const request = { ...input(w, "fill-image"), summary: "Fill missing image", changes: [{ kind: "update", bookmarkId: selected.bookmarks[0].id, expectedRecordRevision: selected.bookmarks[0].revision, patch: { asset: { kind: "image", source: "remote", url: "  https://IMAGES.example/cover.jpg  " } } }] };
+  const staged = await call("propose_changes", request);
+  assert.equal(staged.state, "pending_review");
+  assert.equal((await call("propose_changes", request)).proposalId, staged.proposalId);
+  assert.deepEqual(await store.get(w.id), before); assert.equal(await store.nextUndo(w.id), undefined);
+  const proposal = session.current!, asset = { kind: "image", source: "remote", url: "https://images.example/cover.jpg" };
+  assert.deepEqual(proposal.preview.bookmarks[0].asset, asset);
+  assert.deepEqual(proposal.preview.bookmarks.slice(1), before.bookmarks.slice(1));
+  assert.deepEqual(proposal.preview.memberships, before.memberships);
+  w = await session.apply(proposal.id, w, store.command.bind(store));
+  assert.deepEqual(w.bookmarks[0].asset, asset);
+  assert.deepEqual(w.bookmarks.slice(1), before.bookmarks.slice(1));
+  for (const field of ["title", "description", "url", "statusId"] as const) assert.equal(w.bookmarks[0][field], before.bookmarks[0][field]);
+  assert.deepEqual((await call("get_copy_content")).bookmarks[0].missingFields, []);
+  const undo = (await store.nextUndo(w.id))!;
+  w = await store.undoLast(w.id, w.revision, undo.id);
+  assert.equal(w.bookmarks[0].asset, undefined); assert.deepEqual(w.bookmarks[1].asset, before.bookmarks[1].asset);
+  assert.deepEqual(w.memberships, before.memberships); assert.equal(await store.nextUndo(w.id), undefined);
+  await store.close();
+});
+
+test("reviewed image replacements restore a local or remote asset on Undo; rejection and staleness never replace it", async () => {
+  for (const original of [
+    { kind: "image", source: "local", blobId: "existing-blob", filename: "existing.png" },
+    { kind: "image", source: "remote", url: "https://images.example/original.png" },
+  ] as const) {
+    let w = demoWorkspace(); w.bookmarks[0].asset = original;
+    const store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession(); await store.create(w);
+    const request = { ...input(w, "replace-image"), changes: [{ kind: "update", bookmarkId: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { asset: { kind: "image", source: "remote", url: "https://images.example/replacement.png" } } }] };
+    const rejected = session.submit(request, w); session.reject(rejected.id);
+    assert.deepEqual((await store.get(w.id))!.bookmarks[0].asset, original); assert.equal(await store.nextUndo(w.id), undefined);
+    const proposal = session.submit({ ...request, requestId: "apply-image" }, w);
+    w = await session.apply(proposal.id, w, store.command.bind(store));
+    const undo = (await store.nextUndo(w.id))!; w = await store.undoLast(w.id, w.revision, undo.id);
+    assert.deepEqual(w.bookmarks[0].asset, original);
+    const stale = session.submit({ ...request, requestId: "stale-image", expectedRevision: w.revision, changes: [{ ...request.changes[0], expectedRecordRevision: w.bookmarks[0].revision }] }, w);
+    w = await store.command(w.id, w.revision, { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: w.bookmarks[0].revision, patch: { description: "Manual edit" } });
+    await assert.rejects(session.apply(stale.id, w, store.command.bind(store)), ConflictError);
+    assert.equal(stale.state, "stale"); assert.deepEqual((await store.get(w.id))!.bookmarks[0].asset, original);
+    await store.close();
+  }
+});
+
+test("asset proposals reject unsupported media, unsafe URLs, local references and malformed objects before staging", async () => {
+  const w = demoWorkspace(), session = new AgentReviewSession();
+  const tool = createAgentTools({ session, getWorkspace: async () => w }).find((t) => t.name === "propose_changes")!;
+  const invalid = [
+    null, "https://images.example/cover.png", {},
+    { kind: "image", source: "remote" },
+    { kind: "image", source: "remote", url: "   " },
+    { kind: "image", source: "remote", url: 7 },
+    ...["javascript:alert(1)", "data:image/png;base64,AA==", "file:///tmp/image.png", "blob:https://example.org/id", "ftp://example.org/image.png", "not-a-url"].map((url) => ({ kind: "image", source: "remote", url })),
+    { kind: "image", source: "local", blobId: "missing", filename: "image.png" },
+    { kind: "video", source: "remote", url: "https://images.example/video.mp4" },
+    { kind: "audio", source: "remote", url: "https://images.example/audio.mp3" },
+    { kind: "image", source: "remote", url: "https://images.example/cover.png", blobId: "extra" },
+    { kind: "image", source: "remote", url: "https://images.example/cover.png", filename: "extra" },
+  ];
+  for (const asset of invalid) {
+    const result = JSON.parse(await tool.execute({ ...input(w), changes: [{ kind: "update", bookmarkId: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { asset } }] }));
+    assert.equal(result.error.code, "invalid_input"); assert.equal(session.current, undefined);
+  }
 });
