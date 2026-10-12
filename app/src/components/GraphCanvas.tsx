@@ -1049,7 +1049,6 @@ export function GraphCanvas({
           {!ready && <span className="subtle" role="status">{status}</span>}
         </div>
         <div className="canvas-tools">
-          <span className="zoom-value">{Math.round(zoom * 100)}%</span>
           <div className="layout-menu">
             <button
               className="tool-button"
@@ -1057,7 +1056,7 @@ export function GraphCanvas({
               disabled={!ready}
               onClick={() => setLayoutOpen((v) => !v)}
             >
-              <Icon name="layout" size={15} /> <span>Layout</span><Icon name="chevron-down" size={14} />
+              <Icon name="layout" size={15} /> <span>Layout</span><Icon name="chevron-down" size={13} />
             </button>
             {layoutOpen && (
               <div className="layout-menu-popover">
@@ -1075,15 +1074,20 @@ export function GraphCanvas({
               </div>
             )}
           </div>
-          {tools}
-          <IconButton
-            label="Whole collection"
-            icon="fit"
-            disabled={!ready}
-            onClick={() => void action(fitWhole)}
-          />
-          <IconButton label="Zoom out" icon="zoom-out" disabled={!ready} onClick={() => void action((g) => g.zoomBy(0.8, false))} />
-          <IconButton label="Zoom in" icon="zoom-in" disabled={!ready} onClick={() => void action((g) => g.zoomBy(1.25, false))} />
+          <div className="tool-group">
+            {tools}
+            <IconButton
+              label="Whole collection"
+              icon="fit"
+              disabled={!ready}
+              onClick={() => void action(fitWhole)}
+            />
+          </div>
+          <div className="tool-group">
+            <IconButton label="Zoom out" icon="zoom-out" disabled={!ready} onClick={() => void action((g) => g.zoomBy(0.8, false))} />
+            <span className="zoom-value">{Math.round(zoom * 100)}%</span>
+            <IconButton label="Zoom in" icon="zoom-in" disabled={!ready} onClick={() => void action((g) => g.zoomBy(1.25, false))} />
+          </div>
         </div>
       </div>
     </div>

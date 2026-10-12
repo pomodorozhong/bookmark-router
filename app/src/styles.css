@@ -76,11 +76,22 @@ p { line-height: 1.6; }
 .canvas-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 60px; flex-shrink: 0; padding: 10px 20px; border-top: 1px solid var(--line); background: white; }
 .canvas-tools { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .canvas-tools .icon-button::after { top: auto; bottom: calc(100% + 7px); }
-.zoom-value { min-width: 48px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.zoom-value { display: grid; place-items: center; min-width: 48px; padding: 0 4px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--muted); }
+/* Toolbar controls match the filter bar: 34px, joined groups split by thin dividers, and one standalone dropdown. */
+.canvas-tools .tool-button { height: 34px; min-height: 34px; padding: 0 10px; gap: 6px; border-radius: 8px; font-size: 13px; font-weight: 400; }
+.canvas-tools .tool-button:hover, .canvas-tools .tool-button[aria-expanded=true] { background: #f3f7f5; border-color: var(--line); }
+.tool-group { display: inline-flex; align-items: stretch; height: 34px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.tool-group .icon-button { width: 34px; height: 32px; min-height: 0; border: 0; border-radius: 0; background: transparent; }
+.tool-group .icon-button + .icon-button { border-left: 1px solid var(--line); }
+.tool-group .icon-button:first-child { border-radius: 7px 0 0 7px; }
+.tool-group .icon-button:last-child { border-radius: 0 7px 7px 0; }
+.tool-group .icon-button:hover:not(:disabled) { background: #f3f7f5; }
+.tool-group .icon-button:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
 .layout-menu { position: relative; }
 .layout-menu-popover { position: absolute; bottom: calc(100% + 10px); right: 0; width: 260px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: white; box-shadow: var(--shadow); z-index: 20; }
 .layout-menu-popover { width: 190px; padding: 6px; }
-.layout-menu-popover button { justify-content: flex-start; width: 100%; border: 0; }
+.layout-menu-popover button { justify-content: flex-start; width: 100%; min-height: 0; padding: 7px 8px; border: 0; border-radius: 7px; font-size: 13px; font-weight: 400; }
+.layout-menu-popover button:hover { background: #f3f7f5; }
 .canvas-empty { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: min(400px, calc(100% - 32px)); text-align: center; color: var(--muted); }
 .canvas-empty h2 { color: var(--ink); font-size: 22px; }
 .canvas-empty button { margin-top: 8px; }
