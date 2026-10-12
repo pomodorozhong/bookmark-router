@@ -1,5 +1,7 @@
 import {
   validateWorkspace,
+  storedUrlKey,
+  urlKey,
   type Asset,
   type Bookmark,
   type TagType,
@@ -8,7 +10,22 @@ import {
   type SavedView,
   type Workspace,
 } from "./model";
+export interface BookmarkCreateInput {
+  id?: string;
+  title?: string;
+  url: string;
+  description?: string;
+  statusId?: string;
+  tagIds?: string[];
+}
+export class DuplicateBookmarkError extends Error {
+  constructor(public readonly bookmarkId: string) {
+    super(`This URL already belongs to bookmark ${bookmarkId}. Update that bookmark explicitly.`);
+    this.name = "DuplicateBookmarkError";
+  }
+}
 export type Command =
+  | ({ type: "bookmark.create" } & BookmarkCreateInput)
   | {
       type: "bookmark.patch";
       id: string;
@@ -86,7 +103,33 @@ export function applyCommand(
   if (source.revision !== expectedRevision) throw new ConflictError();
   const w = structuredClone(source),
     now = new Date().toISOString();
-  if (command.type === "bookmark.patch" || command.type === "tag.patch") {
+  if (command.type === "bookmark.create") {
+    if (typeof command.url !== "string" || !command.url.trim())
+      throw new Error("A new bookmark needs an HTTP or HTTPS URL.");
+    const url = urlKey(command.url.trim());
+    for (const key of ["id", "title", "description", "statusId"] as const)
+      if (command[key] !== undefined && typeof command[key] !== "string")
+        throw new Error(`${key} must be text.`);
+    const duplicate = w.bookmarks.find((b) => b.url && storedUrlKey(b.url) === storedUrlKey(url));
+    if (duplicate) throw new DuplicateBookmarkError(duplicate.id);
+    const id = command.id ?? crypto.randomUUID();
+    if (!id.trim() || [...w.bookmarks, ...w.tags].some((r) => r.id === id))
+      throw new Error("Choose a new bookmark ID.");
+    const statusId = command.statusId ?? w.statuses.find((s) => s.label.toLowerCase() === "pending")?.id;
+    if (!w.statuses.some((s) => s.id === statusId))
+      throw new Error("Choose an existing status; this collection has no Pending default.");
+    const tagIds = command.tagIds ?? [];
+    if (!Array.isArray(tagIds) || new Set(tagIds).size !== tagIds.length || tagIds.some((id) => !w.tags.some((t) => t.id === id)))
+      throw new Error("Choose unique existing groups.");
+    const title = command.title?.trim();
+    w.bookmarks.push({ id, title: title || url, url, description: command.description ?? "", statusId: statusId!, missingTitle: !title, revision: 0, createdAt: now, updatedAt: now });
+    for (const tagId of tagIds) {
+      w.memberships.push({ id: crypto.randomUUID(), bookmarkId: id, tagId });
+      const tag = w.tags.find((t) => t.id === tagId)!;
+      tag.revision++;
+      tag.updatedAt = now;
+    }
+  } else if (command.type === "bookmark.patch" || command.type === "tag.patch") {
     const records = command.type === "bookmark.patch" ? w.bookmarks : w.tags;
     const record = records.find((r) => r.id === command.id);
     if (!record || record.revision !== command.expectedRecordRevision)
