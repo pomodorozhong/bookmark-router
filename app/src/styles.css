@@ -70,10 +70,14 @@ p { line-height: 1.6; }
 .graph-area, .canvas-shell { height: 100%; }
 .canvas-shell { display: flex; flex-direction: column; position: relative; overflow: hidden; }
 .graph-canvas { flex: 1; min-height: 0; background-color: #f8faf9; background-image: radial-gradient(#d9e2dd .7px, transparent .7px); background-size: 20px 20px; touch-action: none; overscroll-behavior: contain; }
-.pin-layer { position: absolute; inset: 0 0 60px; overflow: hidden; pointer-events: none; }
+.pin-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .graph-pin { position: absolute; transform: translate(-16.667%, -87.5%); pointer-events: none; }
 .graph-pin svg { display: block; width: 100%; height: 100%; }
-.canvas-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 60px; flex-shrink: 0; padding: 10px 20px; border-top: 1px solid var(--line); background: white; }
+/* The toolbar floats over the graph, like the filter bar, so the graph gets the full height. */
+.canvas-bottom { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; pointer-events: none; }
+.canvas-bottom > * { pointer-events: auto; }
+.canvas-status:empty { display: none; }
+.canvas-status span { padding: 4px 9px; border-radius: 7px; background: #ffffffeb; }
 .canvas-tools { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .canvas-tools .icon-button::after { top: auto; bottom: calc(100% + 7px); }
 .zoom-value { display: grid; place-items: center; min-width: 48px; padding: 0 4px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--muted); }
@@ -334,13 +338,12 @@ th { background: #f4f7f5; color: var(--muted); }
   .list-item { flex-wrap: wrap; gap: 12px; }
   .list-item-main { flex-basis: 100%; }
   .list-item-main strong, .list-item-main > span { white-space: normal; overflow-wrap: anywhere; }
-  .canvas-bottom { padding: 8px; height: 64px; gap: 4px; flex-wrap: wrap; }
+  .canvas-bottom { left: 8px; right: 8px; bottom: 8px; gap: 4px; flex-wrap: wrap; }
   .canvas-status { position: static; width: 100%; }
   .canvas-status:empty { display: none; }
   .canvas-tools { gap: 2px; width: 100%; justify-content: flex-end; }
   .tool-button { padding: 8px; gap: 4px; }
   .tool-button svg:last-child { display: none; }
-  .pin-layer { bottom: 64px; }
   .import-page { padding: 24px 16px 130px; }
   .topbar { padding-right: 16px; }
   .topbar .badge { display: none; }
