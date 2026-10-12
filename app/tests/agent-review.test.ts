@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import "fake-indexeddb/auto";
-import { AgentReviewSession, AgentInputError, type ProposalInput } from "../src/domain/agent-review";
+import { AgentReviewSession, AgentInputError, hasGroup, reviewAgentProposal, type ProposalInput } from "../src/domain/agent-review";
 import { applyCommand, ConflictError, DuplicateBookmarkError } from "../src/domain/commands";
 import { demoWorkspace } from "../src/domain/samples";
 import { WorkspaceStore } from "../src/domain/storage";
@@ -93,6 +93,130 @@ test("stale review and a concurrent storage write cannot overwrite newer content
   await store.close();
 });
 
+test("overwrite review lists overlapping fields and group changes, while preserving unrelated newer edits", () => {
+  const w = demoWorkspace(), session = new AgentReviewSession(), b = w.bookmarks[0];
+  const proposal = session.submit({ ...input(w), changes: [{ kind: "update", bookmarkId: b.id, expectedRecordRevision: b.revision,
+    patch: { title: "Agent title", description: "Agent note", asset: { kind: "image", source: "remote", url: "https://images.example/agent.jpg" } },
+    addTagIds: [w.tags[1].id], removeTagIds: [w.tags[2].id] }] }, w);
+  let current = applyCommand(w, w.revision, { type: "bookmark.patch", id: b.id, expectedRecordRevision: b.revision, patch: { title: "Manual title", description: "Agent note", statusId: "done", asset: { kind: "image", source: "local", blobId: "manual", filename: "manual.png" } } });
+  // Reverse connections requested by the proposal; add another connection outside its scope.
+  current = applyCommand(current, current.revision, { type: "membership.set", bookmarkId: b.id, tagId: w.tags[2].id, linked: true });
+  current = applyCommand(current, current.revision, { type: "membership.set", bookmarkId: b.id, tagId: w.tags[1].id, linked: true });
+  current = applyCommand(current, current.revision, { type: "membership.set", bookmarkId: b.id, tagId: w.tags[1].id, linked: false });
+  current = applyCommand(current, current.revision, { type: "bookmark.patch", id: w.bookmarks[1].id, expectedRecordRevision: 0, patch: { description: "Unrelated newer note" } });
+  session.refresh(current);
+  const before = structuredClone(current), original = structuredClone(proposal.input), review = reviewAgentProposal(proposal, current);
+  assert.deepEqual(review.overwrites, [{ bookmarkId: b.id, field: "title" }, { bookmarkId: b.id, field: "asset" }, { bookmarkId: b.id, field: "membership", tagId: w.tags[2].id }]);
+  assert.equal(review.before.bookmarks[0].title, "Manual title");
+  assert.equal(review.preview.bookmarks[0].statusId, "done");
+  assert.equal(review.preview.bookmarks[1].description, "Unrelated newer note");
+  assert.equal(hasGroup(review.preview, b.id, w.tags[0].id), true);
+  assert.equal(hasGroup(review.preview, b.id, w.tags[1].id), true);
+  assert.equal(hasGroup(review.preview, b.id, w.tags[2].id), false);
+  assert.deepEqual(current, before); assert.deepEqual(proposal.input, original); assert.deepEqual(proposal.before, w);
+});
+
+test("unrelated staleness and values already matching the proposal report no overwritten edits", async () => {
+  const w = demoWorkspace(), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession();
+  await store.create(w);
+  const p = session.submit({ ...input(w), changes: [{ kind: "update", bookmarkId: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { title: "Agent title", asset: { kind: "image", source: "remote", url: "https://images.example/a.jpg" } }, addTagIds: [w.tags[1].id] }] }, w);
+  let current = await store.command(w.id, w.revision, { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { description: "Manual note" } });
+  assert.deepEqual(reviewAgentProposal(p, current).overwrites, []);
+  current = await store.command(w.id, current.revision, [
+    { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: current.bookmarks[0].revision, patch: { title: "Agent title", asset: { url: "https://images.example/a.jpg", source: "remote", kind: "image" } } },
+    { type: "membership.set", bookmarkId: w.bookmarks[0].id, tagId: w.tags[1].id, linked: true },
+  ]);
+  assert.deepEqual(reviewAgentProposal(p, current).overwrites, []);
+  await assert.rejects(session.apply(p.id, current, store.command.bind(store)), ConflictError);
+  const saved = await session.apply(p.id, current, store.command.bind(store), { reviewedRevision: current.revision });
+  assert.equal(saved.bookmarks[0].description, "Manual note"); assert.equal(p.state, "applied");
+  await store.close();
+});
+
+test("overwrite review also detects newer URLs, statuses, and a manually removed connection that will be re-added", () => {
+  const w = demoWorkspace(), session = new AgentReviewSession(), b = w.bookmarks[0];
+  const p = session.submit({ ...input(w), changes: [{ kind: "update", bookmarkId: b.id, expectedRecordRevision: b.revision, patch: { url: "https://example.org/agent", statusId: "in-progress" }, addTagIds: [w.tags[0].id] }] }, w);
+  let current = applyCommand(w, w.revision, { type: "bookmark.patch", id: b.id, expectedRecordRevision: b.revision, patch: { url: "https://example.org/manual", statusId: "done" } });
+  current = applyCommand(current, current.revision, { type: "membership.set", bookmarkId: b.id, tagId: w.tags[0].id, linked: false });
+  const review = reviewAgentProposal(p, current);
+  assert.deepEqual(review.overwrites, [{ bookmarkId: b.id, field: "url" }, { bookmarkId: b.id, field: "statusId" }, { bookmarkId: b.id, field: "membership", tagId: w.tags[0].id }]);
+  assert.equal(review.before.bookmarks[0].statusId, "done"); assert.equal(review.preview.bookmarks[0].statusId, "in-progress");
+  assert.equal(hasGroup(review.before, b.id, w.tags[0].id), false); assert.equal(hasGroup(review.preview, b.id, w.tags[0].id), true);
+});
+
+test("Apply anyway saves a mixed batch once and Undo restores latest manual fields, memberships and local media", async () => {
+  const w = demoWorkspace(), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession(), b = w.bookmarks[0];
+  await store.create(w);
+  const request: ProposalInput = { ...input(w), changes: [...input(w).changes, { kind: "update", bookmarkId: b.id, expectedRecordRevision: b.revision, patch: { title: "Agent title", asset: { kind: "image", source: "remote", url: "https://images.example/a.jpg" } }, removeTagIds: [w.tags[1].id] }] };
+  const p = session.submit(request, w), stableIds = [...p.createdBookmarkIds];
+  let current = await store.attachMedia(w.id, w.revision, [{ bookmarkId: b.id, expectedRecordRevision: 0, asset: { kind: "image", source: "local", blobId: "manual-image", filename: "manual.png" } }], [{ id: "manual-image", filename: "manual.png", mime: "image/png", blob: new Blob(["manual image"], { type: "image/png" }) }]);
+  current = await store.command(w.id, current.revision, [
+    { type: "bookmark.patch", id: b.id, expectedRecordRevision: current.bookmarks[0].revision, patch: { title: "Manual title", description: "Keep newer note", statusId: "done" } },
+    { type: "membership.set", bookmarkId: b.id, tagId: w.tags[1].id, linked: true },
+  ]);
+  session.refresh(current);
+  const saved = await session.apply(p.id, current, store.command.bind(store), { reviewedRevision: current.revision });
+  assert.equal(saved.bookmarks.length, 14); assert.deepEqual(p.createdBookmarkIds, stableIds);
+  assert.equal(saved.bookmarks[0].title, "Agent title"); assert.equal(saved.bookmarks[0].description, "Keep newer note"); assert.equal(saved.bookmarks[0].statusId, "done");
+  assert.equal(hasGroup(saved, b.id, w.tags[1].id), false);
+  assert.deepEqual(p.before, current); assert.equal(p.preview.bookmarks[0].description, "Keep newer note");
+  assert.equal(session.submit(request, saved), p); assert.equal(saved.bookmarks.filter((bookmark) => stableIds.includes(bookmark.id)).length, 2);
+  await assert.rejects(session.apply(p.id, saved, store.command.bind(store), { reviewedRevision: saved.revision }), ConflictError);
+  const entry = (await store.nextUndo(w.id))!;
+  const undone = await store.undoLast(w.id, saved.revision, entry.id);
+  assert.equal(undone.bookmarks.length, current.bookmarks.length);
+  assert.deepEqual(undone.bookmarks.map(({ revision, updatedAt, ...bookmark }) => bookmark), current.bookmarks.map(({ revision, updatedAt, ...bookmark }) => bookmark));
+  assert.deepEqual(undone.memberships, current.memberships);
+  assert.equal(await (await store.media("manual-image"))!.blob.text(), "manual image");
+  await store.close();
+});
+
+test("Apply anyway requires the exact reviewed revision and protects against storage races", async () => {
+  const w = demoWorkspace(), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession();
+  await store.create(w); const p = session.submit(input(w), w);
+  const current = await store.command(w.id, w.revision, { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { title: "First manual edit" } });
+  session.refresh(current); const reviewedRevision = current.revision;
+  const newer = await store.command(w.id, current.revision, { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: current.bookmarks[0].revision, patch: { title: "Second manual edit" } });
+  await assert.rejects(session.apply(p.id, newer, store.command.bind(store), { reviewedRevision }), /changed again/);
+  await assert.rejects(session.apply(p.id, current, store.command.bind(store), { reviewedRevision }), ConflictError);
+  assert.equal(p.state, "stale"); assert.deepEqual(await store.get(w.id), newer);
+  const saved = await session.apply(p.id, newer, store.command.bind(store), { reviewedRevision: newer.revision });
+  assert.equal(saved.bookmarks.length, 14); assert.equal(saved.bookmarks[0].title, "Second manual edit");
+  await store.close();
+});
+
+test("Apply anyway revalidates duplicate URLs, removed records and groups, invalid status, and collection identity", async () => {
+  for (const failure of ["duplicate-create", "duplicate-update", "bookmark", "group", "status", "collection"] as const) {
+    const w = demoWorkspace(), session = new AgentReviewSession();
+    const p = session.submit({ ...input(w), changes: [...input(w).changes, { kind: "update", bookmarkId: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { url: "https://example.org/new-url", statusId: "done" }, addTagIds: [w.tags[1].id] }] }, w);
+    const current = structuredClone(w); current.revision++;
+    if (failure === "duplicate-create") current.bookmarks[1].url = "https://example.org/first";
+    if (failure === "duplicate-update") current.bookmarks[1].url = "https://example.org/new-url";
+    if (failure === "bookmark") current.bookmarks.shift();
+    if (failure === "group") current.tags.splice(1, 1);
+    if (failure === "status") current.statuses = current.statuses.filter((s) => s.id !== "done");
+    if (failure === "collection") current.id = "other";
+    session.refresh(current); let committed = false;
+    assert.throws(() => reviewAgentProposal(p, current));
+    await assert.rejects(session.apply(p.id, current, async () => { committed = true; return current; }, { reviewedRevision: current.revision }));
+    assert.equal(committed, false); assert.equal(p.state, "stale");
+    session.reject(p.id);
+    await assert.rejects(session.apply(p.id, current, async () => { committed = true; return current; }, { reviewedRevision: current.revision }), ConflictError);
+  }
+});
+
+test("failed Apply anyway keeps the warning and original proposal available for a retry", async () => {
+  const w = demoWorkspace(), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession();
+  await store.create(w); const p = session.submit(input(w), w);
+  const current = await store.command(w.id, 0, { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { title: "Manual" } });
+  session.refresh(current);
+  await assert.rejects(session.apply(p.id, current, async () => { throw new Error("Disk full"); }, { reviewedRevision: current.revision }), /Disk full/);
+  assert.equal(p.state, "stale"); assert.deepEqual(p.before, w); assert.deepEqual(await store.get(w.id), current);
+  const saved = await session.apply(p.id, current, store.command.bind(store), { reviewedRevision: current.revision });
+  assert.equal(p.state, "applied"); assert.equal(saved.bookmarks.length, 14);
+  await store.close();
+});
+
 test("failed batch storage rolls back every operation and can be retried", async () => {
   const w = demoWorkspace(), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession();
   await store.create(w); const p = session.submit(input(w), w);
@@ -120,7 +244,8 @@ test("tools read all groups and statuses, use compact filter semantics, and retu
   assert.equal(duplicate.error.code, "duplicate_url"); assert.equal(duplicate.error.bookmarkId, w.bookmarks[0].id);
   const staged = await call("propose_changes", input(w)); assert.equal(staged.state, "pending_review"); assert.deepEqual(staged.createdBookmarkIds, []);
   w = applyCommand(w, 0, { type: "tag.create", name: "Manual" });
-  assert.equal((await call("get_proposal_status", { proposalId: staged.proposalId })).state, "stale");
+  const stale = await call("get_proposal_status", { proposalId: staged.proposalId });
+  assert.equal(stale.state, "stale"); assert.match(stale.nextStep, /overwrite warning/); assert.match(stale.nextStep, /only the human-facing UI/);
   const abort = new AbortController(); abort.abort(); await assert.rejects(tools[0].execute({}, { signal: abort.signal }));
 });
 
