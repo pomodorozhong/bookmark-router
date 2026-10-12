@@ -3,7 +3,7 @@ import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { CopyDialog, type CopyScope } from "./CopyDialog";
 import { RecordEditor } from "./RecordEditor";
 import { TagView } from "./TagView";
-import { FilterChips } from "./FilterChips";
+import { FilterBar } from "./FilterBar";
 import { Cover, type LoadMedia } from "./Cover";
 import { Icon, IconButton } from "./Icon";
 import type { Command } from "../domain/commands";
@@ -59,7 +59,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [groupQuery, setGroupQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   // The filter bar's More menu, holding Empty groups and Ungrouped bookmarks.
-  const [moreOpen, setMoreOpen] = useState(false);
   const [menuIndex, setMenuIndex] = useState(0);
   const [copyScope, setCopyScope] = useState<CopyScope>();
   const [busy, setBusy] = useState(false);
@@ -201,7 +200,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       else if (e.key === "ArrowUp" || key === "k") { e.preventDefault(); move(-1); }
       else if (key === "q") setQueueOpen((v) => !v);
       else if (key === "c") openCopy();
-      else if (e.key === "Escape" && moreOpen) setMoreOpen(false);
       else if (e.key === "Escape" && tagPanel) setTagPanel(tagPanel.editing ? { ...tagPanel, editing: false } : undefined);
       else if (e.key === "Escape" && selection) setSelection(undefined);
       else if (e.key === "Escape" && current) show(undefined, false);
@@ -215,14 +213,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
-  useEffect(() => {
-    if (!moreOpen) return;
-    const close = (e: PointerEvent) => { if (!(e.target as Element).closest(".filter-more")) setMoreOpen(false); };
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, [moreOpen]);
 
-  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showEmptyGroups || !filter.showUngrouped || filter.rules.length);
   const total = workspace.bookmarks.length || 1;
   return (
     <div className={`triage ${queueOpen ? "" : "queue-closed"}`}>
@@ -281,41 +272,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         </nav>
         <div className="triage-stage">
           <div className="triage-tools">
-            <button onClick={() => setQueueOpen((v) => !v)} aria-pressed={queueOpen} title="Show or hide the queue (Q)"><Icon name="list" size={17} strokeWidth={2} /> Queue</button>
-            <div className={`triage-filter ${filtering ? "active" : ""}`}>
-              <Icon name="filter" size={15} />
-              <input ref={filterInput} type="search" aria-label="Filter bookmarks and groups" placeholder="Filter… (F)" value={filter.text}
-                onChange={(e) => changeFilter({ ...filter, text: e.target.value })}
-                onKeyDown={(e) => { if (e.key === "Escape") { changeFilter({ ...filter, text: "" }); e.currentTarget.blur(); } }} />
-              {workspace.tagTypes.map((type) => (
-                <label key={type.id} className="type-toggle">
-                  <input type="checkbox" checked={!filter.hiddenTypeIds.includes(type.id)}
-                    onChange={(e) => changeFilter({ ...filter, hiddenTypeIds: e.target.checked ? filter.hiddenTypeIds.filter((id) => id !== type.id) : [...filter.hiddenTypeIds, type.id] })} />
-                  <i className="swatch" style={{ background: type.appearance.color }} />{type.name}
-                </label>
-              ))}
-              <span className="filter-more">
-                <button className="filter-more-button" aria-label="More filters" aria-expanded={moreOpen} aria-haspopup="dialog"
-                  title={filter.showEmptyGroups && filter.showUngrouped ? "More filters" : "More filters (some hidden)"} onClick={() => setMoreOpen((v) => !v)}>
-                  <Icon name="menu" size={16} />
-                  {!(filter.showEmptyGroups && filter.showUngrouped) && <i className="filter-more-dot" />}
-                </button>
-                {moreOpen && (
-                  <div className="filter-more-popover" role="dialog" aria-label="More filters">
-                    <h4>Show</h4>
-                    <label className="filter-check">
-                      <input type="checkbox" checked={filter.showEmptyGroups} onChange={(e) => changeFilter({ ...filter, showEmptyGroups: e.target.checked })} />
-                      <span>Empty groups</span><small>Groups no shown bookmark belongs to</small>
-                    </label>
-                    <label className="filter-check">
-                      <input type="checkbox" checked={filter.showUngrouped} onChange={(e) => changeFilter({ ...filter, showUngrouped: e.target.checked })} />
-                      <span>Ungrouped bookmarks</span><small>Bookmarks in no shown group</small>
-                    </label>
-                  </div>
-                )}
-              </span>
-              <FilterChips workspace={workspace} filter={filter} tab={tab} onChange={changeFilter} save={(c, label) => save(c, label)} />
-            </div>
+            <button onClick={() => setQueueOpen((v) => !v)} aria-pressed={queueOpen} title="Show or hide the queue (Q)"><Icon name="list" size={17} strokeWidth={2} /> <span className="queue-label">Queue</span></button>
+            <FilterBar workspace={workspace} filter={filter} tab={tab} searchRef={filterInput} onChange={changeFilter} save={(c, label) => save(c, label)} />
           </div>
           {toast}
           <GraphCanvas
