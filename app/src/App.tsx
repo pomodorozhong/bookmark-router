@@ -30,6 +30,7 @@ import { AgentInputError, AgentReviewSession } from "./domain/agent-review";
 import { registerAgentTools } from "./agent/webmcp";
 import { readCopyFormat, type CopyContext } from "./copy-settings";
 const store = new WorkspaceStore();
+const loadReviewMedia = (id: string) => store.media(id);
 function activeCollection() {
   try {
     return localStorage.getItem("bookmark-tag-active");
@@ -1050,7 +1051,7 @@ export default function App() {
           />
         )}
       </main>
-      {agentReviewOpen && <AgentReviewDialog proposal={agentProposal} availability={agentAvailability} busy={busy} error={agentError}
+      {agentReviewOpen && <AgentReviewDialog proposal={agentProposal} availability={agentAvailability} busy={busy} error={agentError} loadMedia={loadReviewMedia}
         onApply={() => void applyAgentBatch()}
         onReject={() => { if (agentProposal && !busy) { agentSession.reject(agentProposal.id); setAgentError(""); notify("Batch rejected. No bookmark changes saved."); } }}
         onClose={() => setAgentReviewOpen(false)} />}

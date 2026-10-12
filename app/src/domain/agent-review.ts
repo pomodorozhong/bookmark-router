@@ -1,5 +1,7 @@
 import { applyCommand, ConflictError, DuplicateBookmarkError, type Command } from "./commands";
-import { storedUrlKey, urlKey, type Bookmark, type Workspace } from "./model";
+import { storedUrlKey, urlKey, type Asset, type Bookmark, type Workspace } from "./model";
+
+export type RemoteImage = Asset & { kind: "image"; source: "remote"; url: string };
 
 export interface CreateChange {
   kind: "create";
@@ -13,7 +15,7 @@ export interface UpdateChange {
   kind: "update";
   bookmarkId: string;
   expectedRecordRevision: number;
-  patch?: Partial<Pick<Bookmark, "title" | "description" | "url" | "statusId">>;
+  patch?: Partial<Pick<Bookmark, "title" | "description" | "url" | "statusId">> & { asset?: RemoteImage };
   addTagIds?: string[];
   removeTagIds?: string[];
 }
@@ -63,6 +65,16 @@ function ids(value: unknown): string[] | undefined {
 function optionalText(value: unknown, label: string): string | undefined {
   return value === undefined ? undefined : text(value, label, true);
 }
+function remoteImage(value: unknown): RemoteImage {
+  const asset = inputObject(value, ["kind", "source", "url"]);
+  if (asset.kind !== "image" || asset.source !== "remote") throw new AgentInputError("Asset must be a remote image with an HTTP or HTTPS URL.");
+  const url = text(asset.url, "Image URL").trim();
+  try {
+    return { kind: "image", source: "remote", url: urlKey(url) };
+  } catch {
+    throw new AgentInputError("Image URL must use HTTP or HTTPS.");
+  }
+}
 export function parseProposal(value: unknown): ProposalInput {
   const input = inputObject(value, ["requestId", "collectionId", "expectedRevision", "summary", "changes"]);
   if (!Array.isArray(input.changes) || !input.changes.length) throw new AgentInputError("Include at least one bookmark change.");
@@ -74,8 +86,12 @@ export function parseProposal(value: unknown): ProposalInput {
     }
     if (kind === "update") {
       const c = inputObject(value, ["kind", "bookmarkId", "expectedRecordRevision", "patch", "addTagIds", "removeTagIds"]);
-      const patch = c.patch === undefined ? undefined : inputObject(c.patch, ["title", "description", "url", "statusId"]);
-      if (patch) for (const [key, value] of Object.entries(patch)) text(value, key, key === "description" || key === "url");
+      const rawPatch = c.patch === undefined ? undefined : inputObject(c.patch, ["title", "description", "url", "statusId", "asset"]);
+      const patch = rawPatch ? { ...rawPatch } : undefined;
+      if (patch) for (const [key, value] of Object.entries(patch)) {
+        if (key === "asset") patch.asset = remoteImage(value);
+        else text(value, key, key === "description" || key === "url");
+      }
       return { kind, bookmarkId: text(c.bookmarkId, "Bookmark ID"), expectedRecordRevision: revision(c.expectedRecordRevision), patch: patch as UpdateChange["patch"], addTagIds: ids(c.addTagIds), removeTagIds: ids(c.removeTagIds) };
     }
     throw new AgentInputError("Change kind must be create or update.");

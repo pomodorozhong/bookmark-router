@@ -535,6 +535,12 @@ th { background: #f4f7f5; color: var(--muted); }
 .agent-review-diff { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 12px; }
 .agent-review-diff > div { background: var(--paper, #f5f8f6); padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
 .agent-review-diff p { font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 0; }
+.agent-review-image, .agent-review-no-image { margin-top: 10px; }
+.agent-review-image img { display: block; width: 100%; height: auto; max-height: 240px; object-fit: contain; border-radius: 6px; }
+.agent-review-image img[hidden] { display: none; }
+.agent-review-image:has(img:not([hidden])) { background: white; border-radius: 6px; }
+.agent-review-no-image { display: grid; place-items: center; min-height: 130px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); }
+.agent-review-image-error { color: #973c30; }
 .agent-review-note { font-size: 12px; line-height: 1.6; margin: 18px 0 0; }
 .agent-review-empty { padding: 16px 0; }
 @media (max-width: 620px) {

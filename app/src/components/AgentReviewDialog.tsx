@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import type { AgentProposal } from "../domain/agent-review";
-import type { Bookmark, Workspace } from "../domain/model";
+import { isWebUrl, type Asset, type Bookmark, type Workspace } from "../domain/model";
+import type { LoadMedia } from "./Cover";
 import { Dialog } from "./Dialog";
 import { IconButton } from "./Icon";
 
@@ -12,11 +14,43 @@ function groupNames(workspace: Workspace, ids: string[]) {
   return ids.map((id) => workspace.tags.find((t) => t.id === id)?.name ?? id).join(" · ") || "None";
 }
 
-export function AgentReviewDialog({ proposal, availability, busy, error, onApply, onReject, onClose }: {
+function ReviewImage({ asset, label, loadMedia }: { asset: Asset; label: string; loadMedia: LoadMedia }) {
+  const [src, setSrc] = useState<string>();
+  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+  useEffect(() => {
+    let canceled = false, objectUrl: string | undefined;
+    if (asset.source === "remote") {
+      if (asset.url && isWebUrl(asset.url)) setSrc(asset.url);
+      else setState("failed");
+    } else {
+      void loadMedia(asset.blobId!).then((media) => {
+        if (canceled) return;
+        if (media) setSrc(objectUrl = URL.createObjectURL(media.blob));
+        else setState("failed");
+      }).catch(() => { if (!canceled) setState("failed"); });
+    }
+    return () => { canceled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [asset, loadMedia]);
+  return <div className="agent-review-image">
+    {state !== "loaded" && <p className={state === "failed" ? "agent-review-image-error" : "subtle"} role="status">{state === "failed" ? "Image could not load." : "Loading image…"}</p>}
+    {src && <img src={src} alt={label} hidden={state !== "loaded"} onLoad={() => setState("loaded")} onError={() => setState("failed")} />}
+  </div>;
+}
+function AssetPreview({ asset, label, loadMedia }: { asset?: Asset; label: string; loadMedia: LoadMedia }) {
+  if (!asset) return <div className="agent-review-no-image">No image</div>;
+  return <>
+    {asset.kind === "image" ? <ReviewImage key={JSON.stringify(asset)} asset={asset} label={label} loadMedia={loadMedia} /> : <p>{asset.kind === "video" ? "Video" : "Audio"}</p>}
+    <p className="subtle">{asset.source === "remote" && asset.url && isWebUrl(asset.url) ? <a href={asset.url} target="_blank" rel="noreferrer">{asset.url}</a> : asset.filename ?? asset.url ?? "Local media"}</p>
+  </>;
+}
+
+
+export function AgentReviewDialog({ proposal, availability, busy, error, loadMedia, onApply, onReject, onClose }: {
   proposal?: AgentProposal;
   availability: "checking" | "available" | "unavailable" | "failed";
   busy: boolean;
   error: string;
+  loadMedia: LoadMedia;
   onApply: () => void;
   onReject: () => void;
   onClose: () => void;
@@ -63,10 +97,10 @@ export function AgentReviewDialog({ proposal, availability, busy, error, onApply
               ) : (
                 <>
                   {Object.keys(change.patch ?? {}).map((key) => {
-                    const field = key as keyof typeof fieldLabels;
+                    const field = key as keyof typeof fieldLabels | "asset";
                     return <div className="agent-review-diff" key={field}>
-                      <div><span className="subtle">Current {fieldLabels[field].toLowerCase()}</span><p>{fieldValue(before!, field, proposal.before)}</p></div>
-                      <div><span className="subtle">Proposed {fieldLabels[field].toLowerCase()}</span><p>{fieldValue(after, field, proposal.preview)}</p></div>
+                      <div><span className="subtle">Current {field === "asset" ? "image" : fieldLabels[field].toLowerCase()}</span>{field === "asset" ? <AssetPreview asset={before!.asset} label={`Current image for ${before!.title}`} loadMedia={loadMedia} /> : <p>{fieldValue(before!, field, proposal.before)}</p>}</div>
+                      <div><span className="subtle">Proposed {field === "asset" ? "image" : fieldLabels[field].toLowerCase()}</span>{field === "asset" ? <AssetPreview asset={after.asset} label={`Proposed image for ${after.title}`} loadMedia={loadMedia} /> : <p>{fieldValue(after, field, proposal.preview)}</p>}</div>
                     </div>;
                   })}
                   <dl className="agent-review-fields">
