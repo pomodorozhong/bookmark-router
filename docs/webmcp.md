@@ -1,6 +1,6 @@
 # WebMCP — bookmark tools, setup, and verification
 
-Updated October 13, 2026. **The app implementation and approved review UI are complete.** Six tools register in the live app when WebMCP is available, including copying the current selection into the agent conversation. Domain, transaction, Undo, and browser checks pass. The normal-profile Chrome connection and exact installed server command are verified. Both desktop configs have been installed with backups. This Codex conversation has discovered the live tools and read the 148-bookmark collection and #141's seven bookmarks. Human batch-flow acceptance remains pending; Claude testing is deferred.
+Updated October 13, 2026. **The app implementation and approved review UI are complete.** Six tools register in the live app when WebMCP is available, including copying the current selection into the agent conversation and proposing remote images with visible current/proposed previews. The user reports thumbnail repair through the agent is working. The subsequently approved **Apply anyway** flow lets the human apply a stale batch after reviewing its exact overwrites against current saved values. Domain, transaction, Undo, and browser checks pass. The normal-profile Chrome connection and exact installed server command were verified during the earlier connection review; Chrome must remain open and reachable for further use. Both desktop configs have been installed with backups. This Codex conversation has discovered the live tools and read the 148-bookmark collection and #141's seven bookmarks. Broader human batch-flow acceptance remains pending. Claude testing is deferred.
 
 This document is the standalone reference for Bookmark & Tag’s round 4 agent integration. It includes the accepted behavior, tool contracts, complete client configuration, observed verification, and remaining acceptance steps. Other project guides link here rather than maintaining separate MCP instructions.
 
@@ -86,7 +86,7 @@ The browser adapter is optional. When `document.modelContext` is unavailable or 
 | `get_collection_context` | No arguments. Returns the active collection ID/revision, name/count, existing groups with IDs and labels, tag types, statuses, and compact filter options. |
 | `search_bookmarks` | Optional `text` and compact `rules` (`kind`, `values`, `not`). Returns all matching bookmark details, revisions, groups, and membership reasons independently of current graph visibility and queue selection. |
 | `read_group` | `groupId`. Returns the issue, proposal, or topic description, URL, type/status, and every linked bookmark with details and reasons. |
-| `get_copy_content` | Optional `scope` (`selection`, the default; `list`; or `current`), `template`, and `separator`. Returns full bookmark details, IDs/revisions, `missingFields`, and formatted `text` in the app's Copy order. Defaults to the saved Copy format. Reads the live selection, filtered queue, or picked bookmark; does not write the clipboard or change preferences. |
+| `get_copy_content` | Optional `scope` (`selection`, the default; `list`; or `current`), `template`, and `separator`. Returns full bookmark details, IDs/revisions, missing title/description/URL/asset indicators, and formatted `text` in the app's Copy order. Defaults to the saved Copy format. Reads the live selection, filtered queue, or picked bookmark; does not write the clipboard or change preferences. |
 | `propose_changes` | `requestId`, `collectionId`, `expectedRevision`, task `summary`, and a `changes` batch. Returns `proposalId` and `pending_review`; saves no bookmark changes. |
 | `get_proposal_status` | `proposalId`. Returns `pending_review`, `applied`, `rejected`, or `stale`; created bookmark IDs are included after application. |
 
@@ -97,11 +97,38 @@ Read `get_collection_context` first for the collection ID/revision, group IDs, s
 
 Select bookmarks in the graph or click a group, then ask the agent: **“Copy my selected bookmarks here.”** The agent calls `get_copy_content` with `{}` or `{"scope":"selection"}`. It receives the full formatted text and structured bookmark details, including entries outside the current queue's filters. Output is not limited to the dialog's 40-item preview. An empty selection returns `total: 0`, empty text, and an explanation; it does not fall back to copying the whole collection. `list` follows the current queue and filters; `current` reads only the picked bookmark. Reloading clears UI selection. Import screens and collection transitions return `copy_context_unavailable` rather than another collection's selection.
 
-For **“Fill missing titles and descriptions for my selected bookmarks; keep existing values,”** first read `get_copy_content`. Bookmark results report `missingFields` for title (including a URL used as a placeholder and marked `missingTitle`), URL, and description; blank whitespace counts as missing. Obtain supported values from the bookmark's source or the user's supplied information, and submit one `propose_changes` batch containing only updates to those selected bookmarks and fields. Use the returned collection and record revisions. Populated fields and group/status assignments stay unchanged when omitted from the patch. If nothing supported is missing, report that instead of submitting an empty batch. Missing URLs require an identifiable source; do not invent links or metadata.
+For **“Fill missing titles and descriptions for my selected bookmarks; keep existing values,”** first read `get_copy_content`. Bookmark results report `missingFields` for title (including a URL used as a placeholder and marked `missingTitle`), URL, description, and asset. Blank text counts as missing; `asset` means no asset is stored, rather than an existing remote image failing to load. Obtain supported values from the bookmark's source or the user's supplied information, and submit one `propose_changes` batch containing only updates to those selected bookmarks and fields. Use the returned collection and record revisions. Populated fields, assets, and group/status assignments stay unchanged when omitted from the patch. If nothing supported is missing, report that instead of submitting an empty batch. Missing URLs require an identifiable source; do not invent links or metadata.
 
-The human checks the before/after changes in **Agent review**, then applies or rejects the whole batch. Applying a real title clears the missing-title marker. The batch is one Undo action, and stale proposals still require a fresh read. The agent can update title, description, URL, status, and explicit group links through the existing proposal contract; source notes, uploaded media, and arbitrary imported fields are not editable through this contract.
+The human checks the before/after changes in **Agent review**, then applies or rejects the whole batch. Applying a real title clears the missing-title marker. The batch is one Undo action. Stale batches require human review of their latest values and overwrite warning before **Apply anyway**, or rejection and a fresh proposal. The agent can update title, description, URL, status, a remote image asset, and explicit group links through the existing proposal contract; source notes, local media uploads, and arbitrary imported fields are not editable through this contract.
 
-Submit one task with `propose_changes`. Its payload has `requestId`, `collectionId`, `expectedRevision`, `summary`, and `changes`. A creation accepts an HTTP(S) URL, optional title/description/status, and existing `tagIds`. A missing title becomes the URL with the existing missing-title marker. Pending is the default status; collections without a Pending status require an explicit existing status ID. An update accepts `bookmarkId`, `expectedRecordRevision`, an optional `patch` of title/description/URL/status, and optional `addTagIds`/`removeTagIds`. Omitted values are retained; an empty URL clears the URL on an existing bookmark. Each bookmark may be updated once per batch. Unsupported fields and duplicate URLs reject the proposal before staging; a duplicate error includes the existing bookmark ID.
+Submit one task with `propose_changes`. Its payload has `requestId`, `collectionId`, `expectedRevision`, `summary`, and `changes`. A creation accepts an HTTP(S) URL, optional title/description/status, and existing `tagIds`. A missing title becomes the URL with the existing missing-title marker. Pending is the default status; collections without a Pending status require an explicit existing status ID. An update accepts `bookmarkId`, `expectedRecordRevision`, an optional `patch` of title/description/URL/status/asset, and optional `addTagIds`/`removeTagIds`. Omitted values are retained; an empty URL clears the URL on an existing bookmark. Each bookmark may be updated once per batch. Unsupported fields and duplicate URLs reject the proposal before staging; a duplicate error includes the existing bookmark ID.
+
+### Fill missing images
+
+Select bookmarks, then ask **“Find images for my selected bookmarks that have no asset; preserve existing images and other fields. Propose one batch for review.”** Read the selection with `get_copy_content`, find a suitable image from the bookmark's source, and verify that its HTTP(S) URL loads as an image. Submit updates only for bookmarks that have no asset. Do not invent an image URL or report success merely because the proposal is pending.
+
+Each image update uses this shape, with the IDs, revision, and image URL replaced by the actual read and sourced values:
+
+```json
+{
+  "kind": "update",
+  "bookmarkId": "<selected bookmark ID>",
+  "expectedRecordRevision": 0,
+  "patch": {
+    "asset": {
+      "kind": "image",
+      "source": "remote",
+      "url": "https://example.com/sourced-image.jpg"
+    }
+  }
+}
+```
+
+**Agent review shows the current and proposed images**, with the source URL under each remote preview. A missing current asset shows **No image**. Existing local images load from collection media; replacing one does not delete its blob, so Undo restores it. A failed preview explicitly says **Image could not load** and leaves the source URL visible for inspection. The user can reject or apply the batch; image availability does not change the stored proposal's validity.
+
+Remote image replacements also work when explicitly requested. This extension accepts only `{kind: "image", source: "remote", url: "<HTTP(S) URL>"}` on an existing bookmark's `patch.asset`. Local blob references, asset removal/null, video/audio assets, extra asset fields, and assets on creations remain unsupported. Images remain remote references and are not downloaded into collection storage. A reloaded app exposes the updated schema; rediscover the page tools before retrying a task that previously saw the old schema, and reselect bookmarks after reload.
+
+### Example: add two references
 
 Example payload, replacing the collection identifiers with the current read result:
 
@@ -130,7 +157,17 @@ Example payload, replacing the collection identifiers with the current read resu
 
 The bridge invokes this as `execute_webmcp_tool` with the discovered `pageId`, `toolName: "propose_changes"`, and the JSON-stringified payload in `input`. The result is `pending_review`, not a successful bookmark write. The human uses Agent review to apply or reject; no app tool approves or applies. Apply validates again and commits the whole command array atomically with one Undo entry. `get_proposal_status` returns pending, applied, rejected, or stale, plus created bookmark IDs only after application. An applied proposal records its commit; later Undo is a separate operation, so read current collection content before further writes.
 
-One batch may await review per tab. Identical retries with the same request ID reuse the proposal; changing that ID's payload rejects. Any newer collection revision makes a pending batch permanently stale. Reject the stale batch, read again, and submit a new request ID. Reloading or changing collection discards the tab's proposals and retry history. Pending drafts do not enter IndexedDB or backups.
+One batch may await review per tab. Identical retries with the same request ID reuse the proposal; changing that ID's payload rejects. Any newer collection revision marks a pending batch stale and blocks ordinary **Apply batch**. Reloading or changing collection discards the tab's proposals and retry history. Pending drafts do not enter IndexedDB or backups.
+
+### Apply a stale batch anyway
+
+The user approved the initial clickable preview on October 13, 2026, then refined the interaction through live feedback. The accepted flow uses two clicks on the same button: a separate confirmation view looked like the first click did nothing, while direct one-click saving removed the intended confirmation. Keep the batch review in place and make confirmation visible through the button label/color and reminder below the buttons. Opening **Agent review** reads the latest stored collection. A stale batch is rebuilt and validated against that content without saving. The review shows current saved values beside the values that would be applied. An overwrite warning identifies each field or explicit group connection that changed since the proposal and would change again under the batch. Fields already equal to the proposal are not overwrites; newer changes outside the proposal remain intact. Images retain visible current/proposed previews and source details.
+
+If the edits do not overlap, the warning explicitly says **No newer edits will be overwritten**. Otherwise it counts the newer edits and labels affected values **Changed since proposal · will be replaced**. A warning immediately above the save buttons lists the affected bookmark titles and field names or groups. **Apply anyway** requires two clicks on the same button in the same review: the first click saves nothing, changes the label to **Confirm overwrite** (or **Confirm apply** when there are no overwrites), changes the button from a pale warning surface to a filled warning color, and reveals a right-aligned reminder on the row below the buttons that confirming replaces the listed newer edits. The second click saves the entire batch, including other proposed changes and additions. No second review screen or modal is opened. The review closes after a successful save and shows the batch's result with Undo; failed saves keep the review open and show the error beside the buttons.
+
+Confirmation is bound to the proposal and collection revision displayed on the first click. A further edit, a different proposal, closing/reopening review, or a save error resets the button to **Apply anyway** and requires two clicks again. Saving reads storage again and checks the reviewed revision; the existing storage transaction also rejects a write that arrives between the read and commit. An unseen newer revision blocks saving until the latest values have been reviewed. Duplicate URLs, missing bookmarks/groups/statuses, invalid changes, and a different collection still block application. Stable creation IDs and the original request payload are retained, so retries do not create extra bookmarks.
+
+The batch creates one Undo entry using the collection immediately before application. Undo restores the latest manual fields, group connections, and local/remote image references, including edits made after the agent's proposal; local image blobs are retained. This action is available only in the human-facing UI. The six WebMCP tools do not gain an approval or application operation, and `get_proposal_status` keeps its existing states.
 
 ## Implementation locations
 
@@ -150,7 +187,13 @@ The following results were observed October 13, 2026. App and bridge verificatio
 
 | Check | Status |
 |---|---|
-| `npm run check`, `npm test`, and `npm run build` in `app/` | Passed; 82 tests including selection-copy and selected missing-field proposal coverage |
+| TypeScript check (also run by `npm run build`), `npm test`, and production build in `app/` | Passed; 92 tests including selection copy, missing-field enrichment, remote image proposals, and stale-batch overwrite review/application |
+| Apply anyway domain/storage checks | Passed: overlapping titles/descriptions/URLs/statuses/images/group adds/removes, unrelated and already-matching values, mixed create/update batches, stable retries, exact reviewed revision and transaction races, invalid batches, save-failure retry, and Undo to the latest manual content with the local blob intact |
+| Initial Apply anyway UI verification, before the same-button refinement | Passed on a separate local origin with simulated WebMCP registration and real app/storage: latest-value read on open, explicit image/description/group overwrites, no-overwrite warning, Back/Reject without saving, another edit invalidating the reviewed revision, Apply/Undo restoring latest manual content, and disabled application after a duplicate URL. Desktop and a measured 390-pixel iframe viewport fit without horizontal overflow. Image previews used local illustration fixtures; the user's normal-profile collection was not changed. |
+| Two-click Apply anyway in the same review | Full-app checks with a disposable copy of the 148-bookmark collection and simulated WebMCP registration verified first-click label/color/reminder with unchanged storage, reset after a further edit and closing/reopening, second-click save and result toast, Undo restoring newer manual content, the no-overwrite Confirm apply branch, and a measured 390-pixel iframe without horizontal overflow. Real IndexedDB and app save/Undo were exercised; image previews used a local illustration fixture. |
+| Final reminder layout | Actual review-component fixture passed at desktop and a measured 390-pixel iframe: reminder occupies its own row below the buttons, uses right alignment, aligns with the button row's right edge, and leaves the confirmation button's horizontal position and 160-pixel width unchanged. No horizontal overflow. `npm run check` and `git diff --check` passed after this layout-only change; the 92-test/build result above predates it. |
+| Image fill/replacement, rejected or stale proposals, and one-action Undo | Passed with isolated storage; missing assets and original local/remote assets restore correctly; unsupported assets and non-HTTP(S) URLs reject before staging |
+| Approved image preview flow in the actual app with a copy of the 148-bookmark collection | Passed in disposable Chrome through the bridge: image schema discovery, missing-image preview, current local/proposed remote images, visible source URL and load-failure message, rejection, Apply/Undo, and preservation of other bookmarks. Desktop and actual 390-pixel mobile emulation fit without horizontal overflow. Used a served illustration fixture; no real-source image was proposed or saved in the user's profile. |
 | Chrome 154 + pinned bridge 1.10.1 | Passed in a disposable headless Chrome profile |
 | Register, discover, execute, and unregister tools | Original five verified in Chrome; six-tool registration/abort cleanup covered in tests; new copy tool discovered and invoked through the live Codex bridge |
 | Selected missing-field read → proposal → application → Undo | Passed with isolated storage; title/description/URL fills preserve populated fields, group/status assignments, and unselected bookmarks |
@@ -161,7 +204,7 @@ The following results were observed October 13, 2026. App and bridge verificatio
 | Rejection without saving and staleness after a manual edit | Passed |
 | Approved live UI Apply/Reject/Undo, before/after edits, desktop and 390-pixel mobile layout | Passed; no page or dialog horizontal overflow |
 | Live field/status/URL/group edits and one-action Undo | Passed; exact previous fields and memberships restored |
-| Manual edit makes Apply unavailable | Passed through the actual Details editor |
+| Manual edit makes ordinary Apply unavailable | Passed through the actual Details editor; stale batches now offer Apply anyway with an explicit warning in the same review |
 | Reload and collection switch discard proposals | Passed; old proposal IDs become unavailable |
 | Save failure retains draft and supports retry | Passed with simulated storage failure in disposable Chrome |
 | Ordinary app use without WebMCP | Passed with the Chrome feature disabled |
@@ -191,7 +234,7 @@ After connecting Codex, try these acceptance tasks (Claude testing is deferred):
 1. Ask it to propose two new bookmark URLs for an existing issue. Open **Agent review**, inspect the batch, **Apply batch**, close review, and **Undo**. Confirm both links disappear together.
 2. Ask it to read and summarize that issue. Confirm it includes all linked bookmarks, even those outside the current queue or hidden graph groups.
 3. Propose another batch and **Reject batch**. Confirm the agent reports rejected and no bookmarks were saved.
-4. Propose an edit, close review, manually edit any bookmark, and reopen review. Confirm **Stale** and disabled Apply; reject it and ask for a fresh proposal.
+4. Propose an edit, close review, manually edit a field targeted by that batch, and reopen review. Confirm **Stale**, the latest current value, and the explicit overwrite warning. Read the named overwrites beside **Apply anyway**, click it to reveal **Confirm overwrite** and its reminder, click again to save, then Undo once to restore the newer manual edit. For an unrelated manual edit, expect **No newer edits will be overwritten** with the same two-click action, changing to **Confirm apply**. Rejecting the stale batch and requesting a fresh proposal remains available.
 
 Application review is always batch review before saving in this round. Other approval modes, coordinated handoffs, group creation, deletion, and fetch services remain outside scope.
 
