@@ -38,7 +38,7 @@ function requireText(value: unknown, label: string): string {
   return value;
 }
 function proposalResult(p: AgentProposal) {
-  return { proposalId: p.id, requestId: p.input.requestId, state: p.state, summary: p.input.summary, createdBookmarkIds: p.state === "applied" ? p.createdBookmarkIds : [], nextStep: p.state === "pending_review" ? "The user must open Agent review and apply or reject this batch. Nothing has been saved." : p.state === "stale" ? "Ask the user to reject the stale batch, read the latest collection, and submit a new request ID." : undefined };
+  return { proposalId: p.id, requestId: p.input.requestId, state: p.state, summary: p.input.summary, createdBookmarkIds: p.state === "applied" ? p.createdBookmarkIds : [], nextStep: p.state === "pending_review" ? "The user must open Agent review and apply or reject this batch. Nothing has been saved." : p.state === "stale" ? "The user can review the latest values and overwrite warning in Agent review, then choose Apply anyway, or reject this batch and ask for a fresh proposal. Nothing has been saved; only the human-facing UI can apply." : undefined };
 }
 function bookmarkResult(b: Bookmark, w: Workspace) {
   const missingFields = [

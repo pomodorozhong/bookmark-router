@@ -234,7 +234,7 @@ export default function App() {
       throw e;
     }
   }
-  async function applyAgentBatch() {
+  async function applyAgentBatch(reviewedRevision?: number) {
     const proposal = agentSession.current;
     if (!proposal || submitting.current || busy || switchingCollection.current) return;
     submitting.current = true;
@@ -244,8 +244,9 @@ export default function App() {
     try {
       const latest = await store.get(workspaceRef.current.id);
       if (!latest) throw new ConflictError("The active collection is no longer available.");
-      const saved = await agentSession.apply(proposal.id, latest, store.command.bind(store));
+      const saved = await agentSession.apply(proposal.id, latest, store.command.bind(store), reviewedRevision === undefined ? undefined : { reviewedRevision });
       const entry = await publish(saved);
+      setAgentReviewOpen(false);
       notify(entry?.label ?? "Agent batch applied", () => void undoRef.current());
     } catch (e) {
       setAgentError(e instanceof Error ? e.message : String(e));
@@ -256,6 +257,23 @@ export default function App() {
       submitting.current = false;
       setBusy(false);
     }
+  }
+  async function openAgentReview() {
+    if (busy || agentApplying.current || switchingCollection.current) return;
+    const id = workspaceRef.current.id;
+    setAgentError("");
+    try {
+      const latest = await store.get(id);
+      if (switchingCollection.current || id !== workspaceRef.current.id) return;
+      if (!latest) throw new ConflictError("The active collection is no longer available.");
+      if (latest.revision >= workspaceRef.current.revision) {
+        agentSession.refresh(latest);
+        workspaceRef.current = latest;
+        setWorkspace(latest);
+        void store.nextUndo(id).then(setNextUndo);
+      }
+    } catch (e) { setAgentError(e instanceof Error ? e.message : String(e)); }
+    setAgentReviewOpen(true);
   }
   async function undoLastAction() {
     if (!nextUndo || nextUndo.revision !== workspace.revision || busy || submitting.current) return;
@@ -547,7 +565,7 @@ export default function App() {
   );
   const agentProposal = agentSession.current;
   const agentPending = agentProposal?.state === "pending_review" || agentProposal?.state === "stale";
-  const agentReviewButton = <button className="agent-review-entry" disabled={busy} onClick={() => { setAgentError(""); setAgentReviewOpen(true); }} aria-label={`Agent review${agentPending ? ", 1 batch awaiting review" : ""}`}>
+  const agentReviewButton = <button className="agent-review-entry" disabled={busy} onClick={() => void openAgentReview()} aria-label={`Agent review${agentPending ? ", 1 batch awaiting review" : ""}`}>
     <Icon name="check" size={15} /><span>Agent review</span>{agentPending && <span className="agent-review-count" aria-hidden="true">1</span>}
   </button>;
   function restoreBackup() {
@@ -1051,8 +1069,9 @@ export default function App() {
           />
         )}
       </main>
-      {agentReviewOpen && <AgentReviewDialog proposal={agentProposal} availability={agentAvailability} busy={busy} error={agentError} loadMedia={loadReviewMedia}
+      {agentReviewOpen && <AgentReviewDialog proposal={agentProposal} workspace={workspace} availability={agentAvailability} busy={busy} error={agentError} loadMedia={loadReviewMedia}
         onApply={() => void applyAgentBatch()}
+        onApplyAnyway={(revision) => void applyAgentBatch(revision)}
         onReject={() => { if (agentProposal && !busy) { agentSession.reject(agentProposal.id); setAgentError(""); notify("Batch rejected. No bookmark changes saved."); } }}
         onClose={() => setAgentReviewOpen(false)} />}
       {editing && (

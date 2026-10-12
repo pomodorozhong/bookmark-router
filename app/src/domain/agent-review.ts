@@ -37,6 +37,18 @@ export interface AgentProposal {
   before: Workspace;
   preview: Workspace;
 }
+export type ProposalField = keyof NonNullable<UpdateChange["patch"]>;
+export interface ProposalOverwrite {
+  bookmarkId: string;
+  field: ProposalField | "membership";
+  tagId?: string;
+}
+export interface ProposalReview {
+  before: Workspace;
+  preview: Workspace;
+  commands: Command[];
+  overwrites: ProposalOverwrite[];
+}
 export class AgentInputError extends Error {
   constructor(message: string, public readonly code = "invalid_input") {
     super(message);
@@ -131,6 +143,43 @@ function previewChanges(input: ProposalInput, source: Workspace, creationIds: st
   return { commands, preview };
 }
 
+function sameField(a: Bookmark, b: Bookmark, field: ProposalField) {
+  if (field === "asset") return (["kind", "source", "url", "blobId", "filename"] as const).every((key) => a.asset?.[key] === b.asset?.[key]);
+  if (field === "title") return a.title === b.title && Boolean(a.missingTitle) === Boolean(b.missingTitle);
+  return (a[field] ?? "") === (b[field] ?? "");
+}
+export function hasGroup(workspace: Workspace, bookmarkId: string, tagId: string) {
+  return workspace.memberships.some((m) => m.bookmarkId === bookmarkId && m.tagId === tagId);
+}
+
+/** Revalidate the original intent against current content without changing the proposal or saving. */
+export function reviewAgentProposal(proposal: AgentProposal, workspace: Workspace): ProposalReview {
+  if (proposal.input.collectionId !== workspace.id) throw new ConflictError("This batch belongs to another collection.");
+  const input: ProposalInput = { ...proposal.input, expectedRevision: workspace.revision, changes: proposal.input.changes.map((change) => {
+    if (change.kind === "create") return change;
+    const bookmark = workspace.bookmarks.find((b) => b.id === change.bookmarkId);
+    if (!bookmark) throw new ConflictError("A bookmark in this batch no longer exists. Reject it and ask for a fresh proposal.");
+    return { ...change, expectedRecordRevision: bookmark.revision };
+  }) };
+  const { commands, preview } = previewChanges(input, workspace, proposal.createdBookmarkIds);
+  const overwrites: ProposalOverwrite[] = [];
+  for (const change of input.changes) {
+    if (change.kind !== "update") continue;
+    const original = proposal.before.bookmarks.find((b) => b.id === change.bookmarkId)!;
+    const current = workspace.bookmarks.find((b) => b.id === change.bookmarkId)!;
+    const after = preview.bookmarks.find((b) => b.id === change.bookmarkId)!;
+    for (const field of Object.keys(change.patch ?? {}) as ProposalField[]) {
+      if (!sameField(original, current, field) && !sameField(current, after, field)) overwrites.push({ bookmarkId: change.bookmarkId, field });
+    }
+    for (const tagId of [...(change.addTagIds ?? []), ...(change.removeTagIds ?? [])]) {
+      const linked = hasGroup(workspace, change.bookmarkId, tagId);
+      if (linked !== hasGroup(proposal.before, change.bookmarkId, tagId) && linked !== hasGroup(preview, change.bookmarkId, tagId))
+        overwrites.push({ bookmarkId: change.bookmarkId, field: "membership", tagId });
+    }
+  }
+  return { before: workspace, preview, commands, overwrites };
+}
+
 /** Tab-local review state. Only the human-facing UI calls apply/reject; tools cannot. */
 export class AgentReviewSession {
   private proposals = new Map<string, AgentProposal>();
@@ -177,15 +226,18 @@ export class AgentReviewSession {
     if (!proposal || !["pending_review", "stale"].includes(proposal.state)) throw new AgentInputError("There is no pending batch to reject.");
     proposal.state = "rejected"; this.changed();
   }
-  async apply(id: string, workspace: Workspace, commit: (collectionId: string, expectedRevision: number, commands: Command[], label: string) => Promise<Workspace>): Promise<Workspace> {
+  async apply(id: string, workspace: Workspace, commit: (collectionId: string, expectedRevision: number, commands: Command[], label: string) => Promise<Workspace>, options?: { reviewedRevision: number }): Promise<Workspace> {
     const proposal = this.get(id, workspace);
     if (this.applying) throw new AgentInputError("The batch is already saving.", "review_busy");
-    if (proposal.state !== "pending_review") throw new ConflictError("This batch is no longer pending. Ask the agent for a fresh proposal.");
+    if (proposal.state !== "pending_review" && !(proposal.state === "stale" && options)) throw new ConflictError("This batch is no longer pending. Review the latest values or ask the agent for a fresh proposal.");
+    if (options && (proposal.state !== "stale" || options.reviewedRevision !== workspace.revision))
+      throw new ConflictError("This collection changed again. Review the updated overwrite warning before applying anyway.");
     // Rebuild and validate immediately before the storage transaction, retaining stable IDs.
-    const { commands } = previewChanges(proposal.input, workspace, proposal.createdBookmarkIds);
+    const { commands, preview } = options ? reviewAgentProposal(proposal, workspace) : previewChanges(proposal.input, workspace, proposal.createdBookmarkIds);
     this.applying = true;
     try {
-      const saved = await commit(proposal.input.collectionId, proposal.input.expectedRevision, commands, `Agent: ${proposal.input.summary}`);
+      const saved = await commit(proposal.input.collectionId, workspace.revision, commands, `Agent: ${proposal.input.summary}`);
+      proposal.before = structuredClone(workspace); proposal.preview = preview; proposal.commands = commands;
       proposal.state = "applied"; this.changed(); return saved;
     } catch (error) {
       if (error instanceof ConflictError) proposal.state = "stale";
