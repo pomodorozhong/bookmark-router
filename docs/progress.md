@@ -29,15 +29,17 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 - **Round 3 follow-up — pinning, October 12, 2026:** the triage rewrite had dropped the Pin button, so nothing could pin a node. Bookmarks and tags get **Pin**/**Unpin** next to Copy and Edit, and the red push-pin marker shows again. Changing the queue tab re-lays out the graph but now leaves pinned nodes where they are; only Layout → Reset positions clears pins. Verified in headless Chrome with the converted collection: pin, switch tabs, reload. Filter bar mockup for the wrapping problem: https://claude.ai/artifact/SN9Nr3X61tMkf6HkcYJmcT.
 - **Round 3 follow-up — compact filter bar, October 12, 2026:** following the approved mockup (https://claude.ai/artifact/SN9Nr3X61tMkf6HkcYJmcT, option C, joined group): the bar is now search, **Show**, and **Filters** joined in one 34 px group, then **Saved filters** (was Views) beside it. Show holds the tag types plus Empty groups and Ungrouped bookmarks (the ☰ More menu is gone) and says how many are hidden. Filters counts the chips that are on (Filters · 2, green); its menu lists them (click one for its values, × to remove, Clear all) and adds new ones. Focusing search highlights the whole group. When the graph area is under 600 px, Queue shows only its icon and search is narrower. Verified in headless Chrome with the converted collection: Group #143 Pricing plus Not Status Done or Dropped leaves 7; saved as Pricing to do, cleared, and re-applied; one line at 1200–1440 px with the queue open, typing included. Not tried: the search box widening while typing (it made the bar wrap at 1280–1366 px). Open: below about 1150 px with the queue open the bar still wraps.
 - **Round 3 follow-up — graph toolbar style, October 12, 2026:** the bottom toolbar now matches the filter bar: **Layout ▾** stands alone, then Center and Whole collection joined, then zoom out, the zoom percentage, and zoom in joined, every control 34 px with thin dividers. Verified in headless Chrome with the converted collection: zoom, Whole collection, and the Layout menu. The white strip behind it is gone: the toolbar floats over the graph's bottom-right corner, and the graph gets the full height (754 px instead of 694 px at 1440 × 900).
+- **Round 3 approved — October 12, 2026.** Round 4 (WebMCP) is next, at another session.
 
 ## Status at the end of the October 12, 2026 session
 
-**Where things stand.** Rounds 0, 1, and 2 are approved; round 1.5 is skipped. Round 3 is built and waits for the user's try.
+**Where things stand.** Rounds 0, 1, 2, and 3 are approved; round 1.5 is skipped. Round 4 (WebMCP) is next.
 
 **Decisions made this session**
 - Peeking groups stay where they last sat; the layout never re-runs for them. Placing them beside the current bookmark is a later option if they land off-screen or on top of other nodes.
 - Peeking style C (faded fill, dashed outline); the queue follows Ungrouped bookmarks.
-- Empty groups and Ungrouped bookmarks live in a hamburger More menu, not in the bar.
+- The filter bar is search, Show, and Filters joined in one 34 px group, then Saved filters (renamed from Views); Show holds the tag types plus Empty groups and Ungrouped bookmarks. The bottom toolbar uses the same style and floats over the graph.
+- Pins survive queue-tab changes; only Layout → Reset positions clears them.
 - A clicked group's bookmarks go clockwise around the group, starting at the cluster's edge when more than 90° of the ring is empty (the threshold is a guess; lower it if lopsided groups still start at 12 o'clock).
 - Tags: four styles in eight directions; titles always below the tag; no automatic initials.
 - The app is Bookmark & Tag and says "bookmark", never "bubble". Old data goes through `npm run upgrade-backup`, not an in-app upgrade.
@@ -54,11 +56,7 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 - The branch `codex/bubble-tag-product` (its name predates the rename) is 83 commits ahead of `origin/main` and not pushed.
 
 **Next**
-1. User tries round 3 and its follow-ups (pinning, the compact filter bar, the floating toolbar), then approves or reports fixes:
-   - Copy for an issue: Filters → Group: #143 Pricing, then Status: Done and Dropped with Not ticked, and press Copy….
-   - Save the filters under Saved filters, clear them with Clear all, then pick the saved filter again.
-   - Pin a bookmark, switch to Done and back, and check it stayed put.
-2. Round 4: WebMCP — needs the user's browser and agent pair.
+1. Round 4: WebMCP — needs the user's browser and agent pair; starts with a mockup.
 
 **How the user likes to work**
 - Mockup first for anything visual, published as a clickable Artifact; wait for approval. A mockup must work cleanly (no dead controls or layout bugs) and show the user's own use cases, not abstract options, or it can't be judged.
@@ -66,7 +64,7 @@ One line per round of [plan.md](plan.md): what shipped, what is still open. The 
 - When the user proposes a solution, evaluate it and suggest better options before building; build their proposal only after they pick.
 - Keep the code simple: a one-off command beats permanent in-app machinery for something done a few times (the rename's in-app upgrade was replaced by `npm run upgrade-backup` for this reason).
 - Small rounds, each ending with 2–4 short "You try" tasks; verify on the user's real collection before reporting; conventional commits split by concern.
-- The user runs the dev server themselves at `http://127.0.0.1:5199`; their collections live in that origin's browser storage.
+- The user runs the dev server themselves at `http://127.0.0.1:5199` (`.claude/launch.json` can start it too); their collections live in that origin's browser storage.
 
 **Verifying on the real collection**
 - The in-app browser pane is too throttled to lay out the graph. Headless Chrome driven over the DevTools protocol (Node's built-in WebSocket, `--remote-debugging-port`, a throwaway `--user-data-dir`) works.
