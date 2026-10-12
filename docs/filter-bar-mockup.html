@@ -1,0 +1,241 @@
+<title>Compact Filter Bar</title>
+<style>
+/* Layout: a stack of three graph-stage frames, one per option, all driven by the same scenario and width controls. Matches the app's own tokens. */
+:root {
+  --bg: #f6f8f7; --surface: #ffffff; --ink: #243b35; --muted: #536b62; --line: #dce5e0;
+  --teal: #0f766e; --tint: #e8f3ee; --stage: #fbfcfb; --shadow: 0 8px 28px #183e3514;
+  --existing: #0f766e; --proposal: #c2410c; --topic: #475569;
+  --font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121816; --surface: #1b2320; --ink: #e3ece8; --muted: #9fb3ab; --line: #2f3c37;
+  --teal: #4fb8a8; --tint: #1f3530; --stage: #161d1a; --shadow: 0 8px 28px #00000055; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121816; --surface: #1b2320; --ink: #e3ece8; --muted: #9fb3ab; --line: #2f3c37;
+  --teal: #4fb8a8; --tint: #1f3530; --stage: #161d1a; --shadow: 0 8px 28px #00000055; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; padding: 24px 16px 48px; }
+main { max-width: 1120px; margin: 0 auto; display: grid; gap: 22px; }
+h1 { margin: 0; font-size: 22px; text-wrap: balance; }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 70ch; line-height: 1.5; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); padding: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 7px; cursor: pointer; }
+.seg button[aria-pressed=true] { background: var(--tint); color: var(--teal); font-weight: 600; }
+.ctl-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 8px; }
+section.option { display: grid; gap: 8px; }
+.option-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.option-head h2 { margin: 0; font-size: 16px; }
+.option-head .tag { font-size: 11px; font-weight: 600; color: var(--teal); background: var(--tint); border-radius: 999px; padding: 2px 8px; }
+.option-head p { margin: 0; color: var(--muted); font-size: 13px; flex-basis: 100%; line-height: 1.5; }
+.scroll { overflow-x: auto; padding-bottom: 4px; }
+.stage { position: relative; height: 230px; border: 1px solid var(--line); border-radius: 12px; background: var(--stage);
+  background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 22px 22px; }
+.tools { position: absolute; left: 12px; right: 12px; top: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+.wrapnote { position: absolute; right: 12px; bottom: 10px; font-size: 12px; color: var(--muted); }
+.wrapnote.bad { color: #b45309; }
+.btn { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.btn.on { background: var(--tint); border-color: #a5ccbc; }
+.bar { margin-left: auto; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 3px 6px 3px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); min-width: 0; max-width: 100%; }
+.bar.active { border-color: #a5ccbc; }
+.search { width: 150px; min-height: 30px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 7px; font: inherit; font-size: 13px; background: var(--surface); color: var(--ink); transition: width .15s; }
+.search.compact { width: 110px; }
+.search.compact:focus, .search.compact.filled { width: 190px; }
+@media (prefers-reduced-motion: reduce) { .search { transition: none; } }
+.toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; padding: 4px 6px; border-radius: 6px; cursor: pointer; white-space: nowrap; color: var(--ink); }
+.toggle.off { opacity: .5; text-decoration: line-through; }
+.sw { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.icon-btn { position: relative; width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
+.icon-btn:hover { background: var(--tint); color: var(--teal); }
+.dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 2px var(--surface); }
+.show { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.show .dots { display: inline-flex; gap: 3px; }
+.show .dots i { width: 8px; height: 8px; border-radius: 2px; }
+.show .dots i.off { opacity: .25; }
+.show small { color: var(--muted); }
+.chip { display: inline-flex; align-items: center; border: 1px solid #a5ccbc; background: var(--tint); border-radius: 999px; font-size: 12.5px; color: var(--ink); max-width: 210px; }
+.chip.not { border-color: #e2b4a0; background: color-mix(in srgb, #c2410c 10%, var(--surface)); }
+.chip button.body { border: 0; background: transparent; font: inherit; color: inherit; padding: 3px 4px 3px 10px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.chip button.x { border: 0; background: transparent; color: var(--muted); padding: 3px 8px 3px 2px; cursor: pointer; font-size: 13px; line-height: 1; }
+.add { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed #b7ccc1; background: var(--surface); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12.5px; color: var(--teal); cursor: pointer; white-space: nowrap; }
+.add.count { border-style: solid; border-color: #a5ccbc; background: var(--tint); font-weight: 600; }
+.views { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: var(--surface); border-radius: 7px; padding: 3px 9px; font: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer; white-space: nowrap; min-height: 30px; }
+.chiprow { position: absolute; left: 12px; right: 12px; top: 56px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.chiprow .clear { border: 0; background: transparent; color: var(--teal); font: inherit; font-size: 12.5px; cursor: pointer; padding: 3px 4px; }
+.anchor { position: relative; display: inline-flex; }
+.pop { position: absolute; top: calc(100% + 8px); right: 0; width: 250px; padding: 6px; display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); z-index: 20; }
+.pop h4 { margin: 6px 8px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.pop label, .pop .row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; font-size: 13px; color: var(--ink); cursor: pointer; }
+.pop label:hover { background: var(--tint); }
+.pop small { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+.pop hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+.pop .row .chip { max-width: 190px; }
+.pop .hint { color: var(--muted); font-size: 12px; padding: 2px 8px 6px; margin: 0; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+.verdict { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.verdict b { color: var(--ink); }
+</style>
+
+<main>
+  <header>
+    <h1>Compact filter bar</h1>
+    <p class="lede">Today's bar holds the search box, three type toggles, the ☰ menu, chips, + Filter and Views on one line, so it wraps as soon as you add a chip. Pick a situation and a width, then compare the three options. Everything is clickable: the menus open, chips can be removed, and types can be hidden. At phone width every option wraps; phone layout is a separate fix.</p>
+  </header>
+
+  <div class="controls">
+    <div><span class="ctl-label">Situation</span>
+      <span class="seg" id="scenario"></span></div>
+    <div><span class="ctl-label">Graph width</span>
+      <span class="seg" id="width"></span></div>
+  </div>
+
+  <section class="option">
+    <div class="option-head"><h2>Now</h2><p>The current bar, for comparison.</p></div>
+    <div class="scroll"><div class="stage" data-opt="now"></div></div>
+  </section>
+
+  <section class="option">
+    <div class="option-head"><h2>A · One line, smaller controls</h2>
+      <p>The three type toggles and the ☰ menu merge into one <b>Show</b> button (colored squares fade for hidden types). The search box is narrower until you type in it. Chips stay inline and long ones are cut short with “…”.</p></div>
+    <div class="scroll"><div class="stage" data-opt="a"></div></div>
+  </section>
+
+  <section class="option">
+    <div class="option-head"><h2>B · Chips get their own row</h2><span class="tag">Recommended</span>
+      <p>Same compact controls as A. Chips sit in a second row under the bar, which appears only while a filter is on, with a Clear link. The bar itself never changes width, so it never wraps.</p></div>
+    <div class="scroll"><div class="stage" data-opt="b"></div></div>
+  </section>
+
+  <section class="option">
+    <div class="option-head"><h2>C · Chips fold into a count</h2>
+      <p>Same compact controls. + Filter turns into <b>Filters · 2</b>, and the chips live in its menu. The narrowest option, but you have to open the menu to see what is filtered.</p></div>
+    <div class="scroll"><div class="stage" data-opt="c"></div></div>
+  </section>
+
+  <p class="verdict"><b>Why B:</b> you mostly filter to work through one issue or a gap (Pricing to do, missing descriptions), so seeing the chips at all times matters more than saving a row. A still wraps with the two Pricing chips when the queue is open. C saves the most space but hides what is filtered.</p>
+</main>
+
+<script>
+const TYPES = [
+  { id: "existing", name: "Existing issue", color: "var(--existing)" },
+  { id: "proposal", name: "Proposal issue", color: "var(--proposal)" },
+  { id: "topic", name: "Topic", color: "var(--topic)" },
+];
+const SCENARIOS = {
+  none: { label: "No filters", text: "", chips: [] },
+  pricing: { label: "Copy for #143 Pricing", text: "", chips: [
+    { kind: "Group", value: "#143 Pricing" },
+    { kind: "Status", value: "Done or Dropped", not: true } ] },
+  gaps: { label: "Fill gaps", text: "", chips: [ { kind: "Has", value: "description", not: true } ] },
+  heavy: { label: "Busy", text: "twitter", chips: [
+    { kind: "Group", value: "Distribution channels and acquisition" },
+    { kind: "Domain", value: "twitter.com or x.com" },
+    { kind: "Status", value: "Pending" } ] },
+};
+const WIDTHS = { open: { label: "Queue open · 720 px", px: 720 }, closed: { label: "Queue closed · 1040 px", px: 1040 }, phone: { label: "Phone · 390 px", px: 390 } };
+const ADDABLE = [["Status", "Pending"], ["Group", "#141 App Store Optimization (ASO)"], ["Domain", "youtube.com"], ["Has", "image"], ["Added month", "2026-09"]];
+const VIEWS = ["Pricing to do", "Missing descriptions"];
+
+const state = { scenario: "pricing", width: "open", text: "", chips: [], hidden: new Set(), emptyGroups: true, ungrouped: true, open: null };
+function load(name) { const s = SCENARIOS[name]; state.scenario = name; state.text = s.text; state.chips = s.chips.map((c) => ({ ...c })); state.open = null; }
+
+function seg(id, entries, key, onPick) {
+  const el = document.getElementById(id); el.innerHTML = "";
+  for (const [k, v] of Object.entries(entries)) {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = v.label;
+    b.setAttribute("aria-pressed", state[key] === k); b.onclick = () => { onPick(k); render(); };
+    el.append(b);
+  }
+}
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const chipHTML = (c, i) => `<span class="chip ${c.not ? "not" : ""}" title="${esc((c.not ? "Not " : "") + c.kind + ": " + c.value)}"><button class="body" type="button">${c.not ? "Not " : ""}<b>${esc(c.kind)}:</b> ${esc(c.value)}</button><button class="x" type="button" data-remove="${i}" aria-label="Remove ${esc(c.kind)} filter">×</button></span>`;
+const filterIcon = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8Z"/></svg>`;
+const moreHidden = () => !state.emptyGroups || !state.ungrouped;
+
+function search(compact, opt) {
+  return `<input class="search ${compact ? "compact" : ""} ${state.text ? "filled" : ""}" type="search" id="q-${opt}" aria-label="Filter bookmarks" placeholder="Filter… (F)" value="${esc(state.text)}" data-search>`;
+}
+function showMenu(opt) {
+  const hiddenCount = state.hidden.size + (moreHidden() ? 1 : 0);
+  return `<span class="anchor"><button class="show" type="button" data-open="show" aria-expanded="${state.open === opt + ":show"}">
+    <span class="dots">${TYPES.map((t) => `<i class="${state.hidden.has(t.id) ? "off" : ""}" style="background:${t.color}"></i>`).join("")}</span>
+    Show${hiddenCount ? ` <small>· ${hiddenCount} hidden</small>` : ""} ▾</button>
+    ${state.open === opt + ":show" ? `<div class="pop" role="dialog" aria-label="Show"><h4>Tag types</h4>
+      ${TYPES.map((t) => `<label><input type="checkbox" data-type="${t.id}" ${state.hidden.has(t.id) ? "" : "checked"}><i class="sw" style="background:${t.color}"></i>${t.name}</label>`).join("")}
+      <hr><h4>Also show</h4>
+      <label><input type="checkbox" data-flag="emptyGroups" ${state.emptyGroups ? "checked" : ""}>Empty groups</label>
+      <label><input type="checkbox" data-flag="ungrouped" ${state.ungrouped ? "checked" : ""}>Ungrouped bookmarks</label></div>` : ""}</span>`;
+}
+function addMenu(opt, label, cls) {
+  const key = opt + ":add";
+  return `<span class="anchor"><button class="add ${cls || ""}" type="button" data-open="add" aria-expanded="${state.open === key}">${label}</button>
+    ${state.open === key ? `<div class="pop" role="menu" aria-label="Add a filter">
+      ${opt === "c" && state.chips.length ? `<h4>On now</h4>${state.chips.map((c, i) => `<div class="row">${chipHTML(c, i)}</div>`).join("")}<hr>` : ""}
+      <h4>Add a filter</h4>${ADDABLE.map(([k], i) => `<label data-add="${i}">${k}</label>`).join("")}
+      ${opt === "c" ? `<p class="hint">Click a kind to add a sample chip.</p>` : ""}</div>` : ""}</span>`;
+}
+function viewsMenu(opt) {
+  const key = opt + ":views";
+  return `<span class="anchor"><button class="views" type="button" data-open="views" aria-expanded="${state.open === key}">Views ▾</button>
+    ${state.open === key ? `<div class="pop" role="dialog" aria-label="Views"><h4>Views</h4>${VIEWS.map((v) => `<label>${v}</label>`).join("")}</div>` : ""}</span>`;
+}
+function stageHTML(opt) {
+  const active = state.chips.length || state.text;
+  const queue = `<button class="btn ${state.width !== "closed" ? "on" : ""}" type="button">☰ Queue</button>`;
+  if (opt === "now") {
+    return `<div class="tools">${queue}<div class="bar ${active ? "active" : ""}">${filterIcon}${search(false, opt)}
+      ${TYPES.map((t) => `<span class="toggle ${state.hidden.has(t.id) ? "off" : ""}" data-toggle="${t.id}"><i class="sw" style="background:${t.color}"></i>${t.name}</span>`).join("")}
+      <button class="icon-btn" type="button" aria-label="More filters">☰${moreHidden() ? '<i class="dot"></i>' : ""}</button>
+      ${state.chips.map(chipHTML).join("")}${addMenu(opt, "+ Filter")}${viewsMenu(opt)}</div></div>`;
+  }
+  const head = `${filterIcon}${search(true, opt)}${showMenu(opt)}`;
+  if (opt === "a") return `<div class="tools">${queue}<div class="bar ${active ? "active" : ""}">${head}${state.chips.map(chipHTML).join("")}${addMenu(opt, "+ Filter")}${viewsMenu(opt)}</div></div>`;
+  if (opt === "b") return `<div class="tools">${queue}<div class="bar ${active ? "active" : ""}">${head}${addMenu(opt, "+ Filter")}${viewsMenu(opt)}</div></div>
+    ${state.chips.length ? `<div class="chiprow">${state.chips.map(chipHTML).join("")}<button class="clear" type="button" data-clear>Clear</button></div>` : ""}`;
+  return `<div class="tools">${queue}<div class="bar ${active ? "active" : ""}">${head}${addMenu(opt, state.chips.length ? `Filters · ${state.chips.length} ▾` : "+ Filter", state.chips.length ? "count" : "")}${viewsMenu(opt)}</div></div>`;
+}
+
+function render() {
+  seg("scenario", SCENARIOS, "scenario", load);
+  seg("width", WIDTHS, "width", (k) => { state.width = k; });
+  const focused = document.activeElement?.dataset?.search !== undefined ? document.activeElement.id : null;
+  for (const stage of document.querySelectorAll(".stage")) {
+    const opt = stage.dataset.opt;
+    stage.style.width = WIDTHS[state.width].px + "px";
+    stage.innerHTML = stageHTML(opt) + `<span class="wrapnote"></span>`;
+  }
+  if (focused) { const el = document.getElementById(focused); el?.focus(); el?.setSelectionRange(el.value.length, el.value.length); }
+  requestAnimationFrame(markWraps);
+}
+// Report whether the bar wrapped onto a second line.
+function markWraps() {
+  for (const stage of document.querySelectorAll(".stage")) {
+    const bar = stage.querySelector(".bar"), note = stage.querySelector(".wrapnote");
+    const lines = Math.round(bar.getBoundingClientRect().height / 38);
+    const tools = stage.querySelector(".tools");
+    const toolLines = tools.getBoundingClientRect().height > 46;
+    const wrapped = lines > 1 || toolLines;
+    note.textContent = wrapped ? "Bar wraps" : "Fits on one line";
+    note.className = "wrapnote" + (wrapped ? " bad" : "");
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-open],[data-remove],[data-add],[data-toggle],[data-clear],[data-type],[data-flag]");
+  const stage = e.target.closest(".stage");
+  if (!t) { if (!e.target.closest(".pop")) { if (state.open) { state.open = null; render(); } } return; }
+  const opt = stage?.dataset.opt;
+  if (t.dataset.open) { const key = opt + ":" + t.dataset.open; state.open = state.open === key ? null : key; }
+  else if (t.dataset.remove !== undefined) state.chips.splice(+t.dataset.remove, 1);
+  else if (t.dataset.add !== undefined) { const [kind, value] = ADDABLE[+t.dataset.add]; state.chips.push({ kind, value }); if (opt !== "c") state.open = null; }
+  else if (t.dataset.toggle) { state.hidden.has(t.dataset.toggle) ? state.hidden.delete(t.dataset.toggle) : state.hidden.add(t.dataset.toggle); }
+  else if (t.dataset.clear !== undefined) state.chips = [];
+  else if (t.dataset.type) { if (e.target.tagName !== "INPUT") return; state.hidden.has(t.dataset.type) ? state.hidden.delete(t.dataset.type) : state.hidden.add(t.dataset.type); }
+  else if (t.dataset.flag) { if (e.target.tagName !== "INPUT") return; state[t.dataset.flag] = !state[t.dataset.flag]; }
+  render();
+});
+document.addEventListener("input", (e) => { if (e.target.dataset.search !== undefined) { state.text = e.target.value; render(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.open) { state.open = null; render(); } });
+load("pricing");
+render();
+</script>
