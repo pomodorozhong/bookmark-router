@@ -9,6 +9,7 @@ export interface UndoEntry {
 }
 export function commandLabel(command: Command): string {
   switch (command.type) {
+    case "bookmark.create": return "Add bookmark";
     case "bookmark.patch": return "Edit bookmark";
     case "tag.patch": return "Edit tag";
     case "tag-type.patch": return "Edit tag type";
