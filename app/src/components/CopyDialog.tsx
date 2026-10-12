@@ -3,22 +3,11 @@ import { Dialog } from "./Dialog";
 import { IconButton } from "./Icon";
 import type { Bookmark, Workspace } from "../domain/model";
 import { copyFields, copyPresets, formatCopy } from "../domain/triage";
+import { readCopyFormat, rememberCopyFormat, type CopyScope } from "../copy-settings";
 
-export type CopyScope = "selection" | "list" | "current";
+export type { CopyScope } from "../copy-settings";
 const separators: Array<[string, string]> = [["\n", "New line"], ["\n\n", "Blank line"], [", ", "Comma"], [" ", "Space"]];
 const previewLimit = 40;
-
-// The template is remembered on this device, not per collection.
-function remembered(): { template: string; separator: string } {
-  try {
-    const saved = JSON.parse(localStorage.getItem("bookmark-tag-copy") ?? "null");
-    if (typeof saved?.template === "string" && typeof saved?.separator === "string") return saved;
-  } catch { /* fall back to the first preset */ }
-  return copyPresets[0];
-}
-function remember(value: { template: string; separator: string }) {
-  try { localStorage.setItem("bookmark-tag-copy", JSON.stringify(value)); } catch { /* copy still works */ }
-}
 
 export function CopyDialog({ workspace, scopes, initialScope, onClose, onCopied }: {
   workspace: Workspace;
@@ -27,11 +16,11 @@ export function CopyDialog({ workspace, scopes, initialScope, onClose, onCopied 
   onClose: () => void;
   onCopied: (count: number) => void;
 }) {
-  const [{ template, separator }, setFormat] = useState(remembered);
+  const [{ template, separator }, setFormat] = useState(readCopyFormat);
   const [scope, setScope] = useState<CopyScope>(initialScope);
   const [failure, setFailure] = useState("");
   const items = scopes[scope] ?? [];
-  const update = (next: { template: string; separator: string }) => { setFormat(next); remember(next); };
+  const update = (next: { template: string; separator: string }) => { setFormat(next); rememberCopyFormat(next); };
   const labels: Record<CopyScope, string> = {
     selection: `Selected (${scopes.selection?.length ?? 0})`,
     list: `This list (${scopes.list?.length ?? 0})`,

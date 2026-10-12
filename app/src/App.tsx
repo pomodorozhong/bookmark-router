@@ -28,6 +28,7 @@ import { Icon, IconButton, type IconName } from "./components/Icon";
 import { AgentReviewDialog } from "./components/AgentReviewDialog";
 import { AgentInputError, AgentReviewSession } from "./domain/agent-review";
 import { registerAgentTools } from "./agent/webmcp";
+import { readCopyFormat, type CopyContext } from "./copy-settings";
 const store = new WorkspaceStore();
 function activeCollection() {
   try {
@@ -105,6 +106,7 @@ export default function App() {
   const [agentAvailability, setAgentAvailability] = useState<"checking" | "available" | "unavailable" | "failed">("checking");
   const [agentError, setAgentError] = useState("");
   const agentApplying = useRef(false), switchingCollection = useRef(false);
+  const copyContext = useRef<CopyContext | undefined>(undefined);
   const toastId = useRef(0);
   const notify = (text: string, undo?: () => void) => setToast({ id: ++toastId.current, text, undo });
   const [statusMapping, setStatusMapping] = useState<Record<string, string>>(
@@ -171,7 +173,7 @@ export default function App() {
   useEffect(() => {
     if (!loaded) return;
     const controller = new AbortController();
-    void registerAgentTools({ session: agentSession, getWorkspace: async () => {
+    void registerAgentTools({ session: agentSession, getCopyContext: () => copyContext.current, getCopyFormat: readCopyFormat, getWorkspace: async () => {
       const id = workspaceRef.current.id;
       if (switchingCollection.current) throw new AgentInputError("The collection is switching. Read it again when ready.", "collection_switching");
       const latest = await store.get(id);
@@ -1027,7 +1029,9 @@ export default function App() {
           </div>
         ) : (
           <TriageScreen
+            key={workspace.id}
             workspace={workspace}
+            onCopyContext={(context) => { copyContext.current = context; }}
             geometry={geometry}
             onGeometry={(g) => {
               setGeometry(g);
