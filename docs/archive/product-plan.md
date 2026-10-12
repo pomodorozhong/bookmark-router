@@ -1,4 +1,4 @@
-> **Superseded October 11, 2026** by [plan.md](plan.md). Kept as history.
+> **Superseded October 11, 2026** by [plan.md](../plan.md). Kept as history.
 
 # Build an import-first bookmark-and-tag product with G6
 

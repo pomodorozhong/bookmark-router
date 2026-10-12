@@ -1,3 +1,5 @@
+> **Archived October 12, 2026.** Round 2 was approved; later tag styles and the compact filter bar supersede parts of this checklist. See [the app guide](../../app/README.md) for current controls.
+
 # Round 2 — what to try
 
 About 5 minutes, in your own collection. Run `npm run dev` in `app/` and open http://localhost:5199.
