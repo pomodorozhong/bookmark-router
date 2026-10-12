@@ -111,7 +111,7 @@ test("failed batch storage rolls back every operation and can be retried", async
 test("tools read all groups and statuses, use compact filter semantics, and return duplicate IDs without exposing approval", async () => {
   let w = demoWorkspace(); const session = new AgentReviewSession(), tools = createAgentTools({ session, getWorkspace: async () => w });
   const call = async (name: string, input: unknown = {}) => JSON.parse(await tools.find((t) => t.name === name)!.execute(input));
-  assert.deepEqual(tools.map((t) => t.name), ["get_collection_context", "search_bookmarks", "read_group", "propose_changes", "get_proposal_status"]);
+  assert.deepEqual(tools.map((t) => t.name), ["get_collection_context", "search_bookmarks", "read_group", "get_copy_content", "propose_changes", "get_proposal_status"]);
   assert.equal((await call("get_collection_context")).bookmarkCount, 12);
   const group = await call("read_group", { groupId: w.tags[0].id }); assert.equal(group.bookmarks.length, 5);
   const found = await call("search_bookmarks", { text: "Research", rules: [{ kind: "status", values: ["done"], not: true }] }); assert.equal(found.total, 5);
@@ -129,9 +129,90 @@ test("WebMCP is optional, registration uses abort cleanup, and failed or cancell
   assert.equal(detectWebMcp(undefined), undefined); assert.equal((await registerAgentTools(host)).available, false);
   const registered = new Map<string, WebMcpTool>();
   const context = { registerTool(tool: WebMcpTool, options: { signal: AbortSignal }) { registered.set(tool.name, tool); options.signal.addEventListener("abort", () => registered.delete(tool.name), { once: true }); } };
-  const handle = await registerAgentTools(host, context); assert.equal(handle.available, true); assert.equal(registered.size, 5);
+  const handle = await registerAgentTools(host, context); assert.equal(handle.available, true); assert.equal(registered.size, 6);
   handle.dispose(); assert.equal(registered.size, 0);
   await assert.rejects(registerAgentTools(host, { registerTool(tool, options) { context.registerTool(tool, options); if (tool.name === "read_group") throw new Error("Registration failed"); } }), /Registration failed/);
   assert.equal(registered.size, 0);
   const abort = new AbortController(); abort.abort(); assert.equal((await registerAgentTools(host, context, abort.signal)).available, false); assert.equal(registered.size, 0);
+});
+
+test("agent copy reads the live selection in order, including filtered-out bookmarks and latest edits", async () => {
+  let w = demoWorkspace();
+  const before = structuredClone(w), session = new AgentReviewSession();
+  let context = { collectionId: w.id, selection: [w.bookmarks[2].id, w.bookmarks[0].id], list: [w.bookmarks[0].id], current: w.bookmarks[1].id };
+  const saved = { template: "{n}. {title} — {groups}", separator: "\n\n" };
+  const tool = createAgentTools({ session, getWorkspace: async () => w, getCopyContext: () => context, getCopyFormat: () => saved }).find((t) => t.name === "get_copy_content")!;
+  const call = async (input: unknown = {}) => JSON.parse(await tool.execute(input));
+  assert.equal(tool.annotations.readOnlyHint, true);
+  const selected = await call();
+  assert.equal(selected.scope, "selection"); assert.equal(selected.total, 2);
+  assert.deepEqual(selected.bookmarks.map((b: { id: string }) => b.id), context.selection);
+  assert.equal(selected.text, `1. ${w.bookmarks[2].title} — Research, Ideas\n\n2. ${w.bookmarks[0].title} — Research`);
+  assert.deepEqual(w, before); assert.equal(session.current, undefined);
+  const list = await call({ scope: "list", template: "{url}", separator: ", " });
+  assert.equal(list.text, w.bookmarks[0].url); assert.equal(list.total, 1);
+  assert.equal((await call({ scope: "current", template: "{title}" })).text, w.bookmarks[1].title);
+  assert.deepEqual(saved, { template: "{n}. {title} — {groups}", separator: "\n\n" });
+  w = applyCommand(w, 0, { type: "bookmark.patch", id: w.bookmarks[2].id, expectedRecordRevision: 0, patch: { title: "Latest title" } });
+  assert.match((await call()).text, /^1\. Latest title/);
+  context = { ...context, selection: [w.bookmarks[1].id] };
+  assert.equal((await call()).bookmarks[0].id, w.bookmarks[1].id);
+});
+
+test("agent copy returns full output beyond the preview limit and handles empty or unavailable UI state", async () => {
+  const w = demoWorkspace();
+  w.bookmarks = Array.from({ length: 45 }, (_, i) => ({ ...w.bookmarks[0], id: `copy-${i}`, title: `Bookmark ${i}` }));
+  let context: import("../src/copy-settings").CopyContext | undefined = { collectionId: w.id, selection: w.bookmarks.map((b) => b.id).reverse(), list: [] };
+  const tool = createAgentTools({ session: new AgentReviewSession(), getWorkspace: async () => w, getCopyContext: () => context }).find((t) => t.name === "get_copy_content")!;
+  const call = async (input: unknown = {}) => JSON.parse(await tool.execute(input));
+  const full = await call({ template: "{n}. {title}" });
+  assert.equal(full.total, 45); assert.equal(full.bookmarks.length, 45); assert.equal(full.text.split("\n").length, 45); assert.match(full.text, /45\. Bookmark 0$/);
+  for (const input of [{ scope: "all" }, { template: 3 }, { separator: null }, { clipboard: true }]) assert.equal((await call(input)).error.code, "invalid_input");
+  context = { ...context!, selection: undefined };
+  assert.equal((await call()).total, 0); assert.equal((await call()).text, ""); assert.match((await call()).message, /No bookmarks selected/);
+  assert.equal((await call({ scope: "current" })).total, 0);
+  context = { ...context, collectionId: "another-collection", selection: [w.bookmarks[0].id] };
+  assert.equal((await call()).error.code, "copy_context_unavailable");
+  context = undefined;
+  assert.equal((await call()).error.code, "copy_context_unavailable");
+});
+
+test("selected missing fields can be read, proposed, reviewed and undone without overwriting populated fields", async () => {
+  let w = demoWorkspace();
+  w.bookmarks[0].title = w.bookmarks[0].url!; w.bookmarks[0].missingTitle = true;
+  w.bookmarks[1].description = "   ";
+  w.bookmarks[2].url = "";
+  w.bookmarks[3].description = ""; // Missing but outside the user's selection.
+  const before = structuredClone(w), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession();
+  await store.create(w);
+  const selectedIds = w.bookmarks.slice(0, 3).map((b) => b.id);
+  const tools = createAgentTools({ session, getWorkspace: async () => w, getCopyContext: () => ({ collectionId: w.id, selection: selectedIds, list: [selectedIds[0]] }) });
+  const call = async (name: string, input: unknown = {}) => JSON.parse(await tools.find((t) => t.name === name)!.execute(input));
+  const selected = await call("get_copy_content");
+  assert.deepEqual(selected.bookmarks[0].missingFields, ["title"]);
+  assert.deepEqual(selected.bookmarks[1].missingFields, ["description"]);
+  assert.deepEqual(selected.bookmarks[2].missingFields, ["url"]);
+  const changes: ProposalInput["changes"] = [
+    { kind: "update", bookmarkId: selected.bookmarks[0].id, expectedRecordRevision: selected.bookmarks[0].revision, patch: { title: "Source title" } },
+    { kind: "update", bookmarkId: selected.bookmarks[1].id, expectedRecordRevision: selected.bookmarks[1].revision, patch: { description: "Source description" } },
+    { kind: "update", bookmarkId: selected.bookmarks[2].id, expectedRecordRevision: selected.bookmarks[2].revision, patch: { url: "https://source.example/reference" } },
+  ];
+  const result = await call("propose_changes", { requestId: "fill-selection", collectionId: selected.collectionId, expectedRevision: selected.revision, summary: "Fill missing titles and descriptions in selection", changes });
+  assert.equal(result.state, "pending_review"); assert.deepEqual(await store.get(w.id), before);
+  const p = session.current!;
+  assert.equal(p.preview.bookmarks[0].missingTitle, false); assert.equal(p.preview.bookmarks[0].description, before.bookmarks[0].description);
+  assert.equal(p.preview.bookmarks[1].title, before.bookmarks[1].title);
+  assert.equal(p.preview.bookmarks[2].title, before.bookmarks[2].title); assert.equal(p.preview.bookmarks[2].description, before.bookmarks[2].description);
+  assert.deepEqual(p.preview.bookmarks.slice(3), before.bookmarks.slice(3));
+  assert.deepEqual(p.preview.memberships, before.memberships);
+  assert.deepEqual(p.preview.bookmarks.map((b) => b.statusId), before.bookmarks.map((b) => b.statusId));
+  w = await session.apply(p.id, w, store.command.bind(store));
+  assert.equal(w.bookmarks[0].title, "Source title"); assert.equal(w.bookmarks[1].description, "Source description");
+  assert.equal(w.bookmarks[2].url, "https://source.example/reference");
+  const undo = (await store.nextUndo(w.id))!;
+  w = await store.undoLast(w.id, w.revision, undo.id);
+  assert.equal(w.bookmarks[0].title, before.bookmarks[0].title); assert.equal(w.bookmarks[0].missingTitle, true);
+  assert.equal(w.bookmarks[1].description, before.bookmarks[1].description);
+  assert.equal(w.bookmarks[2].url, "");
+  await store.close();
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { CopyDialog, type CopyScope } from "./CopyDialog";
 import { RecordEditor } from "./RecordEditor";
@@ -7,6 +7,7 @@ import { FilterBar } from "./FilterBar";
 import { Cover, type LoadMedia } from "./Cover";
 import { Icon, IconButton } from "./Icon";
 import type { Command } from "../domain/commands";
+import type { CopyContext } from "../copy-settings";
 import { isWebUrl, type Bookmark, type Geometry, type Workspace } from "../domain/model";
 import {
   decisionStatuses,
@@ -27,7 +28,8 @@ import {
 const relatedListLimit = 12;
 
 /** The main collection screen: triage bookmarks into groups beside the force-directed graph. */
-export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onTagTypes, onError, headerStart, headerEnd }: {
+export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onTagTypes, onError, headerStart, headerEnd, onCopyContext }: {
+  onCopyContext: (context: CopyContext | undefined) => void;
   /** Opens the tag type manager. */
   onTagTypes: () => void;
   headerStart?: ReactNode;
@@ -79,6 +81,11 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   }, [workspace, tab, filter, selection, selectionSet]);
   // Nothing is current until a bookmark is picked, so the whole graph shows unfaded.
   const current = workspace.bookmarks.find((b) => b.id === currentId);
+  // Publish only committed UI state; clear it when the collection screen unmounts.
+  useLayoutEffect(() => {
+    onCopyContext({ collectionId: workspace.id, selection, list: queue.map((b) => b.id), current: current?.id });
+    return () => onCopyContext(undefined);
+  }, [workspace.id, selection, queue, current?.id, onCopyContext]);
   const groups = current ? groupsOf(workspace, current.id) : [];
   const related = useMemo(() => (current ? [...relatedOf(workspace, current.id)].sort((a, b) => b[1].length - a[1].length) : []), [workspace, current]);
   const visibility = useMemo(() => graphVisibility(workspace, filter, tab, current ? [current.id] : []), [workspace, filter, tab, current]);
