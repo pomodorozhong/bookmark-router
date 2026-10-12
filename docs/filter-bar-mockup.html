@@ -60,8 +60,38 @@ section.option { display: grid; gap: 8px; }
 .add { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed #b7ccc1; background: var(--surface); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12.5px; color: var(--teal); cursor: pointer; white-space: nowrap; }
 .add.count { border-style: solid; border-color: #a5ccbc; background: var(--tint); font-weight: 600; }
 .views { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: var(--surface); border-radius: 7px; padding: 3px 9px; font: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer; white-space: nowrap; min-height: 30px; }
+.sep { width: 1px; align-self: stretch; margin: 4px 2px; background: var(--line); }
+.card { margin-left: auto; display: grid; gap: 6px; padding: 6px 6px 6px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); min-width: 0; max-width: 100%; }
+.card.active { border-color: #a5ccbc; }
+.card-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+.card-row .push { flex: 1; }
+.card .search.wide { flex: 1; width: auto; min-width: 160px; }
+.card .add, .card .views, .card .show, .card .chip { min-height: 28px; }
+.tools.left .card { margin-left: 0; }
+.add.as-button { border: 1px solid var(--line); border-radius: 7px; min-height: 30px; padding: 3px 8px; color: var(--ink); }
+.add.as-button small { color: var(--muted); }
+.stage.tall { height: 420px; }
+
+.stage[data-opt=c] .tools { align-items: center; gap: 6px; }
+.stage[data-opt=c] .spacer { margin-left: auto; }
+.stage[data-opt=c] .sbox { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--muted); }
+.stage[data-opt=c] .sbox:focus-within { outline: 2px solid var(--teal); outline-offset: 1px; }
+.stage[data-opt=c] .sbox.on { border-color: #a5ccbc; }
+.stage[data-opt=c] .sbox input { border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; width: 120px; transition: width .15s; }
+.stage[data-opt=c] .sbox input:focus, .stage[data-opt=c] .sbox.on input { width: 180px; }
+.stage[data-opt=c] .show, .stage[data-opt=c] .add.as-button, .stage[data-opt=c] .btn { height: 34px; min-height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 400; }
+.stage[data-opt=c] .add.as-button.on { background: var(--tint); border-color: #a5ccbc; color: var(--teal); font-weight: 600; }
+.stage[data-opt=c] .group { margin-left: auto; display: inline-flex; align-items: stretch; height: 34px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.stage[data-opt=c] .group .sbox { height: 32px; border: 0; border-radius: 8px 0 0 8px; }
+.stage[data-opt=c] .group .sbox:focus-within { outline: 0; }
+.stage[data-opt=c] .group:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 18%, transparent); }
+.stage[data-opt=c] .group:has(.sbox.on) { border-color: #a5ccbc; }
+.stage[data-opt=c] .group:has(.sbox.on):focus-within { border-color: var(--teal); }
+.stage[data-opt=c] .group .anchor { border-left: 1px solid var(--line); }
+.stage[data-opt=c] .group .show, .stage[data-opt=c] .group .add.as-button { height: 32px; min-height: 32px; border: 0; border-radius: 0; }
+.stage[data-opt=c] .group .anchor:last-child .add.as-button { border-radius: 0 8px 8px 0; }
 .chiprow { position: absolute; left: 12px; right: 12px; top: 56px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
-.chiprow .clear { border: 0; background: transparent; color: var(--teal); font: inherit; font-size: 12.5px; cursor: pointer; padding: 3px 4px; }
+.clear { border: 0; background: transparent; color: var(--teal); font: inherit; font-size: 12.5px; cursor: pointer; padding: 3px 4px; }
 .anchor { position: relative; display: inline-flex; }
 .pop { position: absolute; top: calc(100% + 8px); right: 0; width: 250px; padding: 6px; display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); z-index: 20; }
 .pop h4 { margin: 6px 8px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
@@ -101,18 +131,22 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--teal); outl
   </section>
 
   <section class="option">
-    <div class="option-head"><h2>B · Chips get their own row</h2><span class="tag">Recommended</span>
-      <p>Same compact controls as A. Chips sit in a second row under the bar, which appears only while a filter is on, with a Clear link. The bar itself never changes width, so it never wraps.</p></div>
+    <div class="option-head"><h2>B · Chips get their own row</h2>
+      <p>Same compact controls as A, with chips on a row of their own and + Filter moved down to that row (your call). Pick a layout below.</p></div>
+    <div><span class="ctl-label">Order</span><span class="seg" id="order"></span></div>
+    <p class="verdict" id="order-why"></p>
     <div class="scroll"><div class="stage" data-opt="b"></div></div>
   </section>
 
   <section class="option">
-    <div class="option-head"><h2>C · Chips fold into a count</h2>
-      <p>Same compact controls. + Filter turns into <b>Filters · 2</b>, and the chips live in its menu. The narrowest option, but you have to open the menu to see what is filtered.</p></div>
-    <div class="scroll"><div class="stage" data-opt="c"></div></div>
+    <div class="option-head"><h2>C · Chips fold into a count</h2><span class="tag">Your pick</span>
+      <p>Search, Show, and a <b>Filters</b> button that counts your chips (<b>Filters · 2</b>); its menu lists the chips that are on and adds new ones. <b>Saved filters</b> (was Views) sits on the right. Every control is 34 px tall, like Queue.</p></div>
+    <div><span class="ctl-label">Style</span><span class="seg" id="cstyle"></span></div>
+    <p class="verdict" id="cstyle-why"></p>
+    <div class="scroll"><div class="stage tall" data-opt="c"></div></div>
   </section>
 
-  <p class="verdict"><b>Why B:</b> you mostly filter to work through one issue or a gap (Pricing to do, missing descriptions), so seeing the chips at all times matters more than saving a row. A still wraps with the two Pricing chips when the queue is open. C saves the most space but hides what is filtered.</p>
+  <p class="verdict"><b>Going with C:</b> it fits on one line in every situation here, even Busy with the queue open. To see what is filtered, open Filters; the bar border turns green while any filter is on.</p>
 </main>
 
 <script>
@@ -134,9 +168,19 @@ const SCENARIOS = {
 };
 const WIDTHS = { open: { label: "Queue open · 720 px", px: 720 }, closed: { label: "Queue closed · 1040 px", px: 1040 }, phone: { label: "Phone · 390 px", px: 390 } };
 const ADDABLE = [["Status", "Pending"], ["Group", "#141 App Store Optimization (ASO)"], ["Domain", "youtube.com"], ["Has", "image"], ["Added month", "2026-09"]];
+const ORDERS = {
+  b4: { label: "Last time", why: "The previous version: search, Views, and Show on the right; + Filter starts a right-aligned chip row, so it moves as chips are added." },
+  v1: { label: "One card", why: "One box on the right holds both rows. The top row is search and Show; the second row is + Filter, your chips, and Views (views are saved sets of chips). + Filter lines up under the search box and never moves." },
+  v2: { label: "Left, beside Queue", why: "Everything starts at the Queue button and grows to the right: search and Show next to Queue, then + Filter, chips, and Views underneath. Chips push only to the right." },
+  v3: { label: "Search in the chip row", why: "A single row on the right: + Filter, chips, Views, then search and Show at the end. It wraps into a second line only when chips run out of room." },
+};
+const CSTYLES = {
+  sep: { label: "Separate buttons", why: "No outer box. The search box, Show, Filters, and Saved filters are each a 34 px control, the same height and shape as Queue. Filters turns green while any filter is on, like Queue does while the queue is open." },
+  join: { label: "Joined group", why: "Search, Show, and Filters share one 34 px box with thin dividers; Saved filters stands beside it at the same height. Filters turns green while any filter is on." },
+};
 const VIEWS = ["Pricing to do", "Missing descriptions"];
 
-const state = { scenario: "pricing", width: "open", text: "", chips: [], hidden: new Set(), emptyGroups: true, ungrouped: true, open: null };
+const state = { cstyle: "join", order: "v1", scenario: "pricing", width: "open", text: "", chips: [], hidden: new Set(), emptyGroups: true, ungrouped: true, open: null };
 function load(name) { const s = SCENARIOS[name]; state.scenario = name; state.text = s.text; state.chips = s.chips.map((c) => ({ ...c })); state.open = null; }
 
 function seg(id, entries, key, onPick) {
@@ -174,10 +218,10 @@ function addMenu(opt, label, cls) {
       <h4>Add a filter</h4>${ADDABLE.map(([k], i) => `<label data-add="${i}">${k}</label>`).join("")}
       ${opt === "c" ? `<p class="hint">Click a kind to add a sample chip.</p>` : ""}</div>` : ""}</span>`;
 }
-function viewsMenu(opt) {
-  const key = opt + ":views";
-  return `<span class="anchor"><button class="views" type="button" data-open="views" aria-expanded="${state.open === key}">Views ▾</button>
-    ${state.open === key ? `<div class="pop" role="dialog" aria-label="Views"><h4>Views</h4>${VIEWS.map((v) => `<label>${v}</label>`).join("")}</div>` : ""}</span>`;
+function viewsMenu(opt, cls = "views") {
+  const key = opt + ":views", label = opt === "c" ? "Saved filters" : "Views";
+  return `<span class="anchor"><button class="${cls}" type="button" data-open="views" aria-expanded="${state.open === key}">${label} ▾</button>
+    ${state.open === key ? `<div class="pop" role="dialog" aria-label="${label}"><h4>${label}</h4>${VIEWS.map((v) => `<label>${v}</label>`).join("")}${opt === "c" ? `<hr><label>Save current filters…</label>` : ""}</div>` : ""}</span>`;
 }
 function stageHTML(opt) {
   const active = state.chips.length || state.text;
@@ -190,14 +234,35 @@ function stageHTML(opt) {
   }
   const head = `${filterIcon}${search(true, opt)}${showMenu(opt)}`;
   if (opt === "a") return `<div class="tools">${queue}<div class="bar ${active ? "active" : ""}">${head}${state.chips.map(chipHTML).join("")}${addMenu(opt, "+ Filter")}${viewsMenu(opt)}</div></div>`;
-  if (opt === "b") return `<div class="tools">${queue}<div class="bar ${active ? "active" : ""}">${head}${addMenu(opt, "+ Filter")}${viewsMenu(opt)}</div></div>
-    ${state.chips.length ? `<div class="chiprow">${state.chips.map(chipHTML).join("")}<button class="clear" type="button" data-clear>Clear</button></div>` : ""}`;
-  return `<div class="tools">${queue}<div class="bar ${active ? "active" : ""}">${head}${addMenu(opt, state.chips.length ? `Filters · ${state.chips.length} ▾` : "+ Filter", state.chips.length ? "count" : "")}${viewsMenu(opt)}</div></div>`;
+  if (opt === "b") {
+    const q = filterIcon + search(true, opt), show = showMenu(opt), add = addMenu(opt, "+ Filter"), views = viewsMenu(opt), sep = '<span class="sep"></span>';
+    const chips = state.chips.map(chipHTML).join(""), clear = state.chips.length ? '<button class="clear" type="button" data-clear>Clear</button>' : "";
+    const a = active ? "active" : "";
+    if (state.order === "b4") return `<div class="tools">${queue}<div class="bar ${a}">${q + views + sep + show}</div></div><div class="chiprow">${add}${chips}${clear}</div>`;
+    const qs = search(true, opt).replace('class="search', 'class="search wide');
+    if (state.order === "v1") return `<div class="tools">${queue}<div class="card ${a}">
+      <div class="card-row">${filterIcon}${qs}${show}</div>
+      <div class="card-row">${add}${chips}${clear}<span class="push"></span>${views}</div></div></div>`;
+    if (state.order === "v2") return `<div class="tools left">${queue}<div class="card ${a}">
+      <div class="card-row">${filterIcon}${qs}${show}</div>
+      <div class="card-row">${add}${chips}${clear}<span class="push"></span>${views}</div></div></div>`;
+    return `<div class="tools">${queue}<div class="bar ${a}">${add}${chips}${clear}${views}${sep}${filterIcon}${search(true, opt)}${show}</div></div>`;
+  }
+  const n = state.chips.length;
+  const sbox = `<label class="sbox ${state.text ? "on" : ""}">${filterIcon}<input type="search" id="q-${opt}" aria-label="Filter bookmarks" placeholder="Filter… (F)" value="${esc(state.text)}" data-search></label>`;
+  const filters = addMenu(opt, `Filters${n ? ` · ${n}` : ""} ▾`, "as-button" + (n ? " on" : ""));
+  const mid = sbox + showMenu(opt) + filters;
+  const body = state.cstyle === "join" ? `<div class="group">${mid}</div>` : `<span class="spacer"></span>${mid}`;
+  return `<div class="tools cs-${state.cstyle}">${queue}${body}${viewsMenu(opt, "btn")}</div>`;
 }
 
 function render() {
   seg("scenario", SCENARIOS, "scenario", load);
   seg("width", WIDTHS, "width", (k) => { state.width = k; });
+  seg("cstyle", CSTYLES, "cstyle", (k) => { state.cstyle = k; state.open = null; });
+  document.getElementById("cstyle-why").textContent = CSTYLES[state.cstyle].why;
+  seg("order", ORDERS, "order", (k) => { state.order = k; state.open = null; });
+  document.getElementById("order-why").textContent = ORDERS[state.order].why;
   const focused = document.activeElement?.dataset?.search !== undefined ? document.activeElement.id : null;
   for (const stage of document.querySelectorAll(".stage")) {
     const opt = stage.dataset.opt;
@@ -211,9 +276,10 @@ function render() {
 function markWraps() {
   for (const stage of document.querySelectorAll(".stage")) {
     const bar = stage.querySelector(".bar"), note = stage.querySelector(".wrapnote");
+    if (!bar) { const rows = [...stage.querySelectorAll(".card-row")].map((r) => Math.round(r.getBoundingClientRect().height / 34)); note.textContent = rows.some((n) => n > 1) ? "A row wraps" : "Two rows by design, neither wraps"; note.className = "wrapnote" + (rows.some((n) => n > 1) ? " bad" : ""); continue; }
     const lines = Math.round(bar.getBoundingClientRect().height / 38);
     const tools = stage.querySelector(".tools");
-    const toolLines = tools.getBoundingClientRect().height > 46;
+    const toolLines = !tools.classList.contains("left") && tools.getBoundingClientRect().height > 46;
     const wrapped = lines > 1 || toolLines;
     note.textContent = wrapped ? "Bar wraps" : "Fits on one line";
     note.className = "wrapnote" + (wrapped ? " bad" : "");
