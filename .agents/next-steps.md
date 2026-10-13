@@ -1,5 +1,5 @@
 # Next steps
 
-v1 landed on `main` as five squash-merged PRs: #2 (foundation), #3 (triage), #4 (tag types and styles), #5 (filters), and the agent-batches PR (round 4). `codex/bubble-tag-product` is kept as the unsquashed backup.
-
-From here, work issue-first: open an issue per change, then a branch and a PR that closes it. No issues exist yet; draft the first ones from [progress open items](../docs/progress.md#open-items) and confirm with the user before creating them.
+1. #7 Fetch thumbnails once and store them locally, with fallbacks that work on a static site (priority: high)
+2. #10 Run install, build, and tests on every PR (small; ideally lands before #7's PR)
+3. #8 Let a local agent call the app's tools from any browser, including a static deployment

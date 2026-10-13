@@ -47,7 +47,7 @@ Merge this entry into `mcpServers` in the existing macOS configuration at `~/Lib
 
 Claude Desktop rewrote this file on October 13, 2026 and dropped the entry; re-add it (or use **Settings → Developer**) if `bookmark-tag-chrome` stops appearing. Code sessions in the desktop app also load this entry and receive the bridge tools.
 
-**Limitation: the Claude Code in-app browser cannot run WebMCP.** Its embedded Chromium (152 in Claude 2.31226.1) has no `document.modelContext`, so the app registers no tools there, and the browser pane's tools cannot invoke WebMCP tools. Use the app in normal Chrome through `bookmark-tag-chrome` instead. Calling app code through the pane's JavaScript tool bypasses WebMCP and does not count as a test.
+**Limitation: the Claude Code in-app browser cannot run WebMCP.** Its embedded Chromium (152 in Claude 2.31226.1) has no `document.modelContext`, so the app registers no tools there, and the browser pane's tools cannot invoke WebMCP tools. Use the app in normal Chrome through `bookmark-tag-chrome` instead. Calling app code through the pane's JavaScript tool bypasses WebMCP and does not count as a test. [#8](https://github.com/pomodorozhong/bookmark-router/issues/8) plans a WebMCP polyfill and local relay so the pane, and a static deployment, can be used.
 
 Claude Desktop supports local MCP servers through its Developer configuration and desktop extensions. Packaging an extension is outside this small round. See [Claude Desktop's local MCP documentation](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
 
