@@ -1,6 +1,6 @@
 # Plan — triage bookmarks into project ideas
 
-Updated October 13, 2026. Rounds 0–3 are approved; round 1.5 is skipped. Round 4 (WebMCP) is in progress. [Progress](progress.md) records current behavior and open items; [the archive](archive/README.md) preserves completed rounds and superseded checkpoint plans.
+Updated October 14, 2026. Rounds 0–4 are approved; round 1.5 is skipped. [Progress](progress.md) records current behavior and open items; [the archive](archive/README.md) preserves completed rounds and superseded checkpoint plans.
 
 ## What the app is for
 
@@ -32,10 +32,7 @@ Keep rounds small. There are no checkpoint tags, deferred-verification registers
 | 1.5 — Fetch details | Planned local helper and reviewed enrichment | Skipped October 11, 2026: user's local fetcher works |
 | 2 — Issues and tags | Readable issue view, create/edit tag types, appearance overrides, four tag styles in eight directions, hidden-group peeking, Bookmark & Tag rename | Approved October 12, 2026 |
 | 3 — Filters | Compact search/Show/Filters bar, counted filter values, Saved filters, restored pinning, matching floating graph toolbar | Approved October 12, 2026 |
-
-## In progress: round 4 — WebMCP for the user's agent
-
-The approved integration is implemented. Its scope, accepted review flow, client setup, verification, and remaining Codex acceptance are maintained together in the standalone [WebMCP document](webmcp.md). Claude testing is done; finish Codex acceptance before closing this round.
+| 4 — WebMCP | Agent reads collections and groups, copies the selection, and proposes reviewed batches (additions, missing fields, remote images) with Apply anyway, Set aside, and one Undo per batch; see [WebMCP](webmcp.md) | Approved October 14, 2026 |
 
 ## Later, only if needed
 

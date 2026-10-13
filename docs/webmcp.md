@@ -1,8 +1,8 @@
 # WebMCP — bookmark tools, setup, and verification
 
-Updated October 13, 2026. **The app implementation and approved review UI are complete.** Six tools register in the live app when WebMCP is available, including copying the current selection into the agent conversation and proposing remote images with visible current/proposed previews. The user reports thumbnail repair through the agent is working. The subsequently approved **Apply anyway** flow lets the human apply a stale batch after reviewing its exact overwrites against current saved values. Domain, transaction, Undo, and browser checks pass. The normal-profile Chrome connection and exact installed server command were verified during the earlier connection review; Chrome must remain open and reachable for further use. Both desktop configs have been installed with backups. This Codex conversation has discovered the live tools and read the 148-bookmark collection and #141's seven bookmarks. Broader human batch-flow acceptance remains pending. Claude testing is done: a Claude Code session in the Claude desktop app discovered the six tools and read the collection and #141 through the bridge.
+Updated October 13, 2026. **The app implementation and approved review UI are complete.** Six tools register in the live app when WebMCP is available, including copying the current selection into the agent conversation and proposing remote images with visible current/proposed previews. The user reports thumbnail repair through the agent is working. The subsequently approved **Apply anyway** flow lets the human apply a stale batch after reviewing its exact overwrites against current saved values. Domain, transaction, Undo, and browser checks pass. The normal-profile Chrome connection and exact installed server command were verified during the earlier connection review; Chrome must remain open and reachable for further use. Both desktop configs have been installed with backups. This Codex conversation has discovered the live tools and read the 148-bookmark collection and #141's seven bookmarks. The user accepted the batch workflow on October 14, 2026. Claude testing is done: a Claude Code session in the Claude desktop app discovered the six tools and read the collection and #141 through the bridge.
 
-This document is the standalone reference for Bookmark & Tag’s round 4 agent integration. It includes the accepted behavior, tool contracts, complete client configuration, observed verification, and remaining acceptance steps. Other project guides link here rather than maintaining separate MCP instructions.
+This document is the standalone reference for Bookmark & Tag’s round 4 agent integration. It includes the accepted behavior, tool contracts, complete client configuration, observed verification, and acceptance steps. Other project guides link here rather than maintaining separate MCP instructions.
 
 ## Connection
 
@@ -194,7 +194,7 @@ Registration and discovery follow Chrome’s [imperative API documentation](http
 
 ## Verification status
 
-The following results were observed October 13, 2026. App and bridge verification is complete, including read-only tool calls from this Codex desktop conversation. Human acceptance of the batch workflow remains pending.
+The following results were observed October 13, 2026. App and bridge verification is complete, including read-only tool calls from this Codex desktop conversation. The user accepted the batch workflow on October 14, 2026.
 
 
 | Check | Status |
@@ -227,7 +227,7 @@ The following results were observed October 13, 2026. App and bridge verificatio
 | Exact installed npx command and PATH | Passed handshake, discovery, context (148), #141 (7), and warning filter (15); an earlier first browser call timed out, a retry passed |
 | Local Codex configuration recognition | Passed `codex mcp get bookmark-tag-chrome`; enabled with four allowed tools |
 | Claude Desktop 2.31226.1 | Done: a Claude Code session in the desktop app listed pages, discovered six tools, read the collection (148 bookmarks, revision 0), and read #141 (seven bookmarks) through the bridge; the user marked Claude testing done. In-app browser lacks WebMCP (see [limitation](#claude-desktop)). |
-| Codex desktop 26.1007.30912 | Live discovery and collection/group reads passed in this conversation; human batch-flow acceptance pending |
+| Codex desktop 26.1007.30912 | Live discovery and collection/group reads passed in this conversation; batch workflow accepted October 14, 2026 |
 
 The user enabled Chrome's WebMCP and remote-debugging settings. The bridge attached to the normal profile, discovered all five tools, and read the active collection. The profile initially contained an empty collection; a separate copy of the 148-bookmark backup was restored through the real app UI. Existing collections in the in-app browser were not changed. Native UI control recovered for Chrome and Claude after an initial macOS capture error; it explicitly disallows operating Codex itself.
 
