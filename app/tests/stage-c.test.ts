@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import "fake-indexeddb/auto";
 import { applyCommand } from "../src/domain/commands";
 import { builtInCopyPresets, composeCopy } from "../src/domain/copy";
-import { distanceMatches, filterBubbles, pathSummary } from "../src/domain/filters";
+import { distanceMatches, filterBookmarks, pathSummary } from "../src/domain/filters";
 import { demoWorkspace } from "../src/domain/samples";
 import { WorkspaceStore } from "../src/domain/storage";
 
@@ -22,36 +22,36 @@ test("nested filters and same-tag predicates use the shared match pipeline", () 
       { op: "not" as const, rule: { op: "status" as const, ids: ["done"] } },
     ],
   };
-  assert.deepEqual(filterBubbles(workspace, filter).map((bubble) => bubble.id), [
-    "bubble-0",
-    "bubble-1",
+  assert.deepEqual(filterBookmarks(workspace, filter).map((bookmark) => bookmark.id), [
+    "bookmark-0",
+    "bookmark-1",
   ]);
   assert.deepEqual(
-    filterBubbles(workspace, { op: "same-tag", name: "Research" }).map(
-      (bubble) => bubble.id,
+    filterBookmarks(workspace, { op: "same-tag", name: "Research" }).map(
+      (bookmark) => bookmark.id,
     ),
-    ["bubble-0", "bubble-1", "bubble-2", "bubble-3", "bubble-9"],
+    ["bookmark-0", "bookmark-1", "bookmark-2", "bookmark-3", "bookmark-9"],
   );
 });
 
 test("distance filtering reports shortest paths across hidden-tag-capable full graph", () => {
   const workspace = demoWorkspace();
   const matches = distanceMatches(workspace, ["tag-0"]);
-  const distant = matches.get("bubble-6");
+  const distant = matches.get("bookmark-6");
   assert.equal(distant?.distance, 3);
   assert.equal(pathSummary(distant!.path, workspace), "Research → Useful tools → Ideas → Prototype notes");
-  assert.ok(filterBubbles(workspace, { op: "distance", tagIds: ["tag-0"], hops: 3 }).some((bubble) => bubble.id === "bubble-6"));
+  assert.ok(filterBookmarks(workspace, { op: "distance", tagIds: ["tag-0"], hops: 3 }).some((bookmark) => bookmark.id === "bookmark-6"));
 });
 
 test("copy output is exact and local media uses a filename", () => {
   const workspace = demoWorkspace();
-  workspace.bubbles[0].asset = {
+  workspace.bookmarks[0].asset = {
     source: "local",
     kind: "image",
     blobId: "blob-0",
     filename: "notes.png",
   };
-  const output = composeCopy([workspace.bubbles[0]], workspace, {
+  const output = composeCopy([workspace.bookmarks[0]], workspace, {
     fields: ["title", "assetUrl", "status", "tags"],
     separator: " | ",
     format: "plain",
@@ -59,7 +59,7 @@ test("copy output is exact and local media uses a filename", () => {
   });
   assert.equal(output, "User interviews | notes.png | Pending | Research");
   assert.doesNotMatch(output, /blob:|blob-0/);
-  const markdown = composeCopy([workspace.bubbles[0]], workspace, {
+  const markdown = composeCopy([workspace.bookmarks[0]], workspace, {
     fields: ["title", "url"],
     separator: "\n",
     format: "markdown",
@@ -78,7 +78,7 @@ test("copy composer exposes useful quick presets", () => {
   assert.deepEqual(builtInCopyPresets.find((preset) => preset.name === "Title only")?.fields, ["title"]);
   const workspace = demoWorkspace();
   const markdown = builtInCopyPresets.find((preset) => preset.name === "Markdown links");
-  assert.equal(markdown ? composeCopy([workspace.bubbles[0]], workspace, markdown) : "", "[User interviews](https://example.com/0)");
+  assert.equal(markdown ? composeCopy([workspace.bookmarks[0]], workspace, markdown) : "", "[User interviews](https://example.com/0)");
 });
 
 test("saved views, copy presets, and media attachments are revision-checked", () => {
@@ -104,15 +104,15 @@ test("saved views, copy presets, and media attachments are revision-checked", ()
   const withMedia = applyCommand(withPreset, 2, {
     type: "media.attach",
     assignments: [{
-      bubbleId: "bubble-0",
+      bookmarkId: "bookmark-0",
       expectedRecordRevision: 0,
       asset: { source: "local", kind: "image", blobId: "media-0", filename: "cover.png" },
     }],
   });
   assert.equal(withMedia.views[0].name, "Ready");
   assert.equal(withMedia.settings.copyPresets?.[0].name, "Weekly");
-  assert.equal(withMedia.bubbles[0].asset?.filename, "cover.png");
-  assert.equal(withMedia.bubbles[0].revision, 1);
+  assert.equal(withMedia.bookmarks[0].asset?.filename, "cover.png");
+  assert.equal(withMedia.bookmarks[0].revision, 1);
 });
 
 test("media uploads commit the workspace and blob in one IndexedDB transaction", async () => {
@@ -124,13 +124,13 @@ test("media uploads commit the workspace and blob in one IndexedDB transaction",
     workspace.id,
     workspace.revision,
     [{
-      bubbleId: "bubble-0",
+      bookmarkId: "bookmark-0",
       expectedRecordRevision: 0,
       asset: { source: "local", kind: "audio", blobId: "audio-0", filename: "note.wav" },
     }],
     [{ id: "audio-0", filename: "note.wav", mime: "audio/wav", blob: new Blob(["audio"]) }],
   );
-  assert.equal(next.bubbles[0].asset?.filename, "note.wav");
+  assert.equal(next.bookmarks[0].asset?.filename, "note.wav");
   assert.equal((await store.media("audio-0"))?.workspaceId, workspace.id);
   await store.close();
 });
@@ -141,7 +141,7 @@ test("removing a collection deletes its positions and media but keeps other coll
   await store.create(doomed);
   await store.create(kept);
   await store.attachMedia(doomed.id, doomed.revision,
-    [{ bubbleId: "bubble-0", expectedRecordRevision: 0, asset: { source: "local", kind: "audio", blobId: "audio-0", filename: "a.wav" } }],
+    [{ bookmarkId: "bookmark-0", expectedRecordRevision: 0, asset: { source: "local", kind: "audio", blobId: "audio-0", filename: "a.wav" } }],
     [{ id: "audio-0", filename: "a.wav", mime: "audio/wav", blob: new Blob(["a"]) }]);
   await store.saveGeometry({ workspaceId: doomed.id, positions: {} });
   await store.remove(doomed.id);

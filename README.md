@@ -1,6 +1,6 @@
-# Bubble & Tag
+# Bookmark & Tag
 
-An import-first, local-first workspace for collecting bubbles, organizing them with tags, and processing them through a G6 force-directed graph.
+An import-first, local-first workspace for collecting bookmarks, organizing them with tags, and processing them through a G6 force-directed graph.
 
 - [Approved product plan](docs/product-plan.md)
 - [Checkpoint review guide](docs/product-review-guide.md)

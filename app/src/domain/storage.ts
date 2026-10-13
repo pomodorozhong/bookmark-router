@@ -37,7 +37,7 @@ interface ProductDB extends DBSchema {
 }
 export class WorkspaceStore {
   private database: Promise<IDBPDatabase<ProductDB>>;
-  constructor(name = "bubble-tag-v1") {
+  constructor(name = "bookmark-tag") {
     this.database = openDB<ProductDB>(name, undefined, {
       upgrade(db) {
         if (!db.objectStoreNames.contains("workspaces")) db.createObjectStore("workspaces", { keyPath: "id" });
@@ -79,7 +79,7 @@ export class WorkspaceStore {
     }, label ?? commandLabel(commands[0]));
   }
   async import(id: string, command: ImportCommitCommand) {
-    return this.mutate(id, (w) => commitImport(w, command), "Import bubbles");
+    return this.mutate(id, (w) => commitImport(w, command), "Import bookmarks");
   }
   async undo(
     id: string,
@@ -196,7 +196,7 @@ export class WorkspaceStore {
     id: string,
     expectedRevision: number,
     assignments: Array<{
-      bubbleId: string;
+      bookmarkId: string;
       expectedRecordRevision: number;
       asset: Asset;
     }>,

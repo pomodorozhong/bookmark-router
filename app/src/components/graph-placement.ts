@@ -3,11 +3,11 @@ export type Point = readonly [number, number];
 // Gives each unplaced node a start position beside a linked node that already
 // has one, so new records begin near their tags instead of in a detached grid.
 // Nodes with no placed neighbor start around `center`. Order follows links, so
-// a new tag and its new bubbles end up together.
+// a new tag and its new bookmarks end up together.
 export function placeNear(
   ids: string[],
   placed: Map<string, Point>,
-  memberships: { bubbleId: string; tagId: string }[],
+  memberships: { bookmarkId: string; tagId: string }[],
   center: Point,
 ): Map<string, Point> {
   const result = new Map<string, Point>();
@@ -15,8 +15,8 @@ export function placeNear(
   const pending = [...ids];
   const neighbors = (id: string) =>
     memberships
-      .filter((m) => m.bubbleId === id || m.tagId === id)
-      .map((m) => (m.bubbleId === id ? m.tagId : m.bubbleId));
+      .filter((m) => m.bookmarkId === id || m.tagId === id)
+      .map((m) => (m.bookmarkId === id ? m.tagId : m.bookmarkId));
   while (pending.length) {
     const index = pending.findIndex((id) => neighbors(id).some((n) => known.has(n)));
     const [id] = pending.splice(index === -1 ? 0 : index, 1);

@@ -2,14 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, type IconName } from "./Icon";
 import type { Workspace } from "../domain/model";
 
-/** The Bubble & Tag mark: one tag joined to three bubbles, like a cluster in the graph. */
+/** The Bookmark & Tag mark: one tag joined to three bookmarks, like a cluster in the graph. */
 export function Logo({ size = 22 }: { size?: number }) {
   return (
     <svg className="logo" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M12 12 5 6M12 12l7-5M12 12v8" fill="none" stroke="var(--logo-line)" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="5" cy="6" r="2.6" fill="var(--logo-bubble)" stroke="var(--logo-line)" strokeWidth="1.6" />
-      <circle cx="19" cy="7" r="2.6" fill="var(--logo-bubble)" stroke="var(--logo-line)" strokeWidth="1.6" />
-      <circle cx="12" cy="20" r="2.6" fill="var(--logo-bubble)" stroke="var(--logo-line)" strokeWidth="1.6" />
+      <circle cx="5" cy="6" r="2.6" fill="var(--logo-bookmark)" stroke="var(--logo-line)" strokeWidth="1.6" />
+      <circle cx="19" cy="7" r="2.6" fill="var(--logo-bookmark)" stroke="var(--logo-line)" strokeWidth="1.6" />
+      <circle cx="12" cy="20" r="2.6" fill="var(--logo-bookmark)" stroke="var(--logo-line)" strokeWidth="1.6" />
       <circle cx="12" cy="12" r="4.4" fill="var(--teal)" />
     </svg>
   );
@@ -79,7 +79,7 @@ export function CollectionMenu({ workspace, collections, onOpen, onNew, onDelete
           {collections.map((w) => (
             <div key={w.id} className="menu-row">
               <Item current={w.id === workspace.id} onSelect={() => { close(); onOpen(w); }}
-                meta={<span title="Bubbles · tags">{w.bubbles.length} · {w.tags.length}</span>}>{w.name}</Item>
+                meta={<span title="Bookmarks · tags">{w.bookmarks.length} · {w.tags.length}</span>}>{w.name}</Item>
               <button type="button" role="menuitem" className="menu-row-delete" aria-label={`Delete ${w.name}…`} title={`Delete ${w.name}…`}
                 onClick={() => { close(); onDelete(w); }}><Icon name="trash" size={15} /></button>
             </div>
@@ -92,9 +92,10 @@ export function CollectionMenu({ workspace, collections, onOpen, onNew, onDelete
   );
 }
 
-export function MoreMenu({ onAddBubble, onAddTag, onHistory, onDownload, onRestore, onDelete }: {
+export function MoreMenu({ onAddBookmark, onAddTag, onTagTypes, onHistory, onDownload, onRestore, onDelete }: {
+  onTagTypes: () => void;
   onDelete: () => void;
-  onAddBubble: () => void;
+  onAddBookmark: () => void;
   onAddTag: () => void;
   onHistory: () => void;
   onDownload: () => void;
@@ -104,8 +105,9 @@ export function MoreMenu({ onAddBubble, onAddTag, onHistory, onDownload, onResto
     <MenuButton label="More actions" align="end" className="more-menu-root" button={<Icon name="more" size={18} />}>
       {(close) => (
         <>
-          <Item icon="plus" onSelect={() => { close(); onAddBubble(); }}>Add bubble…</Item>
+          <Item icon="plus" onSelect={() => { close(); onAddBookmark(); }}>Add bookmark…</Item>
           <Item icon="tag" onSelect={() => { close(); onAddTag(); }}>Add tag…</Item>
+          <Item icon="layout" onSelect={() => { close(); onTagTypes(); }}>Tag types…</Item>
           <Item icon="history" onSelect={() => { close(); onHistory(); }}>Import history…</Item>
           <hr />
           <Item icon="download" onSelect={() => { close(); onDownload(); }}>Download backup</Item>

@@ -22,19 +22,20 @@ import { WorkspaceStore } from "./domain/storage";
 import { ConflictError, type Command } from "./domain/commands";
 import { undoConflicts } from "./domain/import-commands";
 import { RecordEditor } from "./components/RecordEditor";
+import { TagTypesDialog } from "./components/TagTypesDialog";
 import { Dialog } from "./components/Dialog";
 import { Icon, IconButton, type IconName } from "./components/Icon";
 const store = new WorkspaceStore();
 function activeCollection() {
   try {
-    return localStorage.getItem("bubble-tag-active");
+    return localStorage.getItem("bookmark-tag-active");
   } catch {
     return null;
   }
 }
 function rememberCollection(id: string) {
   try {
-    localStorage.setItem("bubble-tag-active", id);
+    localStorage.setItem("bookmark-tag-active", id);
   } catch {
     /* IndexedDB content still persists when preferences are unavailable. */
   }
@@ -91,6 +92,7 @@ export default function App() {
     [undoBatch, setUndoBatch] = useState<string>(),
     [toast, setToast] = useState<ToastMessage>(),
     [deleting, setDeleting] = useState<Workspace>(),
+    [tagTypesOpen, setTagTypesOpen] = useState(false),
     [promptKind, setPromptKind] = useState<"collection" | "tag">(),
     [promptValue, setPromptValue] = useState("");
   const [nextUndo, setNextUndo] = useState<Awaited<ReturnType<WorkspaceStore["nextUndo"]>>>();
@@ -126,7 +128,7 @@ export default function App() {
           setNextUndo(await store.nextUndo(w.id));
           setError("");
           setLoaded(true);
-          if (w.bubbles.length) setScreen("workspace");
+          if (w.bookmarks.length) setScreen("workspace");
         }
       })
       .catch((e) => { if (active) setError("Unable to open local storage: " + String(e)); })
@@ -228,7 +230,7 @@ export default function App() {
       if (target.id === workspace.id) {
         const next = rest.find((w) => w.id !== target.id)!;
         await openWorkspace(next);
-        if (!next.bubbles.length) setScreen("import");
+        if (!next.bookmarks.length) setScreen("import");
       }
       setDeleting(undefined);
       notify(`Deleted: ${target.name}`);
@@ -266,7 +268,7 @@ export default function App() {
       );
       const a = document.createElement("a");
       a.href = url;
-      a.download = "bubble-tag-backup.json";
+      a.download = "bookmark-tag-backup.json";
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       notify("Backup downloaded. Remote media remains linked; uploaded media is bundled.");
@@ -306,7 +308,7 @@ export default function App() {
         await publish(next);
         await openWorkspace(next);
         notify(
-          `${selectedRows.length} source rows applied: ${next.bubbles.length - workspace.bubbles.length} new bubbles and ${selectedRows.filter((c) => choices[c.row] === "merge").length} merges.`,
+          `${selectedRows.length} source rows applied: ${next.bookmarks.length - workspace.bookmarks.length} new bookmarks and ${selectedRows.filter((c) => choices[c.row] === "merge").length} merges.`,
           () => void undoRef.current(),
         );
       }
@@ -345,7 +347,7 @@ export default function App() {
       );
       await publish(next);
       setUndoBatch(undefined);
-      notify(changed.length ? `Import undone · ${changed.length} edited ${changed.length === 1 ? "bubble" : "bubbles"} kept` : "Import undone");
+      notify(changed.length ? `Import undone · ${changed.length} edited ${changed.length === 1 ? "bookmark" : "bookmarks"} kept` : "Import undone");
     } catch (e) {
       setError(String(e));
       const latest = await store.get(workspace.id);
@@ -482,8 +484,9 @@ export default function App() {
   );
   const moreMenu = (
     <MoreMenu
-      onAddBubble={() => setScreen("import")}
+      onAddBookmark={() => setScreen("import")}
       onAddTag={() => { setPromptKind("tag"); setPromptValue(""); }}
+      onTagTypes={() => setTagTypesOpen(true)}
       onHistory={() => setHistory(true)}
       onDownload={() => void backup()}
       onRestore={restoreBackup}
@@ -512,7 +515,7 @@ export default function App() {
               <h1>Bring your collection in.</h1>
               <p>
                 Links, notes, or a whole export. Review everything before it
-                becomes a bubble.
+                becomes a bookmark.
               </p>
             </div>
             <ol className="steps">
@@ -625,7 +628,7 @@ export default function App() {
               <section className="panel">
                 <div className="panel-heading">
                   <div>
-                    <h2>Connect columns to bubble fields</h2>
+                    <h2>Connect columns to bookmark fields</h2>
                     <p className="subtle">
                       Detected {parsed.format.toUpperCase()} ·{" "}
                       {parsed.rows.length} records. Unmapped fields stay empty.
@@ -849,7 +852,7 @@ export default function App() {
                 </h2>
                 <p>
                   {parsed?.restore
-                    ? `${parsed.restore.workspace.bubbles.length} bubbles and ${parsed.restore.media.length} bundled media files. A new collection will be created; the current collection is kept.`
+                    ? `${parsed.restore.workspace.bookmarks.length} bookmarks and ${parsed.restore.media.length} bundled media files. A new collection will be created; the current collection is kept.`
                     : `Apply ${selectedRows.length} reviewed source records to ${workspace.name}.`}
                 </p>
                 {!parsed?.restore && (
@@ -866,7 +869,7 @@ export default function App() {
                     <div className="notice text-left">
                       Merges replace supplied titles, nonempty descriptions,
                       mapped statuses and supplied media, and add tags. Import
-                      history lets you undo these changes. Bubbles edited after
+                      history lets you undo these changes. Bookmarks edited after
                       import are kept when you undo.
                     </div>
                   </>
@@ -960,6 +963,7 @@ export default function App() {
             notify={notify}
             onEdit={setEditing}
             onImport={() => setScreen("import")}
+            onTagTypes={() => setTagTypesOpen(true)}
             onError={setError}
             headerStart={collectionMenu}
             headerEnd={<>{undoButton}{moreMenu}</>}
@@ -973,8 +977,10 @@ export default function App() {
           id={editing}
           onSave={save}
           onClose={() => setEditing(undefined)}
+          onNewType={() => setTagTypesOpen(true)}
         />
       )}
+      {tagTypesOpen && <TagTypesDialog workspace={workspace} save={save} onClose={() => setTagTypesOpen(false)} />}
       {promptKind && (
         <PromptModal
           kind={promptKind}
@@ -996,7 +1002,7 @@ export default function App() {
           <h2 id="delete-title">Delete “{deleting.name}”?</h2>
           <p>This removes it from this device and can't be undone:</p>
           <ul>
-            <li>{deleting.bubbles.length} bubbles and {deleting.tags.length} tags</li>
+            <li>{deleting.bookmarks.length} bookmarks and {deleting.tags.length} tags</li>
             <li>Their images, notes, and import history</li>
             <li>Graph positions and pins</li>
           </ul>
@@ -1016,8 +1022,8 @@ export default function App() {
         <Dialog labelledBy="history-title" onClose={() => setHistory(false)}>
             <h2 id="history-title">Import history</h2>
             <p>
-              Undo an import to remove new bubbles and restore merged bubbles
-              to their previous values. Bubbles edited after import and imported
+              Undo an import to remove new bookmarks and restore merged bookmarks
+              to their previous values. Bookmarks edited after import and imported
               tags are kept.
             </p>
             {!workspace.batches.length && <p>No imports yet.</p>}
@@ -1025,7 +1031,7 @@ export default function App() {
               <article key={b.id}>
                 <strong>{b.source}</strong>
                 <p>
-                  {b.bubbleIds.length} affected bubbles ·{" "}
+                  {b.bookmarkIds.length} affected bookmarks ·{" "}
                   {new Date(b.createdAt).toLocaleString()}
                 </p>
                 <button onClick={() => setUndoBatch(b.id)}>Review import undo</button>
@@ -1045,26 +1051,26 @@ export default function App() {
             <Dialog labelledBy="undo-title" onClose={() => { if (!busy) setUndoBatch(undefined); }}>
                 <h2 id="undo-title">Undo this import?</h2>
                 <p>
-                  {b.bubbleIds.length - changed.length} unchanged bubbles will
-                  be affected. New bubbles will be removed; merged bubbles will
+                  {b.bookmarkIds.length - changed.length} unchanged bookmarks will
+                  be affected. New bookmarks will be removed; merged bookmarks will
                   return to their values and tags from before this import.
                   Imported tags will remain available.
                 </p>
                 {changed.length > 0 && (
                   <div className="notice">
-                    <strong>Bubbles to keep</strong>
+                    <strong>Bookmarks to keep</strong>
                     {changed.map((b) => (
                       <p key={b.id}>{b.title}</p>
                     ))}
-                    <p>These bubbles were edited after import. Undo will keep their current values and tags.</p>
+                    <p>These bookmarks were edited after import. Undo will keep their current values and tags.</p>
                   </div>
                 )}
                 <ul>
-                  {b.bubbleIds
+                  {b.bookmarkIds
                     .filter((id) => !changed.some((c) => c.id === id))
                     .map((id) => (
                       <li key={id}>
-                        {workspace.bubbles.find((b) => b.id === id)?.title}
+                        {workspace.bookmarks.find((b) => b.id === id)?.title}
                       </li>
                     ))}
                 </ul>
@@ -1134,7 +1140,7 @@ function PromptModal({
           />
         </label>
         <p className="subtle">
-          {kind === "collection" ? "A new collection starts empty and stays on this device." : "You can connect this tag to bubbles from Details."}
+          {kind === "collection" ? "A new collection starts empty and stays on this device." : "You can connect this tag to bookmarks from Details."}
         </p>
         <footer>
           <button type="button" disabled={submitting} onClick={onClose}>Cancel</button>
@@ -1161,7 +1167,7 @@ function ReviewRow({
   onChoice: (v: "skip" | "keep" | "merge") => void;
   onExclude: (v: boolean) => void;
 }) {
-  const existing = workspace.bubbles.find((b) => b.id === c.duplicate?.id);
+  const existing = workspace.bookmarks.find((b) => b.id === c.duplicate?.id);
   return (
     <article
       className={`review-row ${c.errors.length ? "invalid" : c.urlWarning ? "has-warning" : ""}`}
@@ -1212,7 +1218,7 @@ function ReviewRow({
         <div className="duplicate-panel">
           <p>
             {c.duplicate
-              ? `Same URL as ${c.duplicate.kind === "workspace" ? "existing bubble" : "source row " + c.duplicate.row}: “${c.duplicate.title}”`
+              ? `Same URL as ${c.duplicate.kind === "workspace" ? "existing bookmark" : "source row " + c.duplicate.row}: “${c.duplicate.title}”`
               : `Repeated source row ${c.repeatedRow}`}
           </p>
           <div className="flex gap-4 flex-wrap mt-3">

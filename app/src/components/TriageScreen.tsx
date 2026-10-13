@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { CopyDialog, type CopyScope } from "./CopyDialog";
 import { RecordEditor } from "./RecordEditor";
+import { TagView } from "./TagView";
+import { Cover, type LoadMedia } from "./Cover";
 import { Icon, IconButton } from "./Icon";
 import type { Command } from "../domain/commands";
-import { isWebUrl, type Asset, type Bubble, type Geometry, type Workspace } from "../domain/model";
+import { isWebUrl, type Bookmark, type Geometry, type Workspace } from "../domain/model";
 import {
   decisionStatuses,
   domainOf,
@@ -21,29 +23,12 @@ import {
   type TriageTab,
 } from "../domain/triage";
 
-type LoadMedia = (id: string) => Promise<{ blob: Blob } | undefined>;
 const relatedListLimit = 12;
 
-function Cover({ asset, load, className = "triage-cover" }: { asset?: Asset; load: LoadMedia; className?: string }) {
-  const [src, setSrc] = useState<string>();
-  useEffect(() => {
-    let objectUrl: string | undefined, canceled = false;
-    setSrc(undefined);
-    if (asset?.kind !== "image") return;
-    if (asset.source === "remote") setSrc(asset.url);
-    else void load(asset.blobId!).then((m) => {
-      if (m && !canceled) setSrc(objectUrl = URL.createObjectURL(m.blob));
-    });
-    return () => { canceled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [asset, load]);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => setLoaded(false), [src]);
-  // Hidden until loaded, so a slow or blocked cover never leaves an empty frame.
-  return src ? <img className={className} src={src} alt="" hidden={!loaded} onLoad={() => setLoaded(true)} onError={() => setSrc(undefined)} /> : null;
-}
-
 /** The main collection screen: triage bookmarks into groups beside the force-directed graph. */
-export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onError, headerStart, headerEnd }: {
+export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onTagTypes, onError, headerStart, headerEnd }: {
+  /** Opens the tag type manager. */
+  onTagTypes: () => void;
   headerStart?: ReactNode;
   headerEnd?: ReactNode;
   workspace: Workspace;
@@ -65,12 +50,14 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [selection, setSelection] = useState<string[]>();
   // The tag whose bookmarks make up the selection, when it came from clicking a tag.
   const [selectionTagId, setSelectionTagId] = useState<string>();
-  // The tag open in the detail panel's editor, after a tag is clicked in the graph.
-  const [editingTagId, setEditingTagId] = useState<string>();
+  // The tag shown in the detail panel after a tag is clicked in the graph, read or edited.
+  const [tagPanel, setTagPanel] = useState<{ id: string; editing: boolean }>();
   const [currentId, setCurrentId] = useState<string>();
   const [queueOpen, setQueueOpen] = useState(() => window.innerWidth > 1000);
   const [groupQuery, setGroupQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  // The filter bar's More menu, holding Empty groups and Ungrouped bookmarks.
+  const [moreOpen, setMoreOpen] = useState(false);
   const [menuIndex, setMenuIndex] = useState(0);
   const [copyScope, setCopyScope] = useState<CopyScope>();
   const [busy, setBusy] = useState(false);
@@ -81,6 +68,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const groupInput = useRef<HTMLInputElement>(null);
 
   const selectionTag = selection && workspace.tags.find((t) => t.id === selectionTagId);
+  const panelTag = tagPanel && workspace.tags.find((t) => t.id === tagPanel.id);
   const selectionSet = useMemo(() => (selection ? new Set(selection) : undefined), [selection]);
   const queue = useMemo(() => {
     const list = triageQueue(workspace, { tab, filter, selection: selectionSet });
@@ -89,15 +77,15 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     return list.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
   }, [workspace, tab, filter, selection, selectionSet]);
   // Nothing is current until a bookmark is picked, so the whole graph shows unfaded.
-  const current = workspace.bubbles.find((b) => b.id === currentId);
+  const current = workspace.bookmarks.find((b) => b.id === currentId);
   const groups = current ? groupsOf(workspace, current.id) : [];
   const related = useMemo(() => (current ? [...relatedOf(workspace, current.id)].sort((a, b) => b[1].length - a[1].length) : []), [workspace, current]);
   const visibility = useMemo(() => graphVisibility(workspace, filter, tab, current ? [current.id] : []), [workspace, filter, tab, current]);
   const { done, dropped } = decisionStatuses(workspace);
   const counts = useMemo(() => ({
-    todo: workspace.bubbles.filter((b) => inTab(b, workspace, "todo")).length,
-    done: workspace.bubbles.filter((b) => inTab(b, workspace, "done")).length,
-    dropped: workspace.bubbles.filter((b) => inTab(b, workspace, "dropped")).length,
+    todo: workspace.bookmarks.filter((b) => inTab(b, workspace, "todo")).length,
+    done: workspace.bookmarks.filter((b) => inTab(b, workspace, "done")).length,
+    dropped: workspace.bookmarks.filter((b) => inTab(b, workspace, "dropped")).length,
   }), [workspace]);
   const options = useMemo(() => {
     const linked = new Set(groups.map((g) => g.id));
@@ -117,14 +105,16 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
 
   function show(id: string | undefined, frame = true) {
     setCurrentId(id);
-    setEditingTagId(undefined);
+    setTagPanel(undefined);
     setGroupQuery("");
     setMenuOpen(false);
     if (frame) setFrameRequest(++frameToken.current);
   }
+  // Moving past either end of the queue wraps around to the other.
   function move(step: number) {
+    if (!queue.length) return;
     const i = queue.findIndex((b) => b.id === current?.id);
-    show(queue[Math.max(0, Math.min(queue.length - 1, i + step))]?.id);
+    show(queue[i === -1 ? (step > 0 ? 0 : queue.length - 1) : (i + step + queue.length) % queue.length].id);
   }
   // The bookmark after this one in the queue as it was before a decision.
   const nextAfter = (id: string) => {
@@ -140,10 +130,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   function decide(kind: "done" | "dropped") {
     const status = kind === "done" ? done : dropped;
     if (!current || !status) return;
-    const bubble = current, next = nextAfter(bubble.id);
+    const bookmark = current, next = nextAfter(bookmark.id);
     void run(async () => {
-      await save({ type: "bubble.patch", id: bubble.id, expectedRecordRevision: bubble.revision, patch: { statusId: status.id } },
-        `${kind === "done" ? "Done" : "Drop"}: ${bubble.title}`);
+      await save({ type: "bookmark.patch", id: bookmark.id, expectedRecordRevision: bookmark.revision, patch: { statusId: status.id } },
+        `${kind === "done" ? "Done" : "Drop"}: ${bookmark.title}`);
       show(next);
     });
   }
@@ -159,7 +149,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     if (!current) return;
     const tag = workspace.tags.find((t) => t.id === tagId);
     void run(async () => {
-      await save({ type: "membership.set", bubbleId: current.id, tagId, linked }, `${linked ? "Add to" : "Remove from"} ${tag?.name ?? "group"}`);
+      await save({ type: "membership.set", bookmarkId: current.id, tagId, linked }, `${linked ? "Add to" : "Remove from"} ${tag?.name ?? "group"}`);
       setGroupQuery("");
       setFrameRequest(++frameToken.current);
     });
@@ -169,10 +159,12 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     const base = adding ? selection ?? [] : [];
     const merged = [...new Set([...base, ...ids])];
     if (!merged.length) { setSelection(undefined); return; }
-    const ordered = clockwise(merged.map((id) => ({ id })), (id) => graphRef.current?.positionOf(id)).map((b) => b.id);
+    // A clicked group's bookmarks go around the group itself.
+    const positionOf = (id: string) => graphRef.current?.positionOf(id);
+    const ordered = clockwise(merged.map((id) => ({ id })), positionOf, tagId ? positionOf(tagId) : undefined).map((b) => b.id);
     setSelection(ordered);
     if (!ordered.includes(current?.id ?? "")) show(ordered.find((id) => {
-      const b = workspace.bubbles.find((x) => x.id === id);
+      const b = workspace.bookmarks.find((x) => x.id === id);
       return b && inTab(b, workspace, tab);
     }), false);
   }
@@ -207,7 +199,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       else if (e.key === "ArrowUp" || key === "k") { e.preventDefault(); move(-1); }
       else if (key === "q") setQueueOpen((v) => !v);
       else if (key === "c") openCopy();
-      else if (e.key === "Escape" && editingTagId) setEditingTagId(undefined);
+      else if (e.key === "Escape" && moreOpen) setMoreOpen(false);
+      else if (e.key === "Escape" && tagPanel) setTagPanel(tagPanel.editing ? { ...tagPanel, editing: false } : undefined);
       else if (e.key === "Escape" && selection) setSelection(undefined);
       else if (e.key === "Escape" && current) show(undefined, false);
       else if (key === "d") decide("done");
@@ -220,9 +213,15 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
+  useEffect(() => {
+    if (!moreOpen) return;
+    const close = (e: PointerEvent) => { if (!(e.target as Element).closest(".filter-more")) setMoreOpen(false); };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [moreOpen]);
 
-  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showEmptyGroups);
-  const total = workspace.bubbles.length || 1;
+  const filtering = Boolean(filter.text.trim() || filter.hiddenTypeIds.length || !filter.showEmptyGroups || !filter.showUngrouped);
+  const total = workspace.bookmarks.length || 1;
   return (
     <div className={`triage ${queueOpen ? "" : "queue-closed"}`}>
       <header className="triage-header">
@@ -270,20 +269,20 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   {warn && <i className="warn-dot" title="Has a warning" />}
                   <span className="queue-domain">{domainOf(b.url) || "No URL"}</span>
                   {decided && <span className="queue-status">{workspace.statuses.find((s) => s.id === b.statusId)?.label}</span>}
-                  <span className="queue-groups" title="Groups">{workspace.memberships.filter((m) => m.bubbleId === b.id).length}</span>
+                  <span className="queue-groups" title="Groups">{workspace.memberships.filter((m) => m.bookmarkId === b.id).length}</span>
                 </span>
                 </span>
               </button>
             );
           })}
-          {!queue.length && <p className="queue-empty">{workspace.bubbles.length ? "Nothing here. Try another tab or clear the filter." : "No bookmarks yet."}</p>}
+          {!queue.length && <p className="queue-empty">{workspace.bookmarks.length ? "Nothing here. Try another tab or clear the filter." : "No bookmarks yet."}</p>}
         </nav>
         <div className="triage-stage">
           <div className="triage-tools">
             <button onClick={() => setQueueOpen((v) => !v)} aria-pressed={queueOpen} title="Show or hide the queue (Q)"><Icon name="list" size={17} strokeWidth={2} /> Queue</button>
             <div className={`triage-filter ${filtering ? "active" : ""}`}>
               <Icon name="filter" size={15} />
-              <input ref={filterInput} type="search" aria-label="Filter bookmarks and groups" placeholder="Filter bookmarks and groups… (F)" value={filter.text}
+              <input ref={filterInput} type="search" aria-label="Filter bookmarks and groups" placeholder="Filter… (F)" value={filter.text}
                 onChange={(e) => changeFilter({ ...filter, text: e.target.value })}
                 onKeyDown={(e) => { if (e.key === "Escape") { changeFilter({ ...filter, text: "" }); e.currentTarget.blur(); } }} />
               {workspace.tagTypes.map((type) => (
@@ -293,10 +292,26 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   <i className="swatch" style={{ background: type.appearance.color }} />{type.name}
                 </label>
               ))}
-              <label className="type-toggle" title="Groups no shown bookmark belongs to">
-                <input type="checkbox" checked={filter.showEmptyGroups} onChange={(e) => changeFilter({ ...filter, showEmptyGroups: e.target.checked })} />
-                Empty groups
-              </label>
+              <span className="filter-more">
+                <button className="filter-more-button" aria-label="More filters" aria-expanded={moreOpen} aria-haspopup="dialog"
+                  title={filter.showEmptyGroups && filter.showUngrouped ? "More filters" : "More filters (some hidden)"} onClick={() => setMoreOpen((v) => !v)}>
+                  <Icon name="menu" size={16} />
+                  {!(filter.showEmptyGroups && filter.showUngrouped) && <i className="filter-more-dot" />}
+                </button>
+                {moreOpen && (
+                  <div className="filter-more-popover" role="dialog" aria-label="More filters">
+                    <h4>Show</h4>
+                    <label className="filter-check">
+                      <input type="checkbox" checked={filter.showEmptyGroups} onChange={(e) => changeFilter({ ...filter, showEmptyGroups: e.target.checked })} />
+                      <span>Empty groups</span><small>Groups no shown bookmark belongs to</small>
+                    </label>
+                    <label className="filter-check">
+                      <input type="checkbox" checked={filter.showUngrouped} onChange={(e) => changeFilter({ ...filter, showUngrouped: e.target.checked })} />
+                      <span>Ungrouped bookmarks</span><small>Bookmarks in no shown group</small>
+                    </label>
+                  </div>
+                )}
+              </span>
             </div>
           </div>
           {toast}
@@ -306,16 +321,17 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             selected={current?.id}
             onSelect={(id) => {
               if (!id) show(undefined, false);
-              else if (workspace.bubbles.some((b) => b.id === id)) show(id);
+              else if (workspace.bookmarks.some((b) => b.id === id)) show(id);
               else {
-                boxSelect(workspace.memberships.filter((m) => m.tagId === id).map((m) => m.bubbleId), false, id);
-                setEditingTagId(id);
+                boxSelect(workspace.memberships.filter((m) => m.tagId === id).map((m) => m.bookmarkId), false, id);
+                setTagPanel({ id, editing: false });
               }
             }}
             query=""
-            matchingBubbleIds={visibility.bubbleIds}
+            matchingBookmarkIds={visibility.bookmarkIds}
             filtering={Boolean(filter.text.trim())}
             hiddenTagIds={visibility.hiddenTagIds}
+            peekTagIds={visibility.peekTagIds}
             boxSelection={selectionSet}
             tools={<IconButton label="Center on the current bookmark" icon="scope" disabled={!current} onClick={() => current && graphRef.current?.frame([current.id, ...groups.map((g) => g.id)])} />}
             onBoxSelect={boxSelect}
@@ -328,9 +344,13 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
           />
         </div>
         <aside className="triage-panel" aria-label="Current bookmark">
-          {editingTagId && workspace.tags.some((t) => t.id === editingTagId) ? (
+          {panelTag ? (
             <div className="triage-detail">
-              <RecordEditor key={editingTagId} inline workspace={workspace} id={editingTagId} onSave={(c) => save(c)} onClose={() => setEditingTagId(undefined)} />
+              {tagPanel!.editing
+                ? <RecordEditor key={panelTag.id} inline workspace={workspace} id={panelTag.id} onSave={(c) => save(c)} onNewType={onTagTypes}
+                    onClose={() => setTagPanel({ id: panelTag.id, editing: false })} />
+                : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
+                    onCopy={() => openCopy("selection")} onEdit={() => setTagPanel({ id: panelTag.id, editing: true })} onClose={() => setTagPanel(undefined)} />}
             </div>
           ) : current ? (
             <>
@@ -361,11 +381,12 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   <div className="triage-groups">
                     {groups.map((t) => {
                       const why = reasonFor(current, t, workspace);
+                      const peek = visibility.peekTagIds.includes(t.id);
                       return (
-                        <div key={t.id} className="triage-group">
+                        <div key={t.id} className={`triage-group ${peek ? "peek" : ""}`}>
                           <i className="swatch" style={{ background: typeColor(t.typeId) }} />
                           <div>
-                            <span className="group-name">{t.name}</span><span className="group-type">{typeName(t.typeId)}</span>
+                            <span className="group-name">{t.name}</span><span className="group-type" title={peek ? `${typeName(t.typeId)} is hidden in the filter` : undefined}>{typeName(t.typeId)}{peek && " · hidden"}</span>
                             {why && <p className="group-why">{why}</p>}
                           </div>
                           <IconButton label={`Remove from ${t.name}`} icon="close" size={14} disabled={busy} onClick={() => link(t.id, false)} />
@@ -414,7 +435,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   <h3>Related bookmarks ({related.length})</h3>
                   <div className="triage-related">
                     {related.slice(0, relatedListLimit).map(([id, via]) => {
-                      const b = workspace.bubbles.find((x) => x.id === id) as Bubble;
+                      const b = workspace.bookmarks.find((x) => x.id === id) as Bookmark;
                       const viaTag = workspace.tags.find((t) => t.id === via[0]);
                       return (
                         <button key={id} onClick={() => show(id)}>
@@ -436,9 +457,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             </>
           ) : (
             <div className="triage-empty">
-              <h2>{!workspace.bubbles.length ? "No bookmarks yet" : queue.length ? "No bookmark picked" : "Nothing to triage here"}</h2>
-              <p className="subtle">{!workspace.bubbles.length ? "Import bookmarks to start." : queue.length ? "Pick one from the queue or the graph, or press J to start at the top." : "Pick another tab, clear the filter, or draw a box on the graph."}</p>
-              {!workspace.bubbles.length && <button className="primary" onClick={onImport}>Open Import</button>}
+              <h2>{!workspace.bookmarks.length ? "No bookmarks yet" : queue.length ? "No bookmark picked" : "Nothing to triage here"}</h2>
+              <p className="subtle">{!workspace.bookmarks.length ? "Import bookmarks to start." : queue.length ? "Pick one from the queue or the graph, or press J to start at the top." : "Pick another tab, clear the filter, or draw a box on the graph."}</p>
+              {!workspace.bookmarks.length && <button className="primary" onClick={onImport}>Open Import</button>}
             </div>
           )}
         </aside>
@@ -448,7 +469,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
           workspace={workspace}
           initialScope={copyScope}
           scopes={{
-            selection: selection ? selection.map((id) => workspace.bubbles.find((b) => b.id === id)).filter((b): b is Bubble => !!b) : undefined,
+            selection: selection ? selection.map((id) => workspace.bookmarks.find((b) => b.id === id)).filter((b): b is Bookmark => !!b) : undefined,
             list: queue,
             current: current ? [current] : undefined,
           }}

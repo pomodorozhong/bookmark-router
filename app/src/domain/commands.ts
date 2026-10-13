@@ -1,7 +1,7 @@
 import {
   validateWorkspace,
   type Asset,
-  type Bubble,
+  type Bookmark,
   type TagType,
   type Tag,
   type CopyPreset,
@@ -10,11 +10,11 @@ import {
 } from "./model";
 export type Command =
   | {
-      type: "bubble.patch";
+      type: "bookmark.patch";
       id: string;
       expectedRecordRevision: number;
       patch: Partial<
-        Pick<Bubble, "title" | "description" | "url" | "asset" | "statusId">
+        Pick<Bookmark, "title" | "description" | "url" | "asset" | "statusId">
       >;
     }
   | {
@@ -36,13 +36,14 @@ export type Command =
         appearance?: Partial<TagType["appearance"]>;
       };
     }
+  | { type: "tag-type.create"; name: string; appearance: TagType["appearance"] }
   | { type: "tag.create"; name: string; typeId?: string }
-  | { type: "membership.set"; bubbleId: string; tagId: string; linked: boolean }
+  | { type: "membership.set"; bookmarkId: string; tagId: string; linked: boolean }
   | {
       type: "tag.status";
       id: string;
       statusId: string;
-      reviewedBubbleRevisions?: Record<string, number>;
+      reviewedBookmarkRevisions?: Record<string, number>;
     }
   | {
       type: "status.bulk";
@@ -63,7 +64,7 @@ export type Command =
   | {
       type: "media.attach";
       assignments: Array<{
-        bubbleId: string;
+        bookmarkId: string;
         expectedRecordRevision: number;
         asset: Asset;
       }>;
@@ -85,13 +86,13 @@ export function applyCommand(
   if (source.revision !== expectedRevision) throw new ConflictError();
   const w = structuredClone(source),
     now = new Date().toISOString();
-  if (command.type === "bubble.patch" || command.type === "tag.patch") {
-    const records = command.type === "bubble.patch" ? w.bubbles : w.tags;
+  if (command.type === "bookmark.patch" || command.type === "tag.patch") {
+    const records = command.type === "bookmark.patch" ? w.bookmarks : w.tags;
     const record = records.find((r) => r.id === command.id);
     if (!record || record.revision !== command.expectedRecordRevision)
       throw new ConflictError();
     const allowed =
-      command.type === "bubble.patch"
+      command.type === "bookmark.patch"
         ? ["title", "description", "url", "asset", "statusId"]
         : ["name", "description", "url", "typeId", "statusId", "appearance"];
     if (
@@ -99,8 +100,8 @@ export function applyCommand(
       Object.keys(command.patch).some((key) => !allowed.includes(key))
     )
       throw new Error("Patch contains unsupported fields.");
-    if (command.type === "bubble.patch" && command.patch.title)
-      (record as Bubble).missingTitle = false;
+    if (command.type === "bookmark.patch" && command.patch.title)
+      (record as Bookmark).missingTitle = false;
     Object.assign(record, command.patch, {
       revision: record.revision + 1,
       updatedAt: now,
@@ -125,6 +126,11 @@ export function applyCommand(
     if (command.patch.name !== undefined) type.name = command.patch.name.trim();
     if (command.patch.appearance)
       type.appearance = { ...type.appearance, ...command.patch.appearance };
+  } else if (command.type === "tag-type.create") {
+    const name = command.name.trim();
+    if (!name) throw new Error("Tag type needs a name.");
+    if (w.tagTypes.some((other) => other.name === name)) throw new Error("Choose a new tag type name.");
+    w.tagTypes.push({ id: `type:${crypto.randomUUID()}`, name, appearance: { ...command.appearance } });
   } else if (command.type === "tag.create") {
     const name = command.name.trim();
     if (
@@ -143,26 +149,26 @@ export function applyCommand(
       updatedAt: now,
     });
   } else if (command.type === "membership.set") {
-    const bubble = w.bubbles.find((b) => b.id === command.bubbleId),
+    const bookmark = w.bookmarks.find((b) => b.id === command.bookmarkId),
       tag = w.tags.find((t) => t.id === command.tagId);
-    if (!bubble || !tag) throw new Error("Bubble or tag no longer exists.");
+    if (!bookmark || !tag) throw new Error("Bookmark or tag no longer exists.");
     const exists = w.memberships.some(
-      (m) => m.bubbleId === bubble.id && m.tagId === tag.id,
+      (m) => m.bookmarkId === bookmark.id && m.tagId === tag.id,
     );
     if (exists !== command.linked) {
-      bubble.revision++;
-      bubble.updatedAt = now;
+      bookmark.revision++;
+      bookmark.updatedAt = now;
       tag.revision++;
       tag.updatedAt = now;
     }
     if (!command.linked)
       w.memberships = w.memberships.filter(
-        (m) => m.bubbleId !== command.bubbleId || m.tagId !== command.tagId,
+        (m) => m.bookmarkId !== command.bookmarkId || m.tagId !== command.tagId,
       );
     if (command.linked && !exists)
       w.memberships.push({
         id: crypto.randomUUID(),
-        bubbleId: command.bubbleId,
+        bookmarkId: command.bookmarkId,
         tagId: command.tagId,
       });
   } else if (command.type === "tag.status") {
@@ -170,9 +176,9 @@ export function applyCommand(
     if (!tag) throw new ConflictError("Tag no longer exists.");
     const linked = w.memberships
       .filter((m) => m.tagId === tag.id)
-      .map((m) => w.bubbles.find((b) => b.id === m.bubbleId)!);
-    if (command.reviewedBubbleRevisions) {
-      const reviewed = command.reviewedBubbleRevisions;
+      .map((m) => w.bookmarks.find((b) => b.id === m.bookmarkId)!);
+    if (command.reviewedBookmarkRevisions) {
+      const reviewed = command.reviewedBookmarkRevisions;
       if (
         linked.length !== Object.keys(reviewed).length ||
         linked.some((b) => reviewed[b.id] !== b.revision)
@@ -194,7 +200,7 @@ export function applyCommand(
     if (!w.statuses.some((status) => status.id === command.statusId))
       throw new Error("Choose an existing status.");
     const records = targetIds.map((id) =>
-      [...w.bubbles, ...w.tags].find((record) => record.id === id),
+      [...w.bookmarks, ...w.tags].find((record) => record.id === id),
     );
     if (records.some((record) => !record))
       throw new ConflictError("A selected record no longer exists.");
@@ -237,7 +243,7 @@ export function applyCommand(
       change = history.find((item) => item.id === command.changeId);
     if (!change) throw new Error("Status change is no longer available to undo.");
     const records = change.targetIds.map((id) =>
-      [...w.bubbles, ...w.tags].find((record) => record.id === id),
+      [...w.bookmarks, ...w.tags].find((record) => record.id === id),
     );
     if (records.some((record) => !record))
       throw new ConflictError("A status-change record no longer exists.");
@@ -284,11 +290,11 @@ export function applyCommand(
       throw new Error("Choose at least one media file.");
     const ids = new Set<string>();
     for (const assignment of command.assignments) {
-      if (ids.has(assignment.bubbleId))
-        throw new Error("Each bubble can receive one file per upload.");
-      ids.add(assignment.bubbleId);
-      const bubble = w.bubbles.find((item) => item.id === assignment.bubbleId);
-      if (!bubble || bubble.revision !== assignment.expectedRecordRevision)
+      if (ids.has(assignment.bookmarkId))
+        throw new Error("Each bookmark can receive one file per upload.");
+      ids.add(assignment.bookmarkId);
+      const bookmark = w.bookmarks.find((item) => item.id === assignment.bookmarkId);
+      if (!bookmark || bookmark.revision !== assignment.expectedRecordRevision)
         throw new ConflictError();
       if (
         assignment.asset.source !== "local" ||
@@ -296,9 +302,9 @@ export function applyCommand(
         !assignment.asset.filename
       )
         throw new Error("Uploaded media needs a local file reference.");
-      bubble.asset = assignment.asset;
-      bubble.revision++;
-      bubble.updatedAt = now;
+      bookmark.asset = assignment.asset;
+      bookmark.revision++;
+      bookmark.updatedAt = now;
     }
   } else if (command.type === "status.remove") {
     if (
@@ -306,7 +312,7 @@ export function applyCommand(
       !w.statuses.some((s) => s.id === command.replacementId)
     )
       throw new Error("Choose a different replacement status.");
-    for (const record of [...w.bubbles, ...w.tags])
+    for (const record of [...w.bookmarks, ...w.tags])
       if (record.statusId === command.id) {
         record.statusId = command.replacementId;
         record.revision++;

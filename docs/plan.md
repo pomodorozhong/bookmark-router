@@ -18,15 +18,15 @@ From now on the test data is the user's own `bookmarks-working.json` (148 bookma
 
 | Prototype | App |
 |---|---|
-| bookmarks (title, URL, note/excerpt, cover, Raindrop tags) | bubbles |
+| bookmarks (title, URL, note/excerpt, cover, Raindrop tags) | bookmarks |
 | 15 GitHub issues | tags of type **Existing issue** |
 | 6 proposed issues | tags of type **Proposal issue** |
 | 29 categories | tags of type **Topic** |
 | existing references and seed bookmarks | memberships |
 | `node_progress` pending / done / dropped | statuses |
-| 2 duplicate groups, link-check warnings, suggested next action | kept as bubble details so triage can show them |
+| 2 duplicate groups, link-check warnings, suggested next action | kept as bookmark details so triage can show them |
 
-The original Raindrop fields are kept on each bubble so nothing is lost. The converter lives in `scripts/` and is tested on a small fixture.
+The original Raindrop fields are kept on each bookmark so nothing is lost. The converter lives in `scripts/` and is tested on a small fixture.
 
 ## How each round works
 
@@ -46,7 +46,7 @@ There are no checkpoint tags, deferred-verification registers, or release gates.
 - Write the converter and restore your collection.
 - Fix the bugs found in the Checkpoint C review: the graph is blank until **Fit graph** after an import, and new tags from a second import are placed badly.
 - **You try:** restore your collection; check that bookmarks, issues, and topics look right.
-- **Follow-up — smooth panning with your collection:** measure the lag first; hide bubble titles below a zoom threshold (tag titles and the selected or hovered bubble stay); stop restyling every label on each pan/zoom step.
+- **Follow-up — smooth panning with your collection:** measure the lag first; hide bookmark titles below a zoom threshold (tag titles and the selected or hovered bookmark stay); stop restyling every label on each pan/zoom step.
 - **You try:** pan and zoom around your collection; check the threshold feels right.
 
 ### 1. Triage
@@ -58,7 +58,7 @@ Triage **replaces the current graph screen** (decided October 11, 2026). The app
 - A filter bar narrows the graph and the queue by text, group type, and whether decided bookmarks show.
 - Decisions: **Done**, **Drop**, and **Deselect** (removes the bookmark from the selection without deciding it). Each moves to the next bookmark, with Undo. Done does not require a group; a hint shows when there is none.
 - **Copy** (the core feature kept from the old screen): copies the selected bookmarks, the current list (filter + tab), or the current bookmark, in queue order, through a template with presets and fields (`{title}`, `{url}`, `{groups}`, …), with a live preview.
-- **Header** (decided October 11, 2026): no sidebar. The header starts with the logo and a collection menu and ends with a ⋯ menu: Add bubble… (the Import screen), Add tag…, Import history…, Download backup, Restore backup…. The graph toolbar has Queue, Whole collection, and Current (scope icon).
+- **Header** (decided October 11, 2026): no sidebar. The header starts with the logo and a collection menu and ends with a ⋯ menu: Add bookmark… (the Import screen), Add tag…, Import history…, Download backup, Restore backup…. The graph toolbar has Queue, Whole collection, and Current (scope icon).
 - **You try:** triage 10 real bookmarks and copy one selection into a real destination.
 
 ### 1.5. Fetch title, description, and image from the URL
@@ -67,9 +67,9 @@ A browser page cannot read other sites (CORS), so fetching needs a small helper.
 
 - **Helper:** a deterministic local Node service started with the app (`npm run dev` starts both). It downloads the page with a timeout and size limit, reads the title, description, and preview image (Open Graph / Twitter / `<title>` / meta description), and downloads the image. It never runs page scripts, and it refuses `localhost` and private-network addresses. The agent is only a fallback.
 - **GitHub Pages:** the end-game deployment is static and has no fetcher. **Fetch details** is hidden there, and everything else works the same. Decided October 11, 2026.
-- **In the app:** a **Fetch details** action on one bubble, a multi-selection, or a filtered view. Results are reviewed before saving: empty fields can be filled in one step; values that differ from existing ones are shown side by side to choose. Saving appears in Undo.
-- **Images** are stored as local image assets on the bubble (this unfreezes media for images). Raindrop's `cover` URL is used when the page has no image.
-- Failures (timeout, 404, blocked, non-HTML) are recorded on the bubble so triage and filters can find them. This replaces the prototype's link-check warnings for bookmarks that are fetched again.
+- **In the app:** a **Fetch details** action on one bookmark, a multi-selection, or a filtered view. Results are reviewed before saving: empty fields can be filled in one step; values that differ from existing ones are shown side by side to choose. Saving appears in Undo.
+- **Images** are stored as local image assets on the bookmark (this unfreezes media for images). Raindrop's `cover` URL is used when the page has no image.
+- Failures (timeout, 404, blocked, non-HTML) are recorded on the bookmark so triage and filters can find them. This replaces the prototype's link-check warnings for bookmarks that are fetched again.
 - **You try:** fetch one bookmark, then 20 at once; accept some changes and reject others; check the images after reload and in a backup.
 
 ### 2. Issues and tags
@@ -95,7 +95,7 @@ Starting this round requires naming the browser and agent you will use.
 
 ### Later, only if needed
 
-- Performance work, if your real collection is slow. 148 bookmarks does not need the 5,000-bubble budget.
+- Performance work, if your real collection is slow. 148 bookmarks does not need the 5,000-bookmark budget.
 - Static deployment.
 
 ## Frozen or cut
@@ -107,5 +107,5 @@ Starting this round requires naming the browser and agent you will use.
 | Media upload | Freeze, except image assets from round 1.5. |
 | Bulk status propagation | Revisit in round 1: triage replaces the old graph screen. |
 | C.1 undo rework (change sets, Redo, schema 2) | Cut. Current undo stays until it causes a real problem. |
-| New bubble, archive | Moved into rounds 1/4 (WebMCP needs add item; triage may need archive). |
+| New bookmark, archive | Moved into rounds 1/4 (WebMCP needs add item; triage may need archive). |
 | 1,000/5,000 measurements, release review | Cut. |

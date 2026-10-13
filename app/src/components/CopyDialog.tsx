@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog } from "./Dialog";
 import { IconButton } from "./Icon";
-import type { Bubble, Workspace } from "../domain/model";
+import type { Bookmark, Workspace } from "../domain/model";
 import { copyFields, copyPresets, formatCopy } from "../domain/triage";
 
 export type CopyScope = "selection" | "list" | "current";
@@ -11,18 +11,18 @@ const previewLimit = 40;
 // The template is remembered on this device, not per collection.
 function remembered(): { template: string; separator: string } {
   try {
-    const saved = JSON.parse(localStorage.getItem("bubble-tag-copy") ?? "null");
+    const saved = JSON.parse(localStorage.getItem("bookmark-tag-copy") ?? "null");
     if (typeof saved?.template === "string" && typeof saved?.separator === "string") return saved;
   } catch { /* fall back to the first preset */ }
   return copyPresets[0];
 }
 function remember(value: { template: string; separator: string }) {
-  try { localStorage.setItem("bubble-tag-copy", JSON.stringify(value)); } catch { /* copy still works */ }
+  try { localStorage.setItem("bookmark-tag-copy", JSON.stringify(value)); } catch { /* copy still works */ }
 }
 
 export function CopyDialog({ workspace, scopes, initialScope, onClose, onCopied }: {
   workspace: Workspace;
-  scopes: Record<CopyScope, Bubble[] | undefined>;
+  scopes: Record<CopyScope, Bookmark[] | undefined>;
   initialScope: CopyScope;
   onClose: () => void;
   onCopied: (count: number) => void;

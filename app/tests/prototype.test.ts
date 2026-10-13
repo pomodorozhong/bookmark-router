@@ -33,7 +33,7 @@ const fixture: Prototype = {
 
 test("prototype conversion links decided and suggested groupings, keeping reasons as notes", () => {
   const { workspace: w } = convertPrototype(fixture, "2026-10-11T00:00:00.000Z");
-  const pairs = w.memberships.map((m) => `${m.bubbleId}>${m.tagId}`).sort();
+  const pairs = w.memberships.map((m) => `${m.bookmarkId}>${m.tagId}`).sort();
   assert.deepEqual(pairs, [
     "bookmark:1>issue:7",
     "bookmark:1>topic:pricing",
@@ -42,7 +42,7 @@ test("prototype conversion links decided and suggested groupings, keeping reason
     "bookmark:2>topic:launch",
     "bookmark:2>topic:pricing",
   ]);
-  const [one, two] = w.bubbles;
+  const [one, two] = w.bookmarks;
   assert.equal(one.statusId, "done");
   assert.equal(two.statusId, "pending");
   assert.equal(one.description, "My note\n\nEx");
@@ -62,6 +62,6 @@ test("prototype conversion links decided and suggested groupings, keeping reason
 
 test("converted backup restores", () => {
   const restored = prepareRestore(convertPrototype(fixture, "2026-10-11T00:00:00.000Z"));
-  assert.equal(restored.workspace.bubbles.length, 2);
-  assert.equal(restored.workspace.bubbles[1].notes?.length, 4);
+  assert.equal(restored.workspace.bookmarks.length, 2);
+  assert.equal(restored.workspace.bookmarks[1].notes?.length, 4);
 });

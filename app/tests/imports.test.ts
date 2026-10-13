@@ -38,7 +38,7 @@ test('preview identifies workspace duplicates, unknown statuses/types, and repea
   assert.equal(v.candidates[0].duplicate?.kind,'workspace'); assert.equal(v.candidates[1].repeatedRow,2); assert.deepEqual(v.unknownStatuses,['Review']); assert.deepEqual(v.unknownTypes,['Issue']); assert.equal(JSON.stringify(w),before);
 });
 test('product JSON requires version and preserves full restore data', () => {
-  const w=demoWorkspace(), backup={format:'bubble-tag',version:1,workspace:w,media:[]};
+  const w=demoWorkspace(), backup={format:'bookmark-tag',version:2,workspace:w,media:[]};
   const p=parseImport(JSON.stringify(backup),'json'); assert.equal(p.restore?.workspace.memberships.length,w.memberships.length);
   assert.throws(()=>parseImport('{"bookmarks":[]}', 'json'),/versioned/);
 });
@@ -46,8 +46,8 @@ test('empty input and HTML without bookmarks return useful errors', () => {
   assert.throws(()=>parseImport(' '),/Paste/); assert.throws(()=>parseImport('<html><p>Hello</p></html>','html'),/No bookmark/);
 });
 test('backup rejects missing uploaded media and repeated media entries',()=>{
- const w=demoWorkspace();w.bubbles[0].asset={source:'local',kind:'image',blobId:'image',filename:'image.png'};
- assert.throws(()=>parseImport(JSON.stringify({format:'bubble-tag',version:1,workspace:w,media:[]}),'json'),/missing local media/);
+ const w=demoWorkspace();w.bookmarks[0].asset={source:'local',kind:'image',blobId:'image',filename:'image.png'};
+ assert.throws(()=>parseImport(JSON.stringify({format:'bookmark-tag',version:2,workspace:w,media:[]}),'json'),/missing local media/);
  const media={id:'image',filename:'image.png',mime:'image/png',base64:'AA=='};
- assert.throws(()=>parseImport(JSON.stringify({format:'bubble-tag',version:1,workspace:w,media:[media,media]}),'json'),/repeated media/);
+ assert.throws(()=>parseImport(JSON.stringify({format:'bookmark-tag',version:2,workspace:w,media:[media,media]}),'json'),/repeated media/);
 });

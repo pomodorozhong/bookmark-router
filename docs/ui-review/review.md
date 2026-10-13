@@ -21,8 +21,8 @@ Reviewed the running UI against [the improvement plan](../ui-improvement-plan.md
 
 - `npm run check`, `npm test`, `npm run build`: pass; 37 tests, including label fit at 15/35/100/200/400% and both hysteresis directions. The existing G6 bundle-size warning remains.
 - Browser inspection at 1440×900, 1280×720, 768×1024, and 390×844 across graph, list, Details, navigation, import and dialogs. This is representative coverage, not every combination in the original matrix.
-- Graph zoom inspected at the 15% and 400% endpoints, around 35%, ordinary zoom and roughly 200%; plain labels replace oversized pills and centered labels return when space permits. Saved low zoom reload was checked; the pinned demo bubble also retained its pinned state after reload.
-- Created a separate **UI review** collection through the actual CSV import flow: six bubbles and four tags, including a long title/tag, an unrecognized URL, URL-less items, an unlinked item, and multiple statuses. Existing collections were not edited by this fixture import.
+- Graph zoom inspected at the 15% and 400% endpoints, around 35%, ordinary zoom and roughly 200%; plain labels replace oversized pills and centered labels return when space permits. Saved low zoom reload was checked; the pinned demo bookmark also retained its pinned state after reload.
+- Created a separate **UI review** collection through the actual CSV import flow: six bookmarks and four tags, including a long title/tag, an unrecognized URL, URL-less items, an unlinked item, and multiple statuses. Existing collections were not edited by this fixture import.
 - Checked editor and creation-dialog initial focus, Escape and focus return; phone Details dismissal, drawer navigation, full long titles, list selection, pin action, and visible re-layout results.
 - Calculated contrast for final tokens: body/white **11.99:1**, secondary/white **5.76:1**, quiet/canvas **4.65:1**, teal/white **5.47:1**, external tag title/canvas **8.97:1**.
 

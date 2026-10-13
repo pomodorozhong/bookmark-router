@@ -1,11 +1,11 @@
 > **Superseded October 11, 2026** by [plan.md](plan.md). Kept as history.
 
-# Build an import-first bubble-and-tag product with G6
+# Build an import-first bookmark-and-tag product with G6
 
-> **Amendment — October 11, 2026 (plan review).** A review of the plan against the Stage C build found an undocumented second undo system, storage that will not reach the 5,000-bubble target, no schema migrations, unreclaimed media, no way to create single records or retire them, and a release criterion that the user's own collection cannot meet. This amendment adds **Stage C.1 — Foundation corrections** between Checkpoint C and Phase 4 and resolves the open wording below. The user decided the following on October 11, 2026:
+> **Amendment — October 11, 2026 (plan review).** A review of the plan against the Stage C build found an undocumented second undo system, storage that will not reach the 5,000-bookmark target, no schema migrations, unreclaimed media, no way to create single records or retire them, and a release criterion that the user's own collection cannot meet. This amendment adds **Stage C.1 — Foundation corrections** between Checkpoint C and Phase 4 and resolves the open wording below. The user decided the following on October 11, 2026:
 >
 > 1. **One undo model with redo** — a single linear per-collection Undo/Redo history, plus import-history undo for older batches ([§1 Undo and history](#undo-and-history)). Separate status undo is retired.
-> 2. **Record lifecycle** — users can create single bubbles and archive bubbles and tags; individual records are never deleted. Only whole collections can be deleted ([§1 Record lifecycle](#record-lifecycle)).
+> 2. **Record lifecycle** — users can create single bookmarks and archive bookmarks and tags; individual records are never deleted. Only whole collections can be deleted ([§1 Record lifecycle](#record-lifecycle)).
 > 3. **The user's collection** — the prototype dataset (`bookmarks-working.json`, 148 bookmarks) is converted once by a separate script into the product's versioned JSON; the app still does not read prototype JSON ([§5 Defaults and limits](#defaults-and-limits)).
 > 4. **WebMCP target** — the browser build and agent are chosen when Phase 4 starts; naming them is the Phase 4 entry condition.
 
@@ -19,36 +19,36 @@ Build a new general-purpose app for collecting items, organizing them with tags,
 - Use IndexedDB for content and uploaded media, with transactions, schema migrations, and revision checks to prevent conflicting writes between tabs.
 - Share domain commands and validation across UI, imports, enrichment, and optional WebMCP. G6 is a rendering and interaction adapter, not the source of truth.
 - Store graph positions, pins, viewport, and view preferences separately from content. Moving a node must not change content revisions.
-- Run import parsing in a worker. Filter and distance evaluation may run on the main thread while a full evaluation stays under **16 ms at 5,000 bubbles / 20,000 memberships** on the review machine; if the Stage C.1 measurement exceeds that, move evaluation to a worker that returns match IDs and example paths, keeping a synchronous path for tests. Start G6 force simulation with the tested configuration on the main thread; do not assume a worker layout preserves force-drag behavior.
+- Run import parsing in a worker. Filter and distance evaluation may run on the main thread while a full evaluation stays under **16 ms at 5,000 bookmarks / 20,000 memberships** on the review machine; if the Stage C.1 measurement exceeds that, move evaluation to a worker that returns match IDs and example paths, keeping a synchronous path for tests. Start G6 force simulation with the tested configuration on the main thread; do not assume a worker layout preserves force-drag behavior.
 
 ### Minimal data model
 
 | Entity | Fields and behavior |
 |---|---|
-| Bubble | ID, title, description, optional URL, optional primary media asset, status, archived flag |
+| Bookmark | ID, title, description, optional URL, optional primary media asset, status, archived flag |
 | Tag | ID, name, optional description and URL, optional type, status, archived flag, appearance overrides |
 | Tag type | ID, name, default appearance |
 | Status | ID, label, color, outcome category |
-| Membership | Unique bubble–tag connection |
+| Membership | Unique bookmark–tag connection |
 | Saved view | Name, nested filter rules, sort order, tag-display settings |
 | Workspace | Entities, settings, saved views, schema version |
 | Import batch | Source summary, committed record IDs, and information needed for undo |
 
 Internal revisions, timestamps, and extraction bookkeeping support recovery without complicating the user-facing model.
 
-Bubbles support one primary image, video, or audio asset, separate from their URL. Media can be uploaded or referenced remotely. Tags have at most one type; untyped tags are allowed. Memberships are **undirected and bubble–tag only**.
+Bookmarks support one primary image, video, or audio asset, separate from their URL. Media can be uploaded or referenced remotely. Tags have at most one type; untyped tags are allowed. Memberships are **undirected and bookmark–tag only**.
 
-Start with Pending, In progress, Done, and Dropped. Users can customize statuses; active, completed, and discarded outcome categories support counts. Removing an assigned status requires reassignment. Show outcome counts (active / completed / discarded, excluding archived records) beneath the collection selector, for the current view's matches when a filter is active, and in tag Details for linked bubbles.
+Start with Pending, In progress, Done, and Dropped. Users can customize statuses; active, completed, and discarded outcome categories support counts. Removing an assigned status requires reassignment. Show outcome counts (active / completed / discarded, excluding archived records) beneath the collection selector, for the current view's matches when a filter is active, and in tag Details for linked bookmarks.
 
 ### Record lifecycle
 
 *Decided by the user October 11, 2026: create and archive; no deletion of individual records.*
 
-- **New bubble** creates one bubble from a title and/or URL, optional description, status, and tags, through the same validated command path as editing. Pasted-URL import remains the bulk path.
-- **Archive** and **Unarchive** apply to bubbles and tags, individually or for a multi-selection, as ordinary undoable actions. Archiving is a separate `archived` flag, independent of status: a *Done* or *Dropped* bubble can be archived, and status is unchanged by archiving.
+- **New bookmark** creates one bookmark from a title and/or URL, optional description, status, and tags, through the same validated command path as editing. Pasted-URL import remains the bulk path.
+- **Archive** and **Unarchive** apply to bookmarks and tags, individually or for a multi-selection, as ordinary undoable actions. Archiving is a separate `archived` flag, independent of status: a *Done* or *Dropped* bookmark can be archived, and status is unchanged by archiving.
 - Archived records keep their content, memberships, and media. They are hidden from graph, list, search, outcome counts, and copy output by default. A **Show archived** display toggle reveals them with a muted treatment, and an *Archived* filter predicate lets saved views select them explicitly.
-- Archiving a tag does not archive its bubbles. Distance filters keep using the full membership graph, including archived records, so a saved rule's meaning does not change when something is archived.
-- There is no delete for individual bubbles or tags in v1. Import-history undo still removes bubbles that a batch created, as before.
+- Archiving a tag does not archive its bookmarks. Distance filters keep using the full membership graph, including archived records, so a saved rule's meaning does not change when something is archived.
+- There is no delete for individual bookmarks or tags in v1. Import-history undo still removes bookmarks that a batch created, as before.
 - **Delete collection** is the only deletion: it requires typing the collection name, offers a backup download first, and removes the collection, its geometry, undo history, and media in one transaction. It is not undoable.
 - Archived records keep their saved positions; unarchiving restores them where they were.
 
@@ -67,7 +67,7 @@ Start with Pending, In progress, Done, and Dropped. Users can customize statuses
 
 ### Storage, migrations, and media
 
-- **Measure before Phase 4.** Generate 1,000- and 5,000-bubble fixtures (20,000 memberships) and record serialized collection size, bytes written per command, and p95 command-commit time. Budget: p95 commit **≤ 100 ms** and bytes written per ordinary edit independent of undo-history length. If the single-record collection layout misses the budget, split content into per-record object stores (bubbles, tags, memberships, settings) before Phase 4; the command and revision contracts stay unchanged.
+- **Measure before Phase 4.** Generate 1,000- and 5,000-bookmark fixtures (20,000 memberships) and record serialized collection size, bytes written per command, and p95 command-commit time. Budget: p95 commit **≤ 100 ms** and bytes written per ordinary edit independent of undo-history length. If the single-record collection layout misses the budget, split content into per-record object stores (bookmarks, tags, memberships, settings) before Phase 4; the command and revision contracts stay unchanged.
 - **Migrations.** Every change to stored shape bumps both the IndexedDB version and `schemaVersion`, with an ordered, tested migration per version applied to stored collections and to backups on restore. A migration either migrates stored undo entries or clears them with a visible notice; never apply an old-shape change set to new-shape data. **Schema 2** formalizes the Stage C additions (appearance, saved views, copy presets) with defaults, replaces snapshot undo with change sets, and removes `statusHistory`. Keep one fixture per schema version in the tests.
 - **Media lifecycle.** A stored file is kept while it is referenced by current content (archived records included), a retained undo or redo entry, or a retained import batch. Collect unreferenced files after an asset is replaced or removed, after history trimming, and at startup. Backups bundle only files referenced by current content.
 - Multiple tabs: when another tab upgrades the database, the older tab shows a reload notice instead of failing silently.
@@ -95,7 +95,7 @@ Allow common tags and an initial status for the entire import. Unknown statuses 
 - Detect repeated source rows and duplicate URLs within the import and existing workspace.
 - Default to skipping duplicate URLs. Offer Keep both or Merge, with an exact field preview before overwriting existing values.
 - Use conservative URL matching; preserve parameters that identify content.
-- Preserve unrecognized bubble/tag URLs as text and visually distinguish them; do not block import or editing. Only valid HTTP(S) values become clickable links. Detect duplicate unrecognized values by exact text. Malformed rows and invalid media URLs still require explicit exclusion, with source row numbers and reasons.
+- Preserve unrecognized bookmark/tag URLs as text and visually distinguish them; do not block import or editing. Only valid HTTP(S) values become clickable links. Detect duplicate unrecognized values by exact text. Malformed rows and invalid media URLs still require explicit exclusion, with source row numbers and reasons.
 - Canceling a preview changes nothing. Revalidate if the workspace changes before confirmation.
 - Prevent duplicate submission. Commit before starting optional extraction; failed enrichment leaves usable records.
 - Associate committed records with their import batch.
@@ -125,10 +125,10 @@ Keep one G6 instance per mounted workspace and destroy it on unmount. Use stable
 - Panning, zooming, selection, status edits, appearance edits, filtering, and inspector actions must not restart global physics.
 - Place newly imported nodes near linked tags or an insertion area; preserve existing settled positions until deliberate re-layout.
 - Filtering changes visibility rather than deleting records or rebuilding the layout. Preserve full-workspace geometry and memberships.
-- Provide fit-all, fit-selection, zoom buttons, explicit Pin/Unpin in Details, and re-layout controls. Fit into the unobscured canvas when Details is open. Search hides tags without matching linked bubbles; clearing search restores all tags. Re-layout preserves pins; resetting positions clears pins only after an explicit choice.
+- Provide fit-all, fit-selection, zoom buttons, explicit Pin/Unpin in Details, and re-layout controls. Fit into the unobscured canvas when Details is open. Search hides tags without matching linked bookmarks; clearing search restores all tags. Re-layout preserves pins; resetting positions clears pins only after an explicit choice.
 - Use a full-window graph workspace by default, with a retractable left panel containing collection information and navigation/import. Keep search at the top and Graph/List and Details controls at the top right, accessible when the panel is retracted. Panel toggles must preserve geometry and selection.
 - Provide search, click selection, modifier-assisted multi-selection, and equivalent list controls.
-- Keep bubble and tag titles at a constant screen size when zooming. Hide titles that overlap or are too close, preferring the selected item and tags; restore titles when space becomes available. Show more detail at close scale without changing title size.
+- Keep bookmark and tag titles at a constant screen size when zooming. Hide titles that overlap or are too close, preferring the selected item and tags; restore titles when space becomes available. Show more detail at close scale without changing title size.
 - Keep initialization and layout errors visible. Offer retry and list access so failure cannot resemble an empty collection.
 - With reduced motion enabled, calculate initial settled positions without displaying intermediate movement; use direct dragging without animated neighbor motion.
 
@@ -138,11 +138,11 @@ Support two-finger trackpad pinch zoom, added by user review after checkpoint A.
 
 Support tag-type defaults and per-tag overrides for color, size, shape, and optional icon. Implement circle, rounded square, and diamond through G6 node rendering. Resetting an override restores inheritance.
 
-Changing tag status offers **Tag only** or **Tag and linked bubbles**, defaulting to Tag only.
+Changing tag status offers **Tag only** or **Tag and linked bookmarks**, defaulting to Tag only.
 
-Propagation opens a warning modal listing every affected bubble and current status, including hidden items. Confirm the reviewed targets atomically; cancel changes nothing. If relevant records change before confirmation, refresh the preview and require renewed confirmation. Undo is provided by the collection undo history ([§1](#undo-and-history)); there is no separate status undo.
+Propagation opens a warning modal listing every affected bookmark and current status, including hidden items. Confirm the reviewed targets atomically; cancel changes nothing. If relevant records change before confirmation, refresh the preview and require renewed confirmation. Undo is provided by the collection undo history ([§1](#undo-and-history)); there is no separate status undo.
 
-Tag status remains independent of bubble status unless propagation is explicitly selected.
+Tag status remains independent of bookmark status unless propagation is explicitly selected.
 
 ### Copy composer
 
@@ -150,7 +150,7 @@ In tag details, allow users to select:
 
 - Fields: title, URL, description, asset URL, status, and tags.
 - Field order, separators, plain text or Markdown, and a simple placeholder template.
-- All linked bubbles or those matching the current view.
+- All linked bookmarks or those matching the current view.
 - Ordering by title, creation time, or status.
 
 Show exact output before copying and support saved presets. Omit unavailable fields cleanly. Represent uploaded media by filename, never a temporary blob URL. Copying does not change status.
@@ -159,13 +159,13 @@ Show exact output before copying and support saved presets. Omit unavailable fie
 
 Support nested All, Any, and Not groups, live counts, readable summaries, and saved views.
 
-Include bubble text, URL/domain, status, dates, asset presence/type, missing fields, no tags, and import batch. Add specific-tag and tag-type membership rules, plus related-tag name/type/status predicates.
+Include bookmark text, URL/domain, status, dates, asset presence/type, missing fields, no tags, and import batch. Add specific-tag and tag-type membership rules, plus related-tag name/type/status predicates.
 
 Provide an explicit group for conditions that must match **the same linked tag**.
 
-Distance filters use shortest-path edge counts over the full undirected membership graph before display filtering. Direct bubbles are one hop from a tag; bubbles reached through a shared bubble and another tag are three hops away. Support “within N hops” from tags chosen in the rule, and show example paths. Rules store tag IDs, so saved views never depend on the current graph selection; the builder may prefill the rule from the current selection. If a referenced tag is archived, the rule labels it as archived and keeps matching through it.
+Distance filters use shortest-path edge counts over the full undirected membership graph before display filtering. Direct bookmarks are one hop from a tag; bookmarks reached through a shared bookmark and another tag are three hops away. Support “within N hops” from tags chosen in the rule, and show example paths. Rules store tag IDs, so saved views never depend on the current graph selection; the builder may prefill the rule from the current selection. If a referenced tag is archived, the rule labels it as archived and keeps matching through it.
 
-Keep tag-display controls separate from bubble matching. Hiding a tag must not exclude its bubbles. Graph and list use the same match results.
+Keep tag-display controls separate from bookmark matching. Hiding a tag must not exclude its bookmarks. Graph and list use the same match results.
 
 ## 4. Optional enrichment and WebMCP
 
@@ -183,13 +183,13 @@ The service accepts a URL and returns candidate title, description, primary medi
 - Restrict fetch addresses and redirects; enforce timeout and response-size limits.
 - Treat authenticated or blocked pages as unresolved.
 - **Hosting:** a small Node service in this repository, started with its own npm script and listening on `http://127.0.0.1:5299` by default. It sends CORS headers only for configured app origins (the dev, preview, and eventual deployed origins). The static app never proxies arbitrary URLs itself.
-- **Applying results:** every result carries the bubble ID and the record revision it was requested for. Results for a changed record are shown as stale for review rather than applied. Automatic filling of empty fields uses the ordinary revision-checked patch command and is one undoable action per run.
+- **Applying results:** every result carries the bookmark ID and the record revision it was requested for. Results for a changed record are shown as stale for review rather than applied. Automatic filling of empty fields uses the ordinary revision-checked patch command and is one undoable action per run.
 
 ### Small WebMCP experiment
 
 Implement an optional adapter over existing commands with only:
 
-1. Query bubbles and missing fields.
+1. Query bookmarks and missing fields.
 2. Submit proposed field updates with provenance.
 3. Preview imports.
 
@@ -204,10 +204,10 @@ Feature-detect WebMCP, isolate compatibility handling, and keep the UI fully fun
 | Phase | Deliverable and completion condition | User review |
 |---|---|---|
 | **1. Model and import design** | Typed model, command contracts, persistence foundation, and clickable import/graph designs demonstrating bookmarks and a second workflow. | **A:** Use a representative export to validate mapping, duplicates, and terminology. Resolve these choices before encoding dependent interactions; parser and persistence work can continue. |
-| **2. Import-first usable build** | Four import sources, preview/confirmation, basic editing, memberships, statuses, G6 graph/list, persistence, import undo, and backup/restore work end to end. | **B:** Import a real collection, resolve invalid or duplicate items, organize bubbles, and reload. Resolve import and data-loss blockers before expanding workflows. |
+| **2. Import-first usable build** | Four import sources, preview/confirmation, basic editing, memberships, statuses, G6 graph/list, persistence, import undo, and backup/restore work end to end. | **B:** Import a real collection, resolve invalid or duplicate items, organize bookmarks, and reload. Resolve import and data-loss blockers before expanding workflows. |
 | **2.1. UI improvement (B.1)** | [UI audit and improvement plan](ui-improvement-plan.md): coherent navigation, flat vector pin, consistent icons/controls, readable hierarchy, and polished existing workflows without changing Stage B behavior. | **U1:** Review a concrete visual mockup. **U2:** Review the running UI and resolve material findings before Stage C. B.1 was accepted October 10, 2026. |
 | **3. Workflow tools** | Appearance inheritance, confirmed status propagation, copy composer, nested/distance filters, saved views, and bulk media upload. | **C:** Complete a complicated workflow and copy results to the intended destination. Resolve confusing rules and output; independent enrichment work can continue. |
-| **3.1. Foundation corrections (C.1)** | Undo consolidated to change sets with bounds; schema 2 migration; import-history retention; media collection; Undo/Redo; New bubble, archive/unarchive, and collection deletion; outcome counts; 1,000/5,000 measurements against the budgets in §1; prototype converter run on the user's dataset. | **C1:** Import the converted collection, create and archive records, undo and redo across several action types, reload, and review the measurement report. Phase 4 starts after C1 and the Phase 4 entry condition. |
+| **3.1. Foundation corrections (C.1)** | Undo consolidated to change sets with bounds; schema 2 migration; import-history retention; media collection; Undo/Redo; New bookmark, archive/unarchive, and collection deletion; outcome counts; 1,000/5,000 measurements against the budgets in §1; prototype converter run on the user's dataset. | **C1:** Import the converted collection, create and archive records, undo and redo across several action types, reload, and review the measurement report. Phase 4 starts after C1 and the Phase 4 entry condition. |
 | **4. Enrichment and agent experiment** | Optional extractor, missing-data queue, and narrow WebMCP adapter tested with the user’s agent. | **D:** Fill unresolved records and prepare an import through the agent. Keep or expand WebMCP only when it reduces effort. |
 | **5. Release hardening** | Accessibility, recovery, static deployment build, documentation, and performance checks pass; checkpoint findings are resolved. | Review remaining limitations. Publishing requires separate deployment authorization. |
 
@@ -230,18 +230,18 @@ At each checkpoint, supply a runnable or clickable artifact, representative data
 - **Imports:** every supported format, mapping, missing values, unknown statuses/types, duplicate choices, invalid rows, cancellation, stale previews, interrupted commits, and undo conflicts.
 - **Persistence:** reload, multi-tab conflicts, quota failures, migrations (one fixture per schema version, including backups and stored undo entries), full backup round trips with uploaded media, and media collection after undo trimming, asset replacement, and collection deletion.
 - **Undo and lifecycle:** every action type through undo and redo, redo cleared by a new action, refusal when another tab changed a touched record, history and batch bounds, archived records excluded from display/counts/copy but kept in distance filters, and collection deletion removing geometry, history, and media.
-- **G6:** shared memberships, disconnected bubbles, dragging with responding neighbors, settling, pins, explicit unpin/re-layout, appearance shapes, semantic detail, and graph/list parity.
+- **G6:** shared memberships, disconnected bookmarks, dragging with responding neighbors, settling, pins, explicit unpin/re-layout, appearance shapes, semantic detail, and graph/list parity.
 - **Viewport stability:** verify two-finger panning, zoom controls, filtering, selection, and inspector changes do not restart layout or alter settled world coordinates.
 - **Filtering:** nested predicates, same-tag semantics, full-graph distances, hidden tags, and saved-view restoration.
 - **Processing:** status reassignment, appearance inheritance, hidden targets in confirmation, atomic updates, undo, and exact copy output.
 - **Enrichment/WebMCP:** partial failures, blocked pages, stale responses, preserved user values, reviewed proposals, and unavailable API.
 - **Usability:** keyboard operation, narrow screens, reduced motion, and visible graph failures with usable list fallback.
-- **Performance:** measure storage and filter budgets in Stage C.1 (§1); review at 1,000 bubbles; stress test 5,000 bubbles and 20,000 memberships. Measure import responsiveness, settling, force dragging, filtering, and viewport interaction. Address main-thread bottlenecks before release without replacing the approved interaction model silently.
+- **Performance:** measure storage and filter budgets in Stage C.1 (§1); review at 1,000 bookmarks; stress test 5,000 bookmarks and 20,000 memberships. Measure import responsiveness, settling, force dragging, filtering, and viewport interaction. Address main-thread bottlenecks before release without replacing the approved interaction model silently.
 
 ### Defaults and limits
 
-The new app replaces the reverted prototype in `app/`. The app does not read prototype JSON; instead a one-time converter script (`tools/`, outside the app bundle) turns the prototype dataset into versioned product JSON — bookmarks become bubbles, prototype categories become tags of a *Category* type, issue groups become tags of an *Issue* type, and known duplicate groups are reported for review in the normal import screen. *Decided by the user October 11, 2026.* G6 5.1.1 is selected based on the successful capability test; larger datasets and product-specific rendering still require verification. Importing remains the first priority. Prototype migration, accounts, sync, collaboration, and automatic agent-applied changes are outside v1.
+The new app replaces the reverted prototype in `app/`. The app does not read prototype JSON; instead a one-time converter script (`tools/`, outside the app bundle) turns the prototype dataset into versioned product JSON — bookmarks become bookmarks, prototype categories become tags of a *Category* type, issue groups become tags of an *Issue* type, and known duplicate groups are reported for review in the normal import screen. *Decided by the user October 11, 2026.* G6 5.1.1 is selected based on the successful capability test; larger datasets and product-specific rendering still require verification. Importing remains the first priority. Prototype migration, accounts, sync, collaboration, and automatic agent-applied changes are outside v1.
 
-Release succeeds when the user can import their own collection (the converted prototype dataset and a fresh browser bookmark export) without hand-editing the files, understand what will be added, recover from mistakes, and process bubbles through tags and the graph with enrichment and WebMCP disabled.
+Release succeeds when the user can import their own collection (the converted prototype dataset and a fresh browser bookmark export) without hand-editing the files, understand what will be added, recover from mistakes, and process bookmarks through tags and the graph with enrichment and WebMCP disabled.
 
 [Checkpoint guide](product-review-guide.md) · [Implementation progress](product-progress.md)
