@@ -233,9 +233,12 @@ export function parseImport(
   for (const bookmark of [
     ...backup.workspace.bookmarks,
     ...backup.workspace.batches.flatMap((b) => b.beforeMerged),
-  ])
+  ]) {
     if (bookmark.asset?.source === "local" && !mediaIds.has(bookmark.asset.blobId!))
       throw new Error(`Backup is missing local media for “${bookmark.title}”.`);
+    if (bookmark.thumbnail && "blobId" in bookmark.thumbnail && !mediaIds.has(bookmark.thumbnail.blobId))
+      throw new Error(`Backup is missing the thumbnail for “${bookmark.title}”.`);
+  }
   if (backup.geometry) {
     if (
       backup.geometry.workspaceId !== backup.workspace.id ||

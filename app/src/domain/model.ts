@@ -35,12 +35,23 @@ export interface SourceNote {
   label: string;
   text: string;
 }
+/** Where a stored thumbnail came from; see docs/thumbnails.md for the order they're tried in. */
+export type ThumbnailSource = "youtube" | "fxtwitter" | "github" | "cover" | "microlink" | "screenshot" | "favicon";
+/**
+ * A thumbnail found online and stored locally, or the time every lookup failed.
+ * It sits beside the imported `asset`, never replacing it, and isn't an edit:
+ * storing one changes no revision and adds no Undo entry.
+ */
+export type Thumbnail =
+  | { blobId: string; source: ThumbnailSource; sourceUrl: string; capturedAt: string }
+  | { failedAt: string };
 export interface Bookmark extends RecordMeta {
   id: string;
   title: string;
   description: string;
   url?: string;
   asset?: Asset;
+  thumbnail?: Thumbnail;
   statusId: string;
   importBatchId?: string;
   missingTitle?: boolean;
@@ -241,6 +252,7 @@ export function appearanceFor(tag: Tag, workspace: Workspace): Appearance {
     ...tag.appearance,
   };
 }
+const thumbnailSources: ThumbnailSource[] = ["youtube", "fxtwitter", "github", "cover", "microlink", "screenshot", "favicon"];
 function fail(message: string): never {
   throw new Error(`Invalid workspace: ${message}`);
 }
@@ -364,6 +376,15 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
         !b.asset.filename
       )
         fail("invalid local media");
+    }
+    if (b.thumbnail !== undefined) {
+      const t = b.thumbnail as Partial<Record<string, unknown>>;
+      if (!t || typeof t !== "object" || Array.isArray(t)) fail("invalid thumbnail");
+      const stored = typeof t?.blobId === "string" && !!t.blobId && typeof t.source === "string"
+        && thumbnailSources.includes(t.source as ThumbnailSource) && typeof t.sourceUrl === "string" && /^https?:\/\//.test(t.sourceUrl)
+        && typeof t.capturedAt === "string" && Number.isFinite(Date.parse(t.capturedAt));
+      const failed = t && !("blobId" in t) && typeof t.failedAt === "string" && Number.isFinite(Date.parse(t.failedAt));
+      if (!stored && !failed) fail("invalid thumbnail");
     }
   }
   for (const t of w.tags) {

@@ -1,6 +1,6 @@
 # Thumbnails — store once, resolve with fallbacks
 
-Reviewed October 14, 2026 (see [Decisions](#decisions)); not built yet. This is the reference for [#7](https://github.com/pomodorozhong/bookmark-router/issues/7): how the app finds an image for each bookmark, stores it, and what goes wrong with each service. Services were probed on 2026-10-13/14. All of them are unofficial or best-effort and can change without notice.
+Reviewed and implemented October 14, 2026 (see [Decisions](#decisions)); awaiting user review. This is the reference for [#7](https://github.com/pomodorozhong/bookmark-router/issues/7): how the app finds an image for each bookmark, stores it, and what goes wrong with each service. Services were probed on 2026-10-13/14. All of them are unofficial or best-effort and can change without notice.
 
 ## Decision: store the bytes, not the URL
 
@@ -70,7 +70,7 @@ All of these sent `Access-Control-Allow-Origin: *` when probed, except Google an
 - **Encode the inner URL fully.** wsrv.nl's `url=` value must go through `encodeURIComponent`. A URL that already contains `%3A`, such as `rdl.ink/render/https%3A…`, must be encoded again, or wsrv.nl returns 404.
 - **Check the status, not just the bytes.** YouTube and Google return a real image with status 404. In an `<img>` that can still fire `onload`. Store a result only when the response is 200 with an `image/*` type.
 - **Expired is permanent.** A 403 saying `URL signature expired` (Facebook, Instagram) or a LinkedIn 400 will never load again. Go to Microlink for a fresh URL rather than retrying.
-- **Throttle backfills.** At most about 4 wsrv.nl fetches per second, a 15-minute pause after a GitHub 429, and a Microlink queue that stops at 25 a day. A 148-bookmark backfill takes about a minute, plus the Microlink days.
+- **Throttle backfills.** At most 4 service requests start per second, a 15-minute pause after a GitHub 429, and a Microlink queue that stops at 25 a day. Bookmarks waiting for a limit are not recorded as permanently failed. Turning the setting off aborts the active bulk lookup; opening another collection moves the queue there. Reload resumes from the bookmarks without a thumbnail record.
 - **G6 forces `crossOrigin = "Anonymous"`** on image nodes given a string `src`, so a host without CORS fails in the graph. Keep handing G6 a canvas, as `GraphCanvas.tsx` does now.
 - **Eviction deletes everything at once.** Browsers evict a whole origin's storage, and Safari does so after 7 days of browser use without visiting the site. Call `navigator.storage.persist()` after the user's first import. Firefox shows a prompt; Chrome and Safari decide silently. Thumbnails are already in backups, because backups export the `media` store.
 
@@ -104,3 +104,26 @@ Recorded October 14, 2026, after reviewing this draft:
 1. The thumbnail sits in a separate `thumbnail` field; the imported `asset` is never overwritten.
 2. **Find thumbnails online** defaults to off everywhere. The detail view has a per-bookmark button with a warning and a counter.
 3. Stored thumbnails refresh only on a manual retry.
+
+## Implementation and verification
+
+Implemented on `feat/thumbnail-store` for #7; the fixed Copy/Edit/Pin bar remains in #13. The detail button and counter keep their position, with the warning, step list, result, and **Hide details** underneath. A failed retry retains a previously stored image. Attached images take precedence, then stored thumbnails, imported covers, and letter tiles, in the detail panel, queue, group view, and graph. Stored favicons are inset rather than stretched.
+
+Captures and media replacements are atomic IndexedDB transactions. They preserve bookmark and collection revisions and the existing Undo action. A changed URL or imported asset during a lookup rejects the capture. Undo, including import-merge Undo, retains current thumbnails. Restore remaps thumbnail media IDs and rejects missing bytes; retry does not delete media still referenced by another bookmark or import snapshot.
+
+The setting and daily counter are remembered per origin on this device. Quota days use UTC; responses reporting `x-rate-limit-remaining` can lower the local estimate to the IP's actual remaining quota, and cache hits do not force a decrement ([Microlink's response headers and caching](https://microlink.io/api)). Individual lookup skips Microlink at zero quota and tries the remaining fallbacks; bulk lookup waits and resumes automatically. GitHub cooldowns are remembered across reloads. Requests have a 20-second timeout. Applying an agent's remote image remains a human-reviewed edit; it can then be captured through the imported-cover step.
+
+Verified October 14, 2026:
+
+- `npm run build` and all 110 tests passed. Regression coverage includes 404 image placeholders, expired-cover fallback, URL encoding, quota exhaustion/reset, cancellation, service rate limits, GitHub cooldown, atomic storage failure, shared media, Undo, and backup remapping.
+- Browser checks used a converted copy of the 148-bookmark collection in a throwaway Chrome profile on port 5201. The user's storage at port 5199 was not used. Thumbnail controls fit at desktop, 390 px, and 320 px; the result and step list remained visible until hidden. Existing narrow-header/queue behavior is outside #7.
+- With explicit permission, the two agreed examples were checked live. **Retention and paid conversion over downloads** recovered the current avatar through FxTwitter and wsrv.nl without using Microlink. **Five App Store submission tips** still had an expired cover; Microlink supplied an image URL that wsrv.nl rejected with 400, so Raindrop's screenshot won. That screenshot shows a Threads loading/landing screen rather than the post content. Its single Microlink request adjusted the counter to the service's IP-wide remaining count.
+- Both live captures survived reload and the Download backup → Restore backup flow into a new collection. Their imported cover URLs and revisions remained unchanged; images loaded from local Blob URLs after reload without online lookup requests.
+- Bulk network responses were simulated locally, without sending additional collection links outside the browser. Cancel sent nothing, the setting defaulted off, requests started roughly 250 ms apart, existing thumbnails stayed untouched, turning off stopped new requests and saves, and a zero-quota queue waited without storing failures and resumed when quota became available.
+
+**You try:**
+
+1. Find the thumbnail for **Retention and paid conversion over downloads**. Confirm the warning; the avatar should appear in the panel, queue, and graph without using Microlink.
+2. Find the thumbnail for **Five App Store submission tips**. Inspect the fallback steps and counter; current live services may supply the Threads screenshot instead of a preview of the post.
+3. Reload, download a backup, and restore it into a new collection. Both thumbnails should remain, and the imported cover URLs in **Edit** should be unchanged.
+4. Enable **Find thumbnails online** from **More actions**, confirm, watch missing thumbnails fill in, then turn it off. Stored thumbnails should not be retried.

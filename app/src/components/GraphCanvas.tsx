@@ -23,6 +23,7 @@ import {
 } from "d3-force";
 import { appearanceFor, type Appearance, type Bookmark, type Geometry, type Workspace } from "../domain/model";
 import { Icon, IconButton } from "./Icon";
+import { displayImage } from "../domain/thumbnails";
 export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
   /** Zoom and center so these nodes, with room for titles, fill the view. */
@@ -36,7 +37,7 @@ export interface GraphCanvasHandle {
 const emphasisLabelLimit = 30;
 // About a bookmark at maximum zoom on a 2x display.
 const thumbnailSize = 256;
-function roundThumbnail(img: HTMLImageElement, key: string): HTMLCanvasElement {
+function roundThumbnail(img: HTMLImageElement, key: string, icon = false): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = thumbnailSize;
   const context = canvas.getContext("2d")!;
@@ -44,7 +45,9 @@ function roundThumbnail(img: HTMLImageElement, key: string): HTMLCanvasElement {
   context.arc(thumbnailSize / 2, thumbnailSize / 2, thumbnailSize / 2, 0, Math.PI * 2);
   context.clip();
   // Cover: fill the circle, cropping the longer side around the center.
-  const scale = thumbnailSize / Math.min(img.naturalWidth || 1, img.naturalHeight || 1);
+  if (icon) { context.fillStyle = "#f4f7f5"; context.fillRect(0, 0, thumbnailSize, thumbnailSize); }
+  const scale = icon ? thumbnailSize * .5 / Math.max(img.naturalWidth || 1, img.naturalHeight || 1)
+    : thumbnailSize / Math.min(img.naturalWidth || 1, img.naturalHeight || 1);
   const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
   context.drawImage(img, (thumbnailSize - width) / 2, (thumbnailSize - height) / 2, width, height);
   return Object.assign(canvas, { src: `thumbnail:${key}`, complete: true });
@@ -166,26 +169,44 @@ export function GraphCanvas({
   // with the `src` and `complete` fields G's image cache keys on.
   const images = useRef(new Map<string, HTMLCanvasElement | "loading" | "failed">());
   const imageReady = useRef<(bookmarkId: string) => void>(() => {});
+  function letterImage(bookmark: Bookmark | undefined) {
+    if (!bookmark) return undefined;
+    const letter = (bookmark.title.trim().match(/\p{L}|\p{N}/u)?.[0] ?? "•").toUpperCase();
+    const key = `letter:${letter}`;
+    const known = images.current.get(key);
+    if (known && typeof known !== "string") return known;
+    const canvas = document.createElement("canvas"), context = canvas.getContext("2d")!;
+    canvas.width = canvas.height = thumbnailSize;
+    context.fillStyle = "#467768";
+    context.beginPath(); context.arc(thumbnailSize / 2, thumbnailSize / 2, thumbnailSize / 2, 0, Math.PI * 2); context.fill();
+    context.fillStyle = "#ffffff"; context.font = "600 130px sans-serif"; context.textAlign = "center"; context.textBaseline = "middle";
+    context.fillText(letter, thumbnailSize / 2, thumbnailSize / 2 + 5);
+    const tile = Object.assign(canvas, { src: key, complete: true });
+    images.current.set(key, tile);
+    return tile;
+  }
   function bookmarkImage(bookmark: Bookmark | undefined) {
-    const asset = bookmark?.asset;
-    if (!asset || asset.kind !== "image") return undefined;
-    const key = asset.source === "local" ? `blob:${asset.blobId}` : asset.url;
+    const image = bookmark && displayImage(bookmark);
+    if (!image) return undefined;
+    const local = "blobId" in image;
+    const key = local ? `blob:${image.blobId}` : image.url;
     if (!key) return undefined;
     const known = images.current.get(key);
     if (known === "failed" || known === "loading") return undefined;
     if (known) return known;
     images.current.set(key, "loading");
     void (async () => {
-      const src = asset.source === "local"
-        ? await loadMediaRef.current?.(asset.blobId!).then((m) => (m ? URL.createObjectURL(m.blob) : undefined)).catch(() => undefined)
-        : asset.url;
+      const src = local
+        ? await loadMediaRef.current?.(image.blobId).then((m) => (m ? URL.createObjectURL(m.blob) : undefined)).catch(() => undefined)
+        : image.url;
       if (!src) return images.current.set(key, "failed");
       const img = new Image();
       img.onload = () => {
-        images.current.set(key, roundThumbnail(img, key));
+        images.current.set(key, roundThumbnail(img, key, local && Boolean(image.icon)));
+        if (local) URL.revokeObjectURL(src);
         imageReady.current(bookmark!.id);
       };
-      img.onerror = () => images.current.set(key, "failed");
+      img.onerror = () => { if (local) URL.revokeObjectURL(src); images.current.set(key, "failed"); };
       img.src = src;
     })();
     return undefined;
@@ -196,7 +217,8 @@ export function GraphCanvas({
       const shown = scale >= bookmarkLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current
         || (related.has(node.id) && related.size <= emphasisLabelLimit) || (box.has(node.id) && box.size <= emphasisLabelLimit);
       // Images show with the title once the bookmark is big enough to read; far out they are too small.
-      const image = shown && scale >= bookmarkImageMinZoom ? bookmarkImage(bookmarksRef.current.get(node.id)) : undefined;
+      const bookmark = bookmarksRef.current.get(node.id);
+      const image = shown && scale >= bookmarkImageMinZoom ? bookmarkImage(bookmark) ?? letterImage(bookmark) : undefined;
       // The 2px outline is centered on the edge; tucking the image 0.5px under
       // it fills the inner circle without a seam.
       const diameter = Number(node.style?.size ?? 25) - 1;

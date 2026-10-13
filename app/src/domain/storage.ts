@@ -8,7 +8,9 @@ import { commandLabel, restoreUndoSnapshot, type UndoEntry } from "./undo";
 import {
   validateWorkspace,
   type Asset,
+  type Bookmark,
   type Geometry,
+  type Thumbnail,
   type Workspace,
 } from "./model";
 // Local history belongs to the stored collection, not its portable content schema.
@@ -223,6 +225,51 @@ export class WorkspaceStore {
       try {
         tx.abort();
       } catch {}
+      await tx.done.catch(() => {});
+      throw error;
+    }
+  }
+  /**
+   * Stores a bookmark's thumbnail (with its image, unless it records a failure)
+   * and deletes the image it replaces. Not an edit: the collection and bookmark
+   * revisions stay the same, and no Undo entry is added.
+   */
+  async setThumbnail(
+    id: string,
+    bookmarkId: string,
+    thumbnail: Thumbnail,
+    image?: { mime: string; blob: Blob },
+    expectedSource?: Pick<Bookmark, "url" | "asset">,
+  ): Promise<Workspace> {
+    if (("blobId" in thumbnail) !== Boolean(image)) throw new Error("A stored thumbnail needs its image.");
+    const tx = (await this.database).transaction(["workspaces", "media"], "readwrite");
+    try {
+      const stored = await tx.objectStore("workspaces").get(id);
+      const bookmark = stored?.bookmarks.find((b) => b.id === bookmarkId);
+      if (!stored || !bookmark) throw new ConflictError("The bookmark no longer exists.");
+      if (expectedSource && (bookmark.url !== expectedSource.url || JSON.stringify(bookmark.asset) !== JSON.stringify(expectedSource.asset)))
+        throw new ConflictError("The bookmark's link or image changed during the lookup. Try again.");
+      const previous = bookmark.thumbnail;
+      // A failed retry must not erase an image that already works offline.
+      if (!("blobId" in thumbnail) && previous && "blobId" in previous) {
+        await tx.done;
+        return collectionContent(stored);
+      }
+      if (previous && "blobId" in previous) {
+        const shared = [...stored.bookmarks, ...stored.batches.flatMap((batch) => batch.beforeMerged)].some((other) =>
+          (other.asset?.source === "local" && other.asset.blobId === previous.blobId)
+          || (other !== bookmark && other.thumbnail && "blobId" in other.thumbnail && other.thumbnail.blobId === previous.blobId));
+        if (!shared) await tx.objectStore("media").delete(previous.blobId);
+      }
+      if ("blobId" in thumbnail && image)
+        await tx.objectStore("media").put({ id: thumbnail.blobId, workspaceId: id, filename: "thumbnail.webp", mime: image.mime, blob: image.blob });
+      bookmark.thumbnail = thumbnail;
+      validateWorkspace(collectionContent(stored));
+      await tx.objectStore("workspaces").put(stored);
+      await tx.done;
+      return collectionContent(stored);
+    } catch (error) {
+      try { tx.abort(); } catch {}
       await tx.done.catch(() => {});
       throw error;
     }

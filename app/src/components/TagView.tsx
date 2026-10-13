@@ -53,7 +53,7 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
             const why = reason?.startsWith(`${b.title}: `) ? reason.slice(b.title.length + 2) : reason;
             return (
               <button key={b.id} className="tag-view-item" onClick={() => onOpen(b.id)}>
-                <span className="queue-thumb"><Cover asset={b.asset} load={loadMedia} className="" /></span>
+                <span className="queue-thumb"><Cover bookmark={b} load={loadMedia} className="" letterTile /></span>
                 <span className="queue-text">
                   <span className="queue-title">{b.title}</span>
                   <span className="queue-meta"><span className="queue-domain">{domainOf(b.url) || "No URL"}</span><span className="queue-status">{status(b.statusId)}</span></span>

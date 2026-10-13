@@ -28,7 +28,7 @@ function MenuButton({ label, button, className = "", align = "start", children }
   const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!open) return;
-    const items = () => Array.from(root.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? []);
+    const items = () => Array.from(root.current?.querySelectorAll<HTMLElement>(':is([role="menuitem"], [role="menuitemcheckbox"]):not([disabled])') ?? []);
     (root.current?.querySelector<HTMLElement>('[aria-current="true"]') ?? items()[0])?.focus();
     const outside = (e: PointerEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false); };
     const keys = (e: KeyboardEvent) => {
@@ -92,7 +92,10 @@ export function CollectionMenu({ workspace, collections, onOpen, onNew, onDelete
   );
 }
 
-export function MoreMenu({ onAddBookmark, onAddTag, onTagTypes, onHistory, onDownload, onRestore, onDelete }: {
+export function MoreMenu({ onAddBookmark, onAddTag, onTagTypes, onHistory, onDownload, onRestore, onDelete, onThumbnails, thumbnailsOnline, thumbnailStatus }: {
+  onThumbnails: () => void;
+  thumbnailsOnline: boolean;
+  thumbnailStatus: string;
   onTagTypes: () => void;
   onDelete: () => void;
   onAddBookmark: () => void;
@@ -109,6 +112,12 @@ export function MoreMenu({ onAddBookmark, onAddTag, onTagTypes, onHistory, onDow
           <Item icon="tag" onSelect={() => { close(); onAddTag(); }}>Add tag…</Item>
           <Item icon="layout" onSelect={() => { close(); onTagTypes(); }}>Tag types…</Item>
           <Item icon="history" onSelect={() => { close(); onHistory(); }}>Import history…</Item>
+          <button type="button" role="menuitemcheckbox" aria-checked={thumbnailsOnline} onClick={() => { close(); onThumbnails(); }}>
+            <span className="menu-icon"><Icon name="search" size={15} /></span>
+            <span className="menu-label">Find thumbnails online</span>
+            <span className="menu-meta">{thumbnailsOnline ? "On" : "Off"}</span>
+          </button>
+          {thumbnailsOnline && thumbnailStatus && <p className="menu-note" role="status">{thumbnailStatus}</p>}
           <hr />
           <Item icon="download" onSelect={() => { close(); onDownload(); }}>Download backup</Item>
           <Item icon="upload" onSelect={() => { close(); onRestore(); }}>Restore backup…</Item>

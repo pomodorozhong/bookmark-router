@@ -103,7 +103,9 @@ export function commitImport(
         source.bookmarks.some((b) => b.id === bookmark.id) &&
         !batch.beforeMerged.some((b) => b.id === bookmark.id)
       ) {
-        batch.beforeMerged.push(structuredClone(bookmark));
+        // Undoing the import keeps the current thumbnail, so the snapshot doesn't need it.
+        const { thumbnail: _thumbnail, ...before } = bookmark;
+        batch.beforeMerged.push(structuredClone(before));
         batch.beforeMemberships!.push(
           ...w.memberships.filter((m) => m.bookmarkId === bookmark.id),
         );
@@ -211,6 +213,8 @@ export function undoImport(
     if (before && index >= 0)
       w.bookmarks[index] = {
         ...before,
+        // Thumbnails aren't edits, so undoing the import keeps the current one.
+        thumbnail: w.bookmarks[index].thumbnail,
         revision: w.bookmarks[index].revision + 1,
         updatedAt: new Date().toISOString(),
       };
