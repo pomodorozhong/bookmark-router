@@ -519,6 +519,53 @@ th { background: #f4f7f5; color: var(--muted); }
 .app-toast.error strong, .app-toast.error button { color: #973c30; }
 .app-toast.error button:hover { background: #973c3014; }
 .header-undo { flex-shrink: 0; }
+.agent-review-entry { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.agent-review-count { display: inline-grid; place-items: center; min-width: 19px; height: 19px; border-radius: 50%; background: var(--teal); color: white; font-size: 11px; }
+.agent-review-modal { width: min(760px, calc(100% - 32px)); }
+.agent-review-modal .modal-heading p { margin: 8px 0 0; }
+.agent-review-picker { display: grid; gap: 6px; margin: 16px 0; min-width: 0; }
+.agent-review-picker select { width: 100%; min-width: 0; }
+.agent-review-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.agent-review-state { display: inline-block; border: 1px solid var(--line); border-radius: 20px; padding: 4px 9px; font-size: 11px; font-weight: 650; }
+.agent-review-change { padding: 18px 0; border-bottom: 1px solid var(--line); }
+.agent-review-change-heading { display: flex; align-items: flex-start; gap: 10px; }
+.agent-review-change-heading h3 { margin: 3px 0 12px; font-size: 15px; overflow-wrap: anywhere; }
+.agent-review-change-heading .agent-review-state { flex-shrink: 0; }
+.agent-review-fields { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 9px 12px; font-size: 13px; margin: 6px 0 0; }
+.agent-review-fields dt { color: var(--muted); }
+.agent-review-fields dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-review-diff { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 12px; }
+.agent-review-diff > div { background: var(--paper, #f5f8f6); padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.agent-review-diff p { font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0 0; }
+.agent-review-image, .agent-review-no-image { margin-top: 10px; }
+.agent-review-image img { display: block; width: 100%; height: auto; max-height: 240px; object-fit: contain; border-radius: 6px; }
+.agent-review-image img[hidden] { display: none; }
+.agent-review-image:has(img:not([hidden])) { background: white; border-radius: 6px; }
+.agent-review-no-image { display: grid; place-items: center; min-height: 130px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); }
+.agent-review-image-error { color: #973c30; }
+.agent-review-note { font-size: 12px; line-height: 1.6; margin: 18px 0 0; }
+.agent-review-warning { padding: 14px; margin: 16px 0; border: 1px solid #e4c17a; border-radius: 8px; background: #fff8e8; color: #805008; }
+.agent-review-warning p { margin: 8px 0 0; }
+.agent-review-overwrite { color: #805008; background: #fff8e8; border: 1px solid #e4c17a; padding: 4px 7px; border-radius: 4px; }
+.agent-review-apply-anyway { min-width: 160px; color: #805008; background: #fff8e8; border-color: #e4c17a; }
+.agent-review-apply-anyway:hover { background: #fceccb; border-color: #c99e4b; }
+.agent-review-apply-anyway.is-confirming { color: white; background: #805008; border-color: #805008; }
+.agent-review-apply-anyway.is-confirming:hover { background: #653e05; border-color: #653e05; }
+/* Keep the consequence and its save action together in one review. */
+.agent-review-modal .agent-review-save { display: block; }
+.agent-review-save .agent-review-warning { margin: 0 0 14px; font-size: 13px; }
+.agent-review-save .agent-review-warning ul { padding-left: 20px; margin: 10px 0; }
+.agent-review-save .agent-review-warning li { margin: 6px 0; overflow-wrap: anywhere; }
+.agent-review-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.agent-review-confirm-reminder { margin: 10px 0 0; text-align: right; color: #805008; font-size: 13px; }
+.agent-review-actions > button { flex-shrink: 0; }
+.agent-review-save-error { color: #973c30; font-size: 13px; overflow-wrap: anywhere; }
+.agent-review-empty { padding: 16px 0; }
+@media (max-width: 620px) {
+  .agent-review-diff { grid-template-columns: minmax(0, 1fr); }
+  .agent-review-change-heading { flex-direction: column; gap: 5px; }
+  .agent-review-fields { grid-template-columns: 74px minmax(0, 1fr); }
+}
 .topbar-end { display: flex; align-items: center; gap: 8px; }
 .danger { background: #b42318; border-color: #b42318; color: white; }
 .danger:hover:not(:disabled) { background: #912018; border-color: #912018; color: white; }

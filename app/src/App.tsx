@@ -25,7 +25,12 @@ import { RecordEditor } from "./components/RecordEditor";
 import { TagTypesDialog } from "./components/TagTypesDialog";
 import { Dialog } from "./components/Dialog";
 import { Icon, IconButton, type IconName } from "./components/Icon";
+import { AgentReviewDialog } from "./components/AgentReviewDialog";
+import { AgentInputError, AgentReviewSession } from "./domain/agent-review";
+import { registerAgentTools } from "./agent/webmcp";
+import { readCopyFormat, type CopyContext } from "./copy-settings";
 const store = new WorkspaceStore();
+const loadReviewMedia = (id: string) => store.media(id);
 function activeCollection() {
   try {
     return localStorage.getItem("bookmark-tag-active");
@@ -96,6 +101,13 @@ export default function App() {
     [promptKind, setPromptKind] = useState<"collection" | "tag">(),
     [promptValue, setPromptValue] = useState("");
   const [nextUndo, setNextUndo] = useState<Awaited<ReturnType<WorkspaceStore["nextUndo"]>>>();
+  const [, renderAgentReview] = useState(0);
+  const [agentSession] = useState(() => new AgentReviewSession(() => renderAgentReview((v) => v + 1)));
+  const [agentReviewOpen, setAgentReviewOpen] = useState(false);
+  const [agentAvailability, setAgentAvailability] = useState<"checking" | "available" | "unavailable" | "failed">("checking");
+  const [agentError, setAgentError] = useState("");
+  const agentApplying = useRef(false), switchingCollection = useRef(false);
+  const copyContext = useRef<CopyContext | undefined>(undefined);
   const toastId = useRef(0);
   const notify = (text: string, undo?: () => void) => setToast({ id: ++toastId.current, text, undo });
   const [statusMapping, setStatusMapping] = useState<Record<string, string>>(
@@ -141,13 +153,15 @@ export default function App() {
   useEffect(() => {
     if (!loaded) return;
     const refresh = () => {
-      void store.get(workspaceRef.current.id).then((w) => {
-        if (w && w.revision !== workspaceRef.current.revision) {
+      const id = workspaceRef.current.id;
+      void store.get(id).then((w) => {
+        if (w && id === workspaceRef.current.id && !switchingCollection.current && w.revision > workspaceRef.current.revision) {
+          agentSession.refresh(w);
           setWorkspace(w);
           void store.nextUndo(w.id).then(setNextUndo);
           notify("This collection changed in another tab. Review pending changes again.");
         }
-      });
+      }).catch((e) => setError("Unable to refresh local storage: " + String(e)));
     };
     window.addEventListener("focus", refresh);
     const timer = setInterval(refresh, 3000);
@@ -156,15 +170,51 @@ export default function App() {
       clearInterval(timer);
     };
   }, [loaded]);
+  useEffect(() => { agentSession.refresh(workspace); }, [workspace, agentSession]);
+  useEffect(() => {
+    if (!loaded) return;
+    const controller = new AbortController();
+    void registerAgentTools({ session: agentSession, getCopyContext: () => copyContext.current, getCopyFormat: readCopyFormat, getWorkspace: async () => {
+      const id = workspaceRef.current.id;
+      if (switchingCollection.current) throw new AgentInputError("The collection is switching. Read it again when ready.", "collection_switching");
+      const latest = await store.get(id);
+      if (switchingCollection.current || id !== workspaceRef.current.id) throw new AgentInputError("The active collection changed. Read it again.", "collection_switching");
+      if (!latest) throw new ConflictError("The active collection is no longer available.");
+      if (latest.revision < workspaceRef.current.revision) return workspaceRef.current;
+      if (latest.revision > workspaceRef.current.revision) {
+        setWorkspace(latest);
+        void store.nextUndo(id).then(setNextUndo);
+      }
+      return latest;
+    } }, undefined, controller.signal).then((handle) => {
+      if (!controller.signal.aborted) setAgentAvailability(handle.available ? "available" : "unavailable");
+    }).catch(() => { if (!controller.signal.aborted) setAgentAvailability("failed"); });
+    return () => controller.abort();
+  }, [loaded, agentSession]);
   async function openWorkspace(w: Workspace) {
-    setGeometry(await store.getGeometry(w.id));
-    setWorkspace(w);
-    rememberCollection(w.id);
-    setNextUndo(await store.nextUndo(w.id));
-    setToast(undefined);
-    setScreen("workspace");
+    if (agentApplying.current || switchingCollection.current) return;
+    switchingCollection.current = true;
+    try {
+      const latest = await store.get(w.id);
+      if (!latest) throw new ConflictError("This collection is no longer available.");
+      const layout = await store.getGeometry(w.id), undo = await store.nextUndo(w.id);
+      if (w.id !== workspaceRef.current.id) {
+        agentSession.reset();
+        setAgentReviewOpen(false);
+        setAgentError("");
+      }
+      workspaceRef.current = latest;
+      setGeometry(layout);
+      setWorkspace(latest);
+      rememberCollection(w.id);
+      setNextUndo(undo);
+      setToast(undefined);
+      setScreen("workspace");
+    } finally { switchingCollection.current = false; }
   }
   async function publish(w: Workspace) {
+    agentSession.refresh(w);
+    workspaceRef.current = w;
     setWorkspace(w);
     const entry = await store.nextUndo(w.id);
     setNextUndo(entry);
@@ -172,6 +222,7 @@ export default function App() {
     return entry;
   }
   async function save(command: Command | Command[], label?: string) {
+    if (agentApplying.current || switchingCollection.current) throw new AgentInputError("Wait for the collection to finish saving.", "review_busy");
     try {
       const current = await store.command(workspace.id, workspace.revision, command, label);
       const entry = await publish(current);
@@ -182,6 +233,47 @@ export default function App() {
       if (latest) await publish(latest);
       throw e;
     }
+  }
+  async function applyAgentBatch(reviewedRevision?: number) {
+    const proposal = agentSession.current;
+    if (!proposal || submitting.current || busy || switchingCollection.current) return;
+    submitting.current = true;
+    agentApplying.current = true;
+    setBusy(true);
+    setAgentError("");
+    try {
+      const latest = await store.get(workspaceRef.current.id);
+      if (!latest) throw new ConflictError("The active collection is no longer available.");
+      const saved = await agentSession.apply(proposal.id, latest, store.command.bind(store), reviewedRevision === undefined ? undefined : { reviewedRevision });
+      const entry = await publish(saved);
+      setAgentReviewOpen(false);
+      notify(entry?.label ?? "Agent batch applied", () => void undoRef.current());
+    } catch (e) {
+      setAgentError(e instanceof Error ? e.message : String(e));
+      const latest = await store.get(workspaceRef.current.id).catch(() => undefined);
+      if (latest) await publish(latest);
+    } finally {
+      agentApplying.current = false;
+      submitting.current = false;
+      setBusy(false);
+    }
+  }
+  async function openAgentReview() {
+    if (busy || agentApplying.current || switchingCollection.current) return;
+    const id = workspaceRef.current.id;
+    setAgentError("");
+    try {
+      const latest = await store.get(id);
+      if (switchingCollection.current || id !== workspaceRef.current.id) return;
+      if (!latest) throw new ConflictError("The active collection is no longer available.");
+      if (latest.revision >= workspaceRef.current.revision) {
+        agentSession.refresh(latest);
+        workspaceRef.current = latest;
+        setWorkspace(latest);
+        void store.nextUndo(id).then(setNextUndo);
+      }
+    } catch (e) { setAgentError(e instanceof Error ? e.message : String(e)); }
+    setAgentReviewOpen(true);
   }
   async function undoLastAction() {
     if (!nextUndo || nextUndo.revision !== workspace.revision || busy || submitting.current) return;
@@ -471,6 +563,11 @@ export default function App() {
       <Icon name="undo" size={15} /><span>Undo</span>
     </button>
   );
+  const agentProposal = agentSession.current;
+  const agentPending = Boolean(agentSession.pending);
+  const agentReviewButton = <button className="agent-review-entry" disabled={busy} onClick={() => void openAgentReview()} aria-label={`Agent review${agentPending ? ", 1 batch awaiting review" : ""}`}>
+    <Icon name="check" size={15} /><span>Agent review</span>{agentPending && <span className="agent-review-count" aria-hidden="true">1</span>}
+  </button>;
   function restoreBackup() {
     setScreen("import");
     setFormat("json");
@@ -479,7 +576,7 @@ export default function App() {
     setFilename("");
   }
   const collectionMenu = (
-    <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w)} onDelete={setDeleting}
+    <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w).catch((e) => setError(String(e)))} onDelete={setDeleting}
       onNew={() => { setPromptKind("collection"); setPromptValue(""); }} />
   );
   const moreMenu = (
@@ -501,7 +598,7 @@ export default function App() {
         {screen === "import" && (
           <header className="topbar">
             {collectionMenu}
-            <span className="topbar-end">{undoButton}{moreMenu}</span>
+            <span className="topbar-end">{agentReviewButton}{undoButton}{moreMenu}</span>
           </header>
         )}
         {screen === "import" && toastElement}
@@ -951,7 +1048,9 @@ export default function App() {
           </div>
         ) : (
           <TriageScreen
+            key={workspace.id}
             workspace={workspace}
+            onCopyContext={(context) => { copyContext.current = context; }}
             geometry={geometry}
             onGeometry={(g) => {
               setGeometry(g);
@@ -966,10 +1065,16 @@ export default function App() {
             onTagTypes={() => setTagTypesOpen(true)}
             onError={setError}
             headerStart={collectionMenu}
-            headerEnd={<>{undoButton}{moreMenu}</>}
+            headerEnd={<>{agentReviewButton}{undoButton}{moreMenu}</>}
           />
         )}
       </main>
+      {agentReviewOpen && <AgentReviewDialog proposal={agentProposal} proposals={agentSession.batches} workspace={workspace} availability={agentAvailability} busy={busy} error={agentError} loadMedia={loadReviewMedia}
+        onApply={() => void applyAgentBatch()}
+        onApplyAnyway={(revision) => void applyAgentBatch(revision)}
+        onSetAside={() => { if (agentProposal && !busy) { agentSession.setAside(agentProposal.id); setAgentError(""); notify("Batch set aside. Nothing saved; you can apply it later."); } }}
+        onSelect={(id) => { if (!busy) { agentSession.select(id); setAgentError(""); } }}
+        onClose={() => setAgentReviewOpen(false)} />}
       {editing && (
         <RecordEditor
           key={editing}

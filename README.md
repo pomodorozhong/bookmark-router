@@ -13,6 +13,6 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5199/. Rounds 0–3 are approved; round 1.5 was skipped because the user's local fetcher already works. Round 4 (WebMCP) is next and requires choosing a browser and agent pair.
+Open http://127.0.0.1:5199/. Rounds 0–4 are approved; round 1.5 was skipped because the user's local fetcher already works. All MCP-related setup, behavior, and verification are in the standalone [WebMCP document](docs/webmcp.md).
 
 Completed plans, reviews, and round history are preserved in [docs/archive](docs/archive/README.md). The original personal bookmark prototype remains recoverable from Git history.

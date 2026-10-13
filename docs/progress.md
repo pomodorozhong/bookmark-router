@@ -1,6 +1,6 @@
 # Progress
 
-Updated October 12, 2026. Rounds 0, 1, 2, and 3 are approved; round 1.5 was skipped because the user's local fetcher works. **Next: round 4 — WebMCP**, after choosing the browser and agent pair and the write-review policy. See [the plan](plan.md) for scope and [the completed round history](archive/rounds-0-3.md) for implementation details and historical verification results.
+Updated October 14, 2026. Rounds 0–4 are approved; round 1.5 was skipped because the user’s local fetcher works. All agent-integration details are maintained in the standalone [WebMCP document](webmcp.md). See [the plan](plan.md) for product scope and [the completed round history](archive/rounds-0-3.md) for earlier work.
 
 ## Current behavior and decisions
 
@@ -11,10 +11,12 @@ Updated October 12, 2026. Rounds 0, 1, 2, and 3 are approved; round 1.5 was skip
 - Issue views show descriptions, links, bookmarks, and membership reasons. Tag types can be created and edited. Appearance has four flat tag styles in eight directions, color presets/custom colors, size, and icons; titles always sit below tags, with no automatic initials.
 - Bookmarks and tags have Pin/Unpin. Pins survive queue-tab layout changes and reloads; only **Layout → Reset positions** clears them. The bottom toolbar matches the 34 px filter controls and floats over the graph.
 - Collections can be deleted with confirmation and a backup offer. Bookmarks, tags, and tag types cannot be individually deleted; archive/unarchive is not implemented.
+- **Agent review** (round 4) was approved October 14, 2026; its accepted behavior and verification are documented in [WebMCP](webmcp.md).
 - The app is **Bookmark & Tag**. Backups use `bookmark-tag` version 2 and browser storage uses `bookmark-tag`. Old `bubble-tag` version 1 backups require `npm run upgrade-backup`; there is no in-app upgrade.
 
 ## Open items
 
+- Agent review was checked at measured 390- and 320-pixel widths, not on a real touch device. The Claude Code in-app browser cannot run WebMCP.
 - Not verified on real hardware: the system clipboard for Copy and the Custom color swatch's system picker. The user reported trackpad pan/pinch working.
 - Below about 1150 px with the queue open, the filter bar wraps. At phone width the header is crowded and tapping a tag was not verified.
 - Titles of non-focused bookmarks can be partly covered by nearby nodes when zoomed in; zooming above 60% still stutters slightly. The user accepted the remaining high-zoom panning cost.
