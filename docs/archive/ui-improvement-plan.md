@@ -1,4 +1,4 @@
-> **Superseded October 11, 2026** by [plan.md](plan.md). Kept as history.
+> **Superseded October 11, 2026** by [plan.md](../plan.md). Kept as history.
 
 # Stage B.1 — UI improvement before Stage C
 
@@ -33,7 +33,7 @@ P1 is the core workspace pass; P2 completes consistency across existing workflow
 | P2 | **Dialogs and feedback are visually fragmented.** Creation uses browser prompts, editing uses a custom modal, history/undo use other markup. Toast positioning uses a fixed left offset. Source finding. | Reuse a dialog, field, action-footer, and feedback system; place notices responsively. Include focus management and keyboard dismissal. |
 | P2 | **Spacing and responsive rules have accumulated overrides.** `styles.css` repeatedly redefines sidebar, workspace, toolbar, canvas footer, and inspector rules; the close control is 25px with negative margins. | Consolidate each component's layout rules and tokens, with deliberate desktop/narrow layouts and consistent targets. |
 
-Primary source locations: [App.tsx](../app/src/App.tsx), [GraphCanvas.tsx](../app/src/components/GraphCanvas.tsx), [RecordEditor.tsx](../app/src/components/RecordEditor.tsx), [styles.css](../app/src/styles.css).
+Primary source locations: [App.tsx](../../app/src/App.tsx), [GraphCanvas.tsx](../../app/src/components/GraphCanvas.tsx), [RecordEditor.tsx](../../app/src/components/RecordEditor.tsx), [styles.css](../../app/src/styles.css).
 
 ## Design direction
 

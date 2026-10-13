@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Cover, type LoadMedia } from "./Cover";
 import { Icon } from "./Icon";
 import { Markdown } from "./Markdown";
@@ -5,7 +6,7 @@ import { appearanceFor, isWebUrl, type Tag, type Workspace } from "../domain/mod
 import { domainOf, reasonFor } from "../domain/triage";
 
 /** A tag (an issue, proposal, or topic) to read on its own: what it is and which bookmarks belong to it. */
-export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEdit, onClose }: {
+export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEdit, pin, onClose }: {
   tag: Tag;
   /** Bookmark IDs in display order, such as the clockwise selection; others follow. */
   order?: string[];
@@ -14,6 +15,8 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
   onOpen: (bookmarkId: string) => void;
   onCopy: () => void;
   onEdit: () => void;
+  /** The Pin button, which the graph owns. */
+  pin?: ReactNode;
   onClose: () => void;
 }) {
   const type = workspace.tagTypes.find((t) => t.id === tag.typeId);
@@ -38,6 +41,7 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
           : <span className="subtle">{tag.url}</span>)}
         <button className="text-button" disabled={!bookmarks.length} onClick={onCopy}><Icon name="copy" size={13} /> Copy…</button>
         <button className="text-button" onClick={onEdit}><Icon name="edit" size={13} /> Edit</button>
+        {pin}
       </div>
       {tag.description?.trim() ? <Markdown text={tag.description} /> : <p className="subtle">No description.</p>}
       <section className="triage-section">

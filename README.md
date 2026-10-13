@@ -1,11 +1,11 @@
 # Bookmark & Tag
 
-An import-first, local-first workspace for collecting bookmarks, organizing them with tags, and processing them through a G6 force-directed graph.
+A local-first workspace for triaging bookmarks into project ideas, organized with tags on a force-directed graph.
 
-- [Approved product plan](docs/product-plan.md)
-- [Checkpoint review guide](docs/product-review-guide.md)
-- [Implementation progress](docs/product-progress.md)
-- [App setup and current limitations](app/README.md)
+- [Documentation](docs/README.md)
+- [Current plan](docs/plan.md)
+- [Progress and open items](docs/progress.md)
+- [App setup and usage](app/README.md)
 
 ```sh
 cd app
@@ -13,6 +13,6 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5199/. The current milestone is Stage C / Checkpoint C ready for review: Stage B and its UI improvement checkpoint are accepted, and the complicated processing workflow is runnable end to end.
+Open http://127.0.0.1:5199/. Rounds 0–3 are approved; round 1.5 was skipped because the user's local fetcher already works. Round 4 (WebMCP) is next and requires choosing a browser and agent pair.
 
-The personal bookmark prototype has been reverted on this branch and remains recoverable from Git history.
+Completed plans, reviews, and round history are preserved in [docs/archive](docs/archive/README.md). The original personal bookmark prototype remains recoverable from Git history.

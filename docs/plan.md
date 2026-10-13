@@ -1,6 +1,6 @@
 # Plan — triage bookmarks into project ideas
 
-October 11, 2026. Replaces [product-plan.md](product-plan.md), [product-review-guide.md](product-review-guide.md), and the C.1 amendment. Those stay as history.
+Updated October 12, 2026. Rounds 0–3 are approved; round 1.5 is skipped. Round 4 (WebMCP) is next. [Progress](progress.md) records current behavior and open items; [the archive](archive/README.md) preserves completed rounds and superseded checkpoint plans.
 
 ## What the app is for
 
@@ -8,104 +8,55 @@ October 11, 2026. Replaces [product-plan.md](product-plan.md), [product-review-g
 2. **Group them into project ideas.** A bookmark joins one or more groups (existing GitHub issues, proposed issues, topics), and a group can be read as a whole.
 3. **Let an agent help, through WebMCP.** The agent can add new items, fill in item details, and read processed groups with their bookmarks.
 
-**Filters** support all three: finding what is left to triage and what belongs together.
-
-Anything not serving these jobs is frozen (kept in the code, not extended, hidden if it gets in the way) or cut.
+**Filters** support all three: finding what is left to triage and what belongs together. Anything not serving these jobs is frozen or cut.
 
 ## Test data
 
-From now on the test data is the user's own `bookmarks-working.json` (148 bookmarks, git-ignored), not the samples. A one-off script converts it to the app's backup JSON, which is restored through **Restore backup**:
-
-| Prototype | App |
-|---|---|
-| bookmarks (title, URL, note/excerpt, cover, Raindrop tags) | bookmarks |
-| 15 GitHub issues | tags of type **Existing issue** |
-| 6 proposed issues | tags of type **Proposal issue** |
-| 29 categories | tags of type **Topic** |
-| existing references and seed bookmarks | memberships |
-| `node_progress` pending / done / dropped | statuses |
-| 2 duplicate groups, link-check warnings, suggested next action | kept as bookmark details so triage can show them |
-
-The original Raindrop fields are kept on each bookmark so nothing is lost. The converter lives in `scripts/` and is tested on a small fixture.
+Use the user's `bookmarks-working.json` (148 bookmarks, git-ignored), converted by `npm run convert` in `app/` and loaded through **Restore backup**. The backup contains 15 Existing issue, 6 Proposal issue, and 29 Topic tags, with 240 memberships from decided and suggested placements. Pending/done/dropped statuses, membership reasons, duplicate groups, link-check warnings, and original Raindrop fields are retained. [The app guide](../app/README.md) explains upgrading backups from before the rename.
 
 ## How each round works
 
-Each round is one small piece of work:
+1. **Mockup first** for anything visual: a working static artifact with the user's real use cases. Get approval or changes before implementation.
+2. **Build** the accepted direction.
+3. **Verify** every task the user will try in the browser with their data, at desktop and narrow widths.
+4. **User review:** 2–4 tasks, about 5 minutes. Fix feedback before the next round unless the user defers it.
 
-1. **Mockup first** for anything you will look at: a static page with your real data. You approve or change it before any code is written.
-2. **Build** it.
-3. **I verify it myself** in the browser with your data, checking every task you will try, at desktop and narrow widths. It is not ready until those pass.
-4. **You try it**: 2–4 tasks, about 5 minutes. Feedback is fixed before the next round starts, unless you choose to defer an item.
+Keep rounds small. There are no checkpoint tags, deferred-verification registers, or release gates. [Progress](progress.md) summarizes the active state; completed detail goes into [the archive](archive/README.md).
 
-There are no checkpoint tags, deferred-verification registers, or release gates. [progress.md](progress.md) records one line per round: what shipped and what is still open.
+## Accepted rounds
 
-## Rounds
+| Round | Accepted scope | Status |
+|---|---|---|
+| 0 — Data and graph fixes | Prototype converter, restore, import placement, pan/zoom improvements, covers, readable hover/selection titles | Approved October 11, 2026 |
+| 1 — Triage | Queue/graph/detail workspace, Done/Drop/Deselect, group membership, box selection, copy templates, header menus, Undo feedback | Approved October 11, 2026 |
+| 1.5 — Fetch details | Planned local helper and reviewed enrichment | Skipped October 11, 2026: user's local fetcher works |
+| 2 — Issues and tags | Readable issue view, create/edit tag types, appearance overrides, four tag styles in eight directions, hidden-group peeking, Bookmark & Tag rename | Approved October 12, 2026 |
+| 3 — Filters | Compact search/Show/Filters bar, counted filter values, Saved filters, restored pinning, matching floating graph toolbar | Approved October 12, 2026 |
 
-### 0. Your data in, known bugs out
+## Next: round 4 — WebMCP for the user's agent
 
-- Write the converter and restore your collection.
-- Fix the bugs found in the Checkpoint C review: the graph is blank until **Fit graph** after an import, and new tags from a second import are placed badly.
-- **You try:** restore your collection; check that bookmarks, issues, and topics look right.
-- **Follow-up — smooth panning with your collection:** measure the lag first; hide bookmark titles below a zoom threshold (tag titles and the selected or hovered bookmark stay); stop restyling every label on each pan/zoom step.
-- **You try:** pan and zoom around your collection; check the threshold feels right.
+Starting this round requires naming the browser and agent pair. No WebMCP integration has been implemented yet.
 
-### 1. Triage
+- Tools: **add item**, **update item details** (description, URL, tags, status), **read an issue** (its bookmarks and details), plus **search and filter** for finding things.
+- Writes use the same domain commands as the UI and appear in Undo.
+- Decide at the start whether the user approves each agent write or reviews changes afterwards.
+- Prepare a mockup for any visible agent controls and review flow before implementation.
+- **User review:** have the agent add two bookmarks to an issue and summarize one group.
 
-Triage **replaces the current graph screen** (decided October 11, 2026). The approved direction is the mockup at `app/mockups/triage.html`:
+## Later, only if needed
 
-- The force-directed graph stays at the center. The current bookmark is framed with all of its groups; bookmarks sharing a group are highlighted as related; everything else fades.
-- Two-finger scrolling pans and pinching zooms. Dragging on the canvas draws a selection box (Shift adds, Esc clears); the queue narrows to the selection, ordered clockwise around its center.
-- A filter bar narrows the graph and the queue by text, group type, and whether decided bookmarks show.
-- Decisions: **Done**, **Drop**, and **Deselect** (removes the bookmark from the selection without deciding it). Each moves to the next bookmark, with Undo. Done does not require a group; a hint shows when there is none.
-- **Copy** (the core feature kept from the old screen): copies the selected bookmarks, the current list (filter + tab), or the current bookmark, in queue order, through a template with presets and fields (`{title}`, `{url}`, `{groups}`, …), with a live preview.
-- **Header** (decided October 11, 2026): no sidebar. The header starts with the logo and a collection menu and ends with a ⋯ menu: Add bookmark… (the Import screen), Add tag…, Import history…, Download backup, Restore backup…. The graph toolbar has Queue, Whole collection, and Current (scope icon).
-- **You try:** triage 10 real bookmarks and copy one selection into a real destination.
+- Performance work if the real collection is slow. The 148-bookmark collection does not need the former 5,000-bookmark budget.
+- Static deployment. A GitHub Pages build has no bundled fetcher; URL fetching stays outside the static app.
 
-### 1.5. Fetch title, description, and image from the URL
-
-A browser page cannot read other sites (CORS), so fetching needs a small helper.
-
-- **Helper:** a deterministic local Node service started with the app (`npm run dev` starts both). It downloads the page with a timeout and size limit, reads the title, description, and preview image (Open Graph / Twitter / `<title>` / meta description), and downloads the image. It never runs page scripts, and it refuses `localhost` and private-network addresses. The agent is only a fallback.
-- **GitHub Pages:** the end-game deployment is static and has no fetcher. **Fetch details** is hidden there, and everything else works the same. Decided October 11, 2026.
-- **In the app:** a **Fetch details** action on one bookmark, a multi-selection, or a filtered view. Results are reviewed before saving: empty fields can be filled in one step; values that differ from existing ones are shown side by side to choose. Saving appears in Undo.
-- **Images** are stored as local image assets on the bookmark (this unfreezes media for images). Raindrop's `cover` URL is used when the page has no image.
-- Failures (timeout, 404, blocked, non-HTML) are recorded on the bookmark so triage and filters can find them. This replaces the prototype's link-check warnings for bookmarks that are fetched again.
-- **You try:** fetch one bookmark, then 20 at once; accept some changes and reject others; check the images after reload and in a backup.
-
-### 2. Issues and tags
-
-- Create and edit tag types (Existing issue, Proposal issue, Topic, …). This does not exist today.
-- An issue view: the issue's description and its bookmarks, readable on its own.
-- Tag appearance moves into a collapsed **Appearance** section. Overrides must actually change the node: color fills the node instead of only the border; size, shape, and icon render.
-- **You try:** create a type, review one issue, override one tag's color.
-
-### 3. Filters, redesigned
-
-Same capabilities, new UI. Mockup options first, built from what you dislike about the current screen. The rule types you need are decided then; distance filters stay only if you want them.
-
-- **You try:** find "pending bookmarks in topic X not yet in any issue", save it as a view, and reopen it.
-
-### 4. WebMCP for your agent
-
-Starting this round requires naming the browser and agent you will use.
-
-- Tools: **add item**, **update item details** (description, URL, tags, status), **read an issue** (its bookmarks and their details), plus **search and filter** for finding things.
-- Writes go through the same domain commands as the UI and appear in Undo. Whether you approve each agent write or review afterwards is decided at the start of the round.
-- **You try:** have your agent add two bookmarks to an issue and summarize one group.
-
-### Later, only if needed
-
-- Performance work, if your real collection is slow. 148 bookmarks does not need the 5,000-bookmark budget.
-- Static deployment.
-
-## Frozen or cut
+## Scope boundaries
 
 | Feature | Decision |
 |---|---|
-| Graph view, import wizard, backup/restore, current Undo | Keep. Fix bugs as they are found. |
-| Copy composer | Rebuilt in round 1 as triage selection copy (templates, presets, preview). The old composer goes with the old graph screen. |
-| Media upload | Freeze, except image assets from round 1.5. |
-| Bulk status propagation | Revisit in round 1: triage replaces the old graph screen. |
-| C.1 undo rework (change sets, Redo, schema 2) | Cut. Current undo stays until it causes a real problem. |
-| New bookmark, archive | Moved into rounds 1/4 (WebMCP needs add item; triage may need archive). |
-| 1,000/5,000 measurements, release review | Cut. |
+| Graph, import wizard, backup/restore, current Undo | Keep; fix bugs as found. |
+| Copy composer | Triage selection/list/current copy with templates, presets, and preview. |
+| Media upload and bulk status propagation | Frozen; old dialogs were removed in round 1. Existing backup media support remains. |
+| C.1 undo rework (change sets, Redo) | Cut. Current Undo stays until it causes a real problem. The rename's schema version 2 does not implement C.1. |
+| Record lifecycle | Collections can be deleted with confirmation and a backup offer. Bookmarks, tags, and tag types have no individual deletion. Archive/unarchive is not implemented. |
+| Single bookmark creation | Add bookmark currently opens Import; WebMCP needs an add-item command in round 4. |
+| Advanced filter rules | Linked tag status, same-group, distance, and nested any/all remain in the domain engine but are not exposed by the compact filter UI. |
+| 1,000/5,000 measurements and release review | Cut. |
