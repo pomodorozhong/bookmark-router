@@ -1,10 +1,10 @@
 # Session progress
 
-Updated October 13, 2026 (Asia/Taipei).
+Updated October 14, 2026 (Asia/Taipei).
 
 ## Current state
 
-The approved **Set aside** flow is implemented, verified, and committed as `adfae5a` on `codex/bubble-tag-product`. Rejection now defers a batch without saving; earlier batches remain selectable and can be applied later with the existing stale-review protections. The user approved the clickable mockup and requested focused commits and this handoff. They have not explicitly accepted the implemented interaction or closed broader round 4 acceptance.
+The approved **Set aside** flow is implemented, verified, and committed as `adfae5a` on `codex/bubble-tag-product`. Rejection now defers a batch without saving; earlier batches remain selectable and can be applied later with the existing stale-review protections. The user accepted the implemented batch workflow on October 14, 2026, closing round 4.
 
 The earlier WebMCP, selection enrichment, remote-image proposals, and two-click Apply anyway work is committed. The user reports thumbnail repair works and accepted the two-click interaction; the reminder’s separate row and right alignment are implemented and browser-verified. Claude testing is done (October 13): a Claude Code desktop session read the live collection and #141 through `bookmark-tag-chrome`. The in-app browser has no WebMCP; see [limitation](../docs/webmcp.md#claude-desktop).
 

@@ -1,6 +1,5 @@
 # Next steps
 
-No GitHub issues exist yet; drafts live in the parked pending commit until approved.
+v1 landed on `main` as five squash-merged PRs: #2 (foundation), #3 (triage), #4 (tag types and styles), #5 (filters), and the agent-batches PR (round 4). `codex/bubble-tag-product` is kept as the unsquashed backup.
 
-1. Clean up `codex/bubble-tag-product` and set up PRs to `main` (about 102 local-only commits since `90c8540`, many small docs/mockup/fix commits; split into reviewable PRs; confirm before any push)
-2. (draft) Round 4: human acceptance of the WebMCP batch workflow (closes round 4; link it from the agent-integration PR)
+From here, work issue-first: open an issue per change, then a branch and a PR that closes it. No issues exist yet; draft the first ones from [progress open items](../docs/progress.md#open-items) and confirm with the user before creating them.
