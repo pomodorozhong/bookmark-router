@@ -5,13 +5,13 @@ Bookmark & Tag is a local-first app for triaging bookmarks into project ideas, w
 ## Start of a session
 
 1. Resolve any items parked by an earlier wrap-up (a `chore: park pending items` commit on any branch; see the `wrap-up` skill).
-2. Read [.agents/next-steps.md](.agents/next-steps.md).
+2. Read [.agents/next-steps.md](.agents/next-steps.md) from the most recently pushed branch (`git fetch`, then `git for-each-ref --sort=-committerdate --count=3 refs/remotes/origin`), not only `main`; another computer may have pushed a newer ranking.
 3. Check that the top issue is still open (`gh issue view`), read it and its comments, then propose it to the user. Work without an issue gets one drafted.
 
 ## Where things live
 
 - GitHub issues: work items, with handoff notes in their comments.
-- `.agents/next-steps.md`: the ranked list of issues to work on next. The ranking ships with each PR, so `main` matches the merged work; a branch with an open PR carries the ranking that assumes it merges.
+- `.agents/next-steps.md`: the ranked list of issues to work on next. It is updated before every push, so the latest ranking is on the most recently pushed branch, and `main` holds the ranking for the merged work.
 - `.agents/pending.md`: items parked for the user's approval, in one `chore: park pending items` commit on the branch with the related work, or on `chore/pending-<date>` from `main`. Never park on a local-only backup branch.
 - `docs/`: long-term knowledge: plan, behavior, decisions, and verification ([index](docs/README.md)).
 - The user runs the dev server at `http://127.0.0.1:5199`; their real collection lives in that origin's browser storage. Don't restore into it or reload a pending agent batch without asking; verify with a copy (see [verification](docs/progress.md#working-agreements-and-verification)).
@@ -22,7 +22,7 @@ Bookmark & Tag is a local-first app for triaging bookmarks into project ideas, w
 - Name branches `<type>/<summary>` with Conventional Commit types (`feat/thumbnail-store`, `fix/filter-wrap`).
 - One issue per change; its PR closes it. Each follows [How each change works](docs/plan.md#how-each-change-works): mockup first for visual changes, then 2–4 "You try" tasks, with approval recorded on the issue. Ask before filing a new issue or pushing.
 - Write PR titles in plain words about what that PR alone does, without planning jargon.
-- Before pushing a branch with a PR, update `.agents/next-steps.md` to read as it will once that PR merges, and commit it as `docs:` on that branch.
+- Before every push, update `.agents/next-steps.md` to read as it will once that branch merges, and commit it as `docs:` on that branch, so switching computers picks up the latest ranking.
 - PRs are squash-merged. After a PR in a stack merges, rebase the next branch onto the new `main` (`git rebase --onto origin/main <old base commit> <branch>`) before filing it.
 
 ## Checks
