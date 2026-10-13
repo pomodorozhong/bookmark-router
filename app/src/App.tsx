@@ -564,7 +564,7 @@ export default function App() {
     </button>
   );
   const agentProposal = agentSession.current;
-  const agentPending = agentProposal?.state === "pending_review" || agentProposal?.state === "stale";
+  const agentPending = Boolean(agentSession.pending);
   const agentReviewButton = <button className="agent-review-entry" disabled={busy} onClick={() => void openAgentReview()} aria-label={`Agent review${agentPending ? ", 1 batch awaiting review" : ""}`}>
     <Icon name="check" size={15} /><span>Agent review</span>{agentPending && <span className="agent-review-count" aria-hidden="true">1</span>}
   </button>;
@@ -1069,10 +1069,11 @@ export default function App() {
           />
         )}
       </main>
-      {agentReviewOpen && <AgentReviewDialog proposal={agentProposal} workspace={workspace} availability={agentAvailability} busy={busy} error={agentError} loadMedia={loadReviewMedia}
+      {agentReviewOpen && <AgentReviewDialog proposal={agentProposal} proposals={agentSession.batches} workspace={workspace} availability={agentAvailability} busy={busy} error={agentError} loadMedia={loadReviewMedia}
         onApply={() => void applyAgentBatch()}
         onApplyAnyway={(revision) => void applyAgentBatch(revision)}
-        onReject={() => { if (agentProposal && !busy) { agentSession.reject(agentProposal.id); setAgentError(""); notify("Batch rejected. No bookmark changes saved."); } }}
+        onSetAside={() => { if (agentProposal && !busy) { agentSession.setAside(agentProposal.id); setAgentError(""); notify("Batch set aside. Nothing saved; you can apply it later."); } }}
+        onSelect={(id) => { if (!busy) { agentSession.select(id); setAgentError(""); } }}
         onClose={() => setAgentReviewOpen(false)} />}
       {editing && (
         <RecordEditor
