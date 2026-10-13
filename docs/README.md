@@ -8,6 +8,6 @@ Updated October 14, 2026. Rounds 0–4 are approved and round 1.5 is skipped.
 - [App guide](../app/README.md): setup, controls, backup formats, and prototype recovery.
 - [Archive](archive/README.md): completed round history, superseded plans, review checklists, screenshots, and mockups.
 
-## Agent continuation notes
+## Agent workflow
 
-[AGENTS.md](../AGENTS.md) points to the tracked [continuation plan](../.agents/plan.md) and [session progress](../.agents/progress.md). Keep these notes concise and update them at meaningful milestones. They record immediate next steps, accepted decisions, and verification limits; lasting product behavior and setup belong in the guides above. Link to those guides rather than copying them, and keep local configuration, temporary evidence, and personal collection data out of handoff commits.
+[AGENTS.md](../AGENTS.md) describes how agents work here: GitHub issues hold the work, `.agents/next-steps.md` ranks them, and this folder holds lasting knowledge.
