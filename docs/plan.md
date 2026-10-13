@@ -37,7 +37,7 @@ Keep rounds small. There are no checkpoint tags, deferred-verification registers
 ## Later, only if needed
 
 - Performance work if the real collection is slow. The 148-bookmark collection does not need the former 5,000-bookmark budget.
-- Static deployment. A GitHub Pages build has no bundled fetcher; URL fetching stays outside the static app.
+- Static deployment (GitHub Pages). It has no bundled fetcher, so thumbnails come from keyless CORS services and are stored locally ([#7](https://github.com/pomodorozhong/bookmark-router/issues/7)); a local agent reaches the app through a WebMCP relay ([#8](https://github.com/pomodorozhong/bookmark-router/issues/8)). Collections are per origin, so a deployed copy starts empty until a backup is restored.
 
 ## Scope boundaries
 

@@ -16,11 +16,11 @@ Updated October 14, 2026. Rounds 0–4 are approved; round 1.5 was skipped becau
 
 ## Open items
 
-- Agent review was checked at measured 390- and 320-pixel widths, not on a real touch device. The Claude Code in-app browser cannot run WebMCP.
+- Agent review was checked at measured 390- and 320-pixel widths, not on a real touch device. The Claude Code in-app browser cannot run WebMCP; [#8](https://github.com/pomodorozhong/bookmark-router/issues/8) adds a relay for it.
 - Not verified on real hardware: the system clipboard for Copy and the Custom color swatch's system picker. The user reported trackpad pan/pinch working.
 - Below about 1150 px with the queue open, the filter bar wraps. At phone width the header is crowded and tapping a tag was not verified.
 - Titles of non-focused bookmarks can be partly covered by nearby nodes when zoomed in; zooming above 60% still stutters slightly. The user accepted the remaining high-zoom panning cost.
-- Some remote covers fail to load (403, for example Twitter profile images); they stay blank.
+- Some remote covers fail to load (for example Twitter profile images, whose URLs change when the picture does); they stay blank. [#7](https://github.com/pomodorozhong/bookmark-router/issues/7) stores thumbnails locally with fallbacks.
 - Hidden nodes hold their positions during a reset, so peeking or re-shown nodes can overlap shown nodes or sit off-screen.
 - The cluster-edge selection start was not verified by eye on a lopsided group; the 90° threshold may need adjustment.
 - Import filter behavior was not browser-verified because the converted collection has no import batches.
