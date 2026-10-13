@@ -26,7 +26,7 @@ Bookmark & Tag is a local-first app for triaging bookmarks into project ideas, w
 
 ## Checks
 
-In `app/`: `npm run build` and `npm test`. Before a PR, run them after a fresh `npm ci` in a clean worktree; an existing `node_modules` can hide a broken lockfile.
+In `app/`: `npm run build` and `npm test`. Before a PR, run them after a fresh `npm ci` in a clean worktree; an existing `node_modules` can hide a broken lockfile. CI ([checks.yml](.github/workflows/checks.yml)) runs the same `npm ci`, build, and tests on every PR to `main`.
 
 ## End of a session
 
