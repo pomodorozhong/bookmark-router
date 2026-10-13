@@ -1,6 +1,6 @@
 # WebMCP — bookmark tools, setup, and verification
 
-Updated October 13, 2026. **The app implementation and approved review UI are complete.** Six tools register in the live app when WebMCP is available, including copying the current selection into the agent conversation and proposing remote images with visible current/proposed previews. The user reports thumbnail repair through the agent is working. The subsequently approved **Apply anyway** flow lets the human apply a stale batch after reviewing its exact overwrites against current saved values. Domain, transaction, Undo, and browser checks pass. The normal-profile Chrome connection and exact installed server command were verified during the earlier connection review; Chrome must remain open and reachable for further use. Both desktop configs have been installed with backups. This Codex conversation has discovered the live tools and read the 148-bookmark collection and #141's seven bookmarks. Broader human batch-flow acceptance remains pending. Claude testing is deferred.
+Updated October 13, 2026. **The app implementation and approved review UI are complete.** Six tools register in the live app when WebMCP is available, including copying the current selection into the agent conversation and proposing remote images with visible current/proposed previews. The user reports thumbnail repair through the agent is working. The subsequently approved **Apply anyway** flow lets the human apply a stale batch after reviewing its exact overwrites against current saved values. Domain, transaction, Undo, and browser checks pass. The normal-profile Chrome connection and exact installed server command were verified during the earlier connection review; Chrome must remain open and reachable for further use. Both desktop configs have been installed with backups. This Codex conversation has discovered the live tools and read the 148-bookmark collection and #141's seven bookmarks. Broader human batch-flow acceptance remains pending. Claude testing is done: a Claude Code session in the Claude desktop app discovered the six tools and read the collection and #141 through the bridge.
 
 This document is the standalone reference for Bookmark & Tag’s round 4 agent integration. It includes the accepted behavior, tool contracts, complete client configuration, observed verification, and remaining acceptance steps. Other project guides link here rather than maintaining separate MCP instructions.
 
@@ -44,6 +44,10 @@ Merge this entry into `mcpServers` in the existing macOS configuration at `~/Lib
   }
 }
 ```
+
+Claude Desktop rewrote this file on October 13, 2026 and dropped the entry; re-add it (or use **Settings → Developer**) if `bookmark-tag-chrome` stops appearing. Code sessions in the desktop app also load this entry and receive the bridge tools.
+
+**Limitation: the Claude Code in-app browser cannot run WebMCP.** Its embedded Chromium (152 in Claude 2.31226.1) has no `document.modelContext`, so the app registers no tools there, and the browser pane's tools cannot invoke WebMCP tools. Use the app in normal Chrome through `bookmark-tag-chrome` instead. Calling app code through the pane's JavaScript tool bypasses WebMCP and does not count as a test.
 
 Claude Desktop supports local MCP servers through its Developer configuration and desktop extensions. Packaging an extension is outside this small round. See [Claude Desktop's local MCP documentation](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
 
@@ -222,7 +226,7 @@ The following results were observed October 13, 2026. App and bridge verificatio
 | `--autoConnect` against the user's normal profile | Passed after user enabled WebMCP and remote debugging |
 | Exact installed npx command and PATH | Passed handshake, discovery, context (148), #141 (7), and warning filter (15); an earlier first browser call timed out, a retry passed |
 | Local Codex configuration recognition | Passed `codex mcp get bookmark-tag-chrome`; enabled with four allowed tools |
-| Claude Desktop 2.31226.1 | Config installed; testing deferred by user; existing running task was left intact |
+| Claude Desktop 2.31226.1 | Done: a Claude Code session in the desktop app listed pages, discovered six tools, read the collection (148 bookmarks, revision 0), and read #141 (seven bookmarks) through the bridge; the user marked Claude testing done. In-app browser lacks WebMCP (see [limitation](#claude-desktop)). |
 | Codex desktop 26.1007.30912 | Live discovery and collection/group reads passed in this conversation; human batch-flow acceptance pending |
 
 The user enabled Chrome's WebMCP and remote-debugging settings. The bridge attached to the normal profile, discovered all five tools, and read the active collection. The profile initially contained an empty collection; a separate copy of the 148-bookmark backup was restored through the real app UI. Existing collections in the in-app browser were not changed. Native UI control recovered for Chrome and Claude after an initial macOS capture error; it explicitly disallows operating Codex itself.
@@ -238,7 +242,7 @@ This conversation has passed live page discovery, tool discovery, collection con
 
 The installed Codex entry allows a 30-second server startup and 120-second tool call so first-run npx startup and Chrome's permission prompt have time to complete. Desktop settings and shared config are documented in [official MCP guidance](https://learn.chatgpt.com/docs/extend/mcp?surface=cli). Earlier direct-client verification has now been followed by successful read-only calls from the actual Codex conversation.
 
-After connecting Codex, try these acceptance tasks (Claude testing is deferred):
+After connecting Codex, try these acceptance tasks:
 
 1. Ask it to propose two new bookmark URLs for an existing issue. Open **Agent review**, inspect the batch, **Apply batch**, close review, and **Undo**. Confirm both links disappear together.
 2. Ask it to read and summarize that issue. Confirm it includes all linked bookmarks, even those outside the current queue or hidden graph groups.
