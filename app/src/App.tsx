@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GraphCanvas, type GraphCanvasHandle } from "./components/GraphCanvas";
-import { WorkspaceFeedback } from "./components/WorkspaceFeedback";
+import { TriageScreen } from "./components/TriageScreen";
+import { CollectionMenu, MoreMenu } from "./components/AppMenus";
+import { Toast, type ToastMessage } from "./components/Toast";
 import {
   fields,
   guessMapping,
@@ -14,28 +15,15 @@ import {
 import { bookmarkSample, readingSample } from "./domain/samples";
 import {
   emptyWorkspace,
-  isWebUrl,
-  type CopyPreset,
-  type Filter,
-  type SavedView,
   type Workspace,
   type Geometry,
 } from "./domain/model";
-import { filterBubbles } from "./domain/filters";
-import { composeCopy, defaultCopyOptions } from "./domain/copy";
 import { WorkspaceStore } from "./domain/storage";
 import { ConflictError, type Command } from "./domain/commands";
 import { undoConflicts } from "./domain/import-commands";
-import { AssetPreview } from "./components/AssetPreview";
 import { RecordEditor } from "./components/RecordEditor";
-import { usePanelFocus } from "./components/usePanelFocus";
 import { Dialog } from "./components/Dialog";
 import { Icon, IconButton, type IconName } from "./components/Icon";
-import { StatusPropagationDialog } from "./components/StatusPropagationDialog";
-import { BulkStatusDialog } from "./components/BulkStatusDialog";
-import { FilterDialog } from "./components/FilterDialog";
-import { CopyComposerDialog } from "./components/CopyComposerDialog";
-import { MediaUploadDialog } from "./components/MediaUploadDialog";
 const store = new WorkspaceStore();
 function activeCollection() {
   try {
@@ -94,78 +82,29 @@ export default function App() {
   const [choices, setChoices] = useState<
       Record<number, "skip" | "keep" | "merge">
     >({}),
-    [excluded, setExcluded] = useState<Set<number>>(new Set()),
-    [selected, setSelected] = useState<string>(),
-    [selectedIds, setSelectedIds] = useState<string[]>([]),
-    [query, setQuery] = useState(""),
-    [list, setList] = useState(false),
-    [inspectorOpen, setInspectorOpen] = useState(false),
-    [panelOpen, setPanelOpen] = useState(true),
-    [manageMemberships, setManageMemberships] = useState(false);
+    [excluded, setExcluded] = useState<Set<number>>(new Set());
   const [loaded, setLoaded] = useState(false),
     [collections, setCollections] = useState<Workspace[]>([]),
     [geometry, setGeometry] = useState<Geometry>(),
     [editing, setEditing] = useState<string>(),
     [history, setHistory] = useState(false),
     [undoBatch, setUndoBatch] = useState<string>(),
-    [notice, setNotice] = useState(""),
+    [toast, setToast] = useState<ToastMessage>(),
+    [deleting, setDeleting] = useState<Workspace>(),
     [promptKind, setPromptKind] = useState<"collection" | "tag">(),
     [promptValue, setPromptValue] = useState("");
-  const [statusDialogTag, setStatusDialogTag] = useState<string>(),
-    [nextUndo, setNextUndo] = useState<Awaited<ReturnType<WorkspaceStore["nextUndo"]>>>(),
-    [undoMessage, setUndoMessage] = useState<string>(),
-    [filterDialogOpen, setFilterDialogOpen] = useState(false),
-    [copyDialogTag, setCopyDialogTag] = useState<string>(),
-    [bulkStatusOpen, setBulkStatusOpen] = useState(false),
-    [mediaDialogOpen, setMediaDialogOpen] = useState(false),
-    [activeFilter, setActiveFilter] = useState<Filter>({ op: "all", rules: [] }),
-    [hiddenTagIds, setHiddenTagIds] = useState<string[]>([]),
-    [viewSort, setViewSort] = useState<SavedView["sort"]>("title"),
-    [activeViewId, setActiveViewId] = useState<string>();
+  const [nextUndo, setNextUndo] = useState<Awaited<ReturnType<WorkspaceStore["nextUndo"]>>>();
+  const toastId = useRef(0);
+  const notify = (text: string, undo?: () => void) => setToast({ id: ++toastId.current, text, undo });
   const [statusMapping, setStatusMapping] = useState<Record<string, string>>(
       {},
     ),
     [typeMapping, setTypeMapping] = useState<Record<string, string>>({}),
     [invalidAcknowledged, setInvalidAcknowledged] = useState(false),
     [reviewTarget, setReviewTarget] = useState<Workspace>();
-  const graphRef = useRef<GraphCanvasHandle>(null);
-  const collectionPickerRef = useRef<HTMLDivElement>(null);
-  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
-  usePanelFocus(panelOpen && loaded, "#left-panel", 820, () => setPanelOpen(false));
-  usePanelFocus(inspectorOpen && screen === "workspace", ".inspector", 600, () => setInspectorOpen(false));
-  const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
   const submitting = useRef(false),
     workspaceRef = useRef(workspace);
   workspaceRef.current = workspace;
-  useEffect(() => {
-    if (!collectionMenuOpen) return;
-    collectionPickerRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
-    const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!collectionPickerRef.current?.contains(event.target as Node)) {
-        setCollectionMenuOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        setCollectionMenuOpen(false);
-        collectionPickerRef.current?.querySelector<HTMLElement>(".collection-select")?.focus();
-      }
-      if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-        event.preventDefault();
-        const options = Array.from(collectionPickerRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
-        const current = options.indexOf(document.activeElement as HTMLElement);
-        const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : (current + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
-        options[next]?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [collectionMenuOpen]);
   useEffect(() => {
     let active = true;
     const storageTimeout = window.setTimeout(() => {
@@ -204,10 +143,7 @@ export default function App() {
         if (w && w.revision !== workspaceRef.current.revision) {
           setWorkspace(w);
           void store.nextUndo(w.id).then(setNextUndo);
-          setUndoMessage(undefined);
-          setNotice(
-            "This collection changed in another tab. Review pending changes again.",
-          );
+          notify("This collection changed in another tab. Review pending changes again.");
         }
       });
     };
@@ -222,34 +158,23 @@ export default function App() {
     setGeometry(await store.getGeometry(w.id));
     setWorkspace(w);
     rememberCollection(w.id);
-    setCollectionMenuOpen(false);
-    setSelected(undefined);
-    setSelectedIds([]);
-    setManageMemberships(false);
-    setStatusDialogTag(undefined);
     setNextUndo(await store.nextUndo(w.id));
-    setUndoMessage(undefined);
-    setFilterDialogOpen(false);
-    setCopyDialogTag(undefined);
-    setBulkStatusOpen(false);
-    setMediaDialogOpen(false);
-    setActiveFilter({ op: "all", rules: [] });
-    setHiddenTagIds([]);
-    setViewSort("title");
-    setActiveViewId(undefined);
-    setQuery("");
+    setToast(undefined);
     setScreen("workspace");
   }
   async function publish(w: Workspace) {
     setWorkspace(w);
-    setNextUndo(await store.nextUndo(w.id));
+    const entry = await store.nextUndo(w.id);
+    setNextUndo(entry);
     setCollections(await store.list());
+    return entry;
   }
-  async function save(command: Command | Command[]) {
+  async function save(command: Command | Command[], label?: string) {
     try {
-      const current = await store.command(workspace.id, workspace.revision, command);
-      await publish(current);
-      setUndoMessage(undefined);
+      const current = await store.command(workspace.id, workspace.revision, command, label);
+      const entry = await publish(current);
+      // Every saved change can be undone from its toast.
+      if (entry?.revision === current.revision) notify(entry.label, () => void undoRef.current());
     } catch (e) {
       const latest = await store.get(workspace.id);
       if (latest) await publish(latest);
@@ -264,13 +189,7 @@ export default function App() {
     try {
       const next = await store.undoLast(workspace.id, workspace.revision, nextUndo.id);
       await publish(next);
-      setUndoMessage(`Undid: ${nextUndo.label}`);
-      setSelectedIds((ids) => ids.filter((id) => [...next.bubbles, ...next.tags].some((record) => record.id === id)));
-      if (selected && ![...next.bubbles, ...next.tags].some((record) => record.id === selected)) setSelected(undefined);
-      setActiveFilter({ op: "all", rules: [] });
-      setHiddenTagIds([]);
-      setActiveViewId(undefined);
-      setViewSort("title");
+      notify(`Undid: ${nextUndo.label}`);
     } catch (e) {
       setError(String(e));
       const latest = await store.get(workspace.id);
@@ -280,81 +199,45 @@ export default function App() {
       setBusy(false);
     }
   }
-  async function saveView(view: SavedView) {
-    await save({ type: "view.upsert", view });
-    setActiveViewId(view.id);
-    setNotice(`Saved view “${view.name}”.`);
-  }
-  async function deleteView(id: string) {
-    await save({ type: "view.remove", id });
-    if (activeViewId === id) setActiveViewId(undefined);
-    setNotice("Saved view deleted.");
-  }
-  async function savePreset(preset: CopyPreset) {
-    await save({ type: "copy-preset.upsert", preset });
-    setNotice(`Saved copy preset “${preset.name}”.`);
-  }
-  async function deletePreset(id: string) {
-    await save({ type: "copy-preset.remove", id });
-    setNotice("Copy preset deleted.");
-  }
-  async function copyBubble(id: string) {
-    const bubble = workspace.bubbles.find((item) => item.id === id);
-    if (!bubble) return;
-    const output = composeCopy([bubble], workspace, defaultCopyOptions);
-    if (!output) return;
+  const undoRef = useRef(undoLastAction);
+  undoRef.current = undoLastAction;
+  const undoAvailable = Boolean(nextUndo && nextUndo.revision === workspace.revision);
+  // Cmd/Ctrl+Z undoes the last saved change anywhere outside a text field or dialog.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "z") return;
+      if ((e.target instanceof Element && e.target.closest("input, textarea, select, [contenteditable]")) || document.querySelector("dialog[open]")) return;
+      e.preventDefault();
+      void undoRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  async function deleteCollection(target: Workspace) {
+    if (submitting.current) return;
+    submitting.current = true;
+    setBusy(true);
     try {
-      await navigator.clipboard.writeText(output);
-      setNotice(`Copied “${bubble.title}”.`);
-    } catch {
-      setError("Clipboard access was unavailable. Open the source link or copy the text manually.");
-    }
-  }
-  async function attachMedia(
-    assignments: Array<{
-      bubbleId: string;
-      expectedRecordRevision: number;
-      asset: import("./domain/model").Asset;
-    }>,
-    files: Array<{ id: string; filename: string; mime: string; blob: Blob }>,
-  ) {
-    try {
-      const next = await store.attachMedia(
-        workspace.id,
-        workspace.revision,
-        assignments,
-        files,
-      );
-      await publish(next);
-      setUndoMessage(undefined);
-      setNotice(`Attached ${files.length} local media file${files.length === 1 ? "" : "s"}.`);
+      await store.remove(target.id);
+      let rest = await store.list();
+      if (!rest.length) {
+        await store.create(emptyWorkspace());
+        rest = await store.list();
+      }
+      setCollections(rest);
+      if (target.id === workspace.id) {
+        const next = rest.find((w) => w.id !== target.id)!;
+        await openWorkspace(next);
+        if (!next.bubbles.length) setScreen("import");
+      }
+      setDeleting(undefined);
+      notify(`Deleted: ${target.name}`);
     } catch (e) {
-      const latest = await store.get(workspace.id);
-      if (latest) await publish(latest);
-      throw e;
+      setError(String(e));
+    } finally {
+      submitting.current = false;
+      setBusy(false);
     }
-  }
-  function selectRecord(id: string, additive = false) {
-    setSelected(id);
-    setSelectedIds((current) => {
-      if (!additive) return [id];
-      return current.includes(id)
-        ? current.filter((selectedId) => selectedId !== id)
-        : [...current, id];
-    });
-    setInspectorOpen(true);
-    setManageMemberships(false);
-  }
-  function toggleBubbleSelection(id: string) {
-    setSelectedIds((current) =>
-      current.includes(id)
-        ? current.filter((selectedId) => selectedId !== id)
-        : [...current, id],
-    );
-    setSelected(id);
-  }
-  function clearSelection() {
-    setSelectedIds([]);
   }
   async function createCollection(name: string) {
     if (!name?.trim()) return;
@@ -375,9 +258,9 @@ export default function App() {
       throw e;
     }
   }
-  async function backup() {
+  async function backup(id = workspace.id) {
     try {
-      const data = await store.backup(workspace.id);
+      const data = await store.backup(id);
       const url = URL.createObjectURL(
         new Blob([JSON.stringify(data)], { type: "application/json" }),
       );
@@ -386,9 +269,7 @@ export default function App() {
       a.download = "bubble-tag-backup.json";
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setNotice(
-        "Backup downloaded. Remote media remains linked; uploaded media is bundled.",
-      );
+      notify("Backup downloaded. Remote media remains linked; uploaded media is bundled.");
     } catch (e) {
       setError(String(e));
     }
@@ -403,7 +284,7 @@ export default function App() {
         const next = await store.restore(parsed.restore);
         setCollections(await store.list());
         await openWorkspace(next);
-        setNotice("Backup restored into a new collection.");
+        notify("Backup restored into a new collection.");
       } else if (preview) {
         const next = await store.import(workspace.id, {
           type: "import.commit",
@@ -424,8 +305,9 @@ export default function App() {
         });
         await publish(next);
         await openWorkspace(next);
-        setNotice(
-          `${selectedRows.length} source rows applied: ${next.bubbles.length - workspace.bubbles.length} new bubbles and ${selectedRows.filter((c) => choices[c.row] === "merge").length} merges. Use Undo to reverse this import.`,
+        notify(
+          `${selectedRows.length} source rows applied: ${next.bubbles.length - workspace.bubbles.length} new bubbles and ${selectedRows.filter((c) => choices[c.row] === "merge").length} merges.`,
+          () => void undoRef.current(),
         );
       }
       setStep(0);
@@ -463,7 +345,7 @@ export default function App() {
       );
       await publish(next);
       setUndoBatch(undefined);
-      setUndoMessage(changed.length ? `Import undone · ${changed.length} edited ${changed.length === 1 ? "bubble" : "bubbles"} kept` : "Import undone");
+      notify(changed.length ? `Import undone · ${changed.length} edited ${changed.length === 1 ? "bubble" : "bubbles"} kept` : "Import undone");
     } catch (e) {
       setError(String(e));
       const latest = await store.get(workspace.id);
@@ -511,42 +393,6 @@ export default function App() {
   const duplicates =
     preview?.candidates.filter((c) => c.duplicate || c.repeatedRow) ?? [];
   const invalid = preview?.candidates.filter((c) => c.errors.length) ?? [];
-  const matchingBubbles = useMemo(() => {
-    const queryValue = query.trim().toLowerCase();
-    return filterBubbles(workspace, activeFilter).filter((bubble) =>
-      !queryValue ||
-      `${bubble.title} ${bubble.description} ${bubble.url ?? ""}`
-        .toLowerCase()
-        .includes(queryValue),
-    );
-  }, [workspace, activeFilter, query]);
-  const visibleBubbles = useMemo(() => {
-    const sorted = [...matchingBubbles];
-    sorted.sort((left, right) => {
-      if (viewSort === "createdAt") return left.createdAt.localeCompare(right.createdAt);
-      if (viewSort === "status") {
-        const leftStatus = workspace.statuses.find((status) => status.id === left.statusId)?.label ?? "";
-        const rightStatus = workspace.statuses.find((status) => status.id === right.statusId)?.label ?? "";
-        return leftStatus.localeCompare(rightStatus) || left.title.localeCompare(right.title);
-      }
-      return left.title.localeCompare(right.title);
-    });
-    return sorted;
-  }, [matchingBubbles, viewSort, workspace.statuses]);
-  const selectedBubbleIds = selectedIds.filter((id) =>
-    workspace.bubbles.some((bubble) => bubble.id === id),
-  );
-  const selectedNodeIds = selectedIds.filter((id) =>
-    workspace.bubbles.some((bubble) => bubble.id === id) ||
-    workspace.tags.some((tag) => tag.id === id),
-  );
-  const filterActive =
-    activeViewId !== undefined ||
-    hiddenTagIds.length > 0 ||
-    viewSort !== "title" ||
-    !(activeFilter.op === "all" && activeFilter.rules.length === 0);
-  const selectedRecord = workspace.bubbles.find((b) => b.id === selected),
-    selectedTag = workspace.tags.find((t) => t.id === selected);
   function loadSample(kind: "bookmarks" | "reading") {
     request.current++;
     setBusy(false);
@@ -563,7 +409,6 @@ export default function App() {
     setError("");
     setChoices({});
     setExcluded(new Set());
-    setSelected(undefined);
   }
   async function parseSource() {
     const w = worker.current;
@@ -615,152 +460,53 @@ export default function App() {
         {error && <div role="alert">{error}</div>}
       </main>
     );
-  const workspaceFeedback = <WorkspaceFeedback
-    message={undoMessage}
-    actionLabel={nextUndo?.label}
-    undoAvailable={Boolean(nextUndo && nextUndo.revision === workspace.revision)}
-    busy={busy}
-    onUndo={() => void undoLastAction()}
-  />;
+  // In the triage screen the message sits over the graph; an error outranks it and stays until closed.
+  const shown: ToastMessage | undefined = screen === "workspace" && error ? { id: -1, text: error, error: true } : toast;
+  const toastElement = shown && <Toast key={shown.id} toast={shown} onClose={() => (shown.error ? setError("") : setToast(undefined))} />;
+  const undoButton = (
+    <button className="header-undo" disabled={!undoAvailable || busy} onClick={() => void undoLastAction()}
+      title={undoAvailable ? `Undo: ${nextUndo!.label} (⌘Z)` : "Nothing to undo"}>
+      <Icon name="undo" size={15} /><span>Undo</span>
+    </button>
+  );
+  function restoreBackup() {
+    setScreen("import");
+    setFormat("json");
+    setStep(0);
+    setText("");
+    setFilename("");
+  }
+  const collectionMenu = (
+    <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w)} onDelete={setDeleting}
+      onNew={() => { setPromptKind("collection"); setPromptValue(""); }} />
+  );
+  const moreMenu = (
+    <MoreMenu
+      onAddBubble={() => setScreen("import")}
+      onAddTag={() => { setPromptKind("tag"); setPromptValue(""); }}
+      onHistory={() => setHistory(true)}
+      onDownload={() => void backup()}
+      onRestore={restoreBackup}
+      onDelete={() => setDeleting(workspace)}
+    />
+  );
   return (
     <div
-      className={`app-shell ${screen === "workspace" ? "workspace-mode" : "import-mode"} ${panelOpen ? "panel-open" : "panel-closed"}`}
+      className={`app-shell ${screen === "workspace" ? "workspace-mode" : "import-mode"}`}
     >
-      <button
-        className="panel-toggle"
-        aria-label={panelOpen ? "Retract left panel" : "Open left panel"}
-        aria-expanded={panelOpen}
-        aria-controls="left-panel"
-        onClick={() => setPanelOpen((v) => !v)}
-      >
-        <Icon name={panelOpen ? "chevron-left" : "menu"} size={18} />
-      </button>
-      <aside id="left-panel" className={`sidebar ${panelOpen ? "" : "hidden"}`}>
-        <IconButton className="sidebar-close" label="Close navigation" icon="close" onClick={() => setPanelOpen(false)} />
-        <a
-          className="brand"
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setScreen("import");
-            if (window.innerWidth <= 820) setPanelOpen(false);
-          }}
-        >
-          <span className="brand-mark" aria-hidden="true">
-            <span />
-            <span />
-          </span>
-          <span>Bubble &amp; Tag</span>
-        </a>
-        <section className="collection-context">
-          <div className="sidebar-section">COLLECTION</div>
-          <div className="collection-picker" ref={collectionPickerRef}>
-            <button
-              type="button"
-              className="collection-select"
-              aria-label="Collection"
-              aria-haspopup="listbox"
-              aria-expanded={collectionMenuOpen}
-              aria-controls="collection-menu"
-              onClick={() => setCollectionMenuOpen((open) => !open)}
-            >
-              <span className="collection-select-name">{workspace.name}</span>
-              <Icon name="chevron-down" size={15} />
-            </button>
-            {collectionMenuOpen && (
-              <div
-                id="collection-menu"
-                className="collection-menu"
-                role="listbox"
-                aria-label="Collections"
-              >
-                {collections.map((w) => (
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={w.id === workspace.id}
-                    className={`collection-option ${w.id === workspace.id ? "selected" : ""}`}
-                    key={w.id}
-                    onClick={() => void openWorkspace(w)}
-                  >
-                    <span className="collection-option-copy">
-                      <strong>{w.name}</strong>
-                      <span>{w.bubbles.length} bubbles · {w.tags.length} tags</span>
-                    </span>
-                    {w.id === workspace.id && <Icon name="check" size={15} />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <IconButton className="new-collection" label="New collection" icon="plus" onClick={() => { setPromptKind("collection"); setPromptValue(""); }} />
-          <p className="collection-count">
-            <span>{workspace.bubbles.length} bubbles</span>
-            <span>{workspace.tags.length} tags</span>
-          </p>
-        </section>
-
-        <button
-          className={screen === "workspace" ? "nav active" : "nav"}
-          onClick={() => { setScreen("workspace"); if (window.innerWidth <= 820) setPanelOpen(false); }}
-        >
-          <Icon name="collection" /> <span>Collection</span>
-        </button>
-        <button
-          className={screen === "import" ? "nav active" : "nav"}
-          onClick={() => { setScreen("import"); if (window.innerWidth <= 820) setPanelOpen(false); }}
-        >
-          <Icon name="import" /> <span>Import</span>
-        </button>
-        <div className="sidebar-divider" />
-        <button className="nav" onClick={() => { setPromptKind("tag"); setPromptValue(""); }}>
-          <Icon name="tag" /> <span>New tag</span>
-        </button>
-        <div className="sidebar-utilities">
-        <div className="sidebar-section">COLLECTION TOOLS</div>
-        <button className="nav" onClick={() => {
-          setScreen("import");
-          if (window.innerWidth <= 820) setPanelOpen(false);
-          setFormat("json");
-          setStep(0);
-          setText("");
-          setFilename("");
-        }}>
-          <Icon name="upload" /> <span>Restore backup</span>
-        </button>
-        <button className="nav" onClick={() => void backup()}>
-          <Icon name="download" /> <span>Download backup</span>
-        </button>
-        <button className="nav" onClick={() => setHistory(true)}>
-          <Icon name="history" /> <span>Import history</span>
-        </button>
-        </div>
-        <div className="sidebar-footer">
-          <span className="subtle">Changes are saved on this device.</span>
-        </div>
-      </aside>
-      {panelOpen && <button className="nav-scrim" aria-label="Close navigation" onClick={() => setPanelOpen(false)} />}
-      <main className="main-area" onClick={() => { if (window.innerWidth <= 820) setPanelOpen(false); }}>
-        <header className="topbar">
-          <span>
-            {screen === "import" ? "Import a collection" : workspace.name}
-          </span>
-          <span className="badge">Browser-local collection</span>
-        </header>
-        {notice && (
-          <div className="toast" role="status">
-            {notice}
-            <IconButton label="Dismiss notice" icon="close" onClick={() => setNotice("")} />
-          </div>
+      <main className="main-area">
+        {screen === "import" && (
+          <header className="topbar">
+            {collectionMenu}
+            <span className="topbar-end">{undoButton}{moreMenu}</span>
+          </header>
         )}
-        {screen === "workspace" && error && (
-          <div className="toast alert" role="alert">
-            {error}
-            <button onClick={() => setError("")}>Dismiss</button>
-          </div>
-        )}
+        {screen === "import" && toastElement}
         {screen === "import" ? (
           <div className="import-page">
+            <button className="back-link" onClick={() => setScreen("workspace")}>
+              <Icon name="arrow-left" size={15} /> Back to {workspace.name}
+            </button>
             <div className="page-heading">
               <div className="eyebrow">START WITH YOUR OWN DATA</div>
               <h1>Bring your collection in.</h1>
@@ -1146,7 +892,6 @@ export default function App() {
               >
                 {step > 0 ? <><Icon name="arrow-left" size={15} /> Back</> : <><Icon name="close" size={15} /> Clear source</>}
               </button>
-              {workspaceFeedback}
               </div>
               <span className="subtle">
                 Your original file stays unchanged.
@@ -1202,286 +947,23 @@ export default function App() {
             </footer>
           </div>
         ) : (
-          <div className="workspace-page">
-            <div className="workspace-toolbar">
-              <div className="search-field">
-                <Icon name="search" size={17} />
-                <input
-                  aria-label="Search bubbles"
-                  placeholder="Search bubbles…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                {query && (
-                  <IconButton
-                    label="Clear search"
-                    icon="close"
-                    size={15}
-                    className="search-clear"
-                    onClick={() => setQuery("")}
-                  />
-                )}
-              </div>
-              <div className="workspace-actions">
-                <button
-                  className={`toolbar-button ${filterActive ? "active" : ""}`}
-                  aria-label="Filters"
-                  onClick={() => setFilterDialogOpen(true)}
-                  aria-pressed={filterDialogOpen || filterActive}
-                >
-                  <Icon name="filter" size={16} /> <span>Filters</span>
-                  {filterActive && <span className="toolbar-count">{matchingBubbles.length}</span>}
-                </button>
-                <button
-                  className="toolbar-button" aria-label="Details"
-                  onClick={() => setInspectorOpen((v) => !v)}
-                  aria-pressed={inspectorOpen}
-                >
-                  <Icon name="info" size={16} /> <span>Details</span>
-                </button>
-                <div className="segmented">
-                  <button
-                    aria-label="Graph" className={!list ? "active" : ""}
-                    onClick={() => setList(false)}
-                    aria-pressed={!list}
-                  >
-                    <Icon name="graph" size={15} /> <span>Graph</span>
-                  </button>
-                  <button
-                    aria-label="List" className={list ? "active" : ""}
-                    onClick={() => setList(true)}
-                    aria-pressed={list}
-                  >
-                    <Icon name="list" size={15} /> <span>List</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-            {filterActive && (
-              <div className="active-filter-bar" role="status">
-                <span><Icon name="filter" size={14} /> {activeViewId ? `Saved view: ${workspace.views.find((view) => view.id === activeViewId)?.name ?? "selected"}` : "Custom filter"} · {matchingBubbles.length} matching bubbles</span>
-                <button onClick={() => { setActiveFilter({ op: "all", rules: [] }); setHiddenTagIds([]); setViewSort("title"); setActiveViewId(undefined); setQuery(""); }}>Clear view</button>
-              </div>
-            )}
-            {selectedNodeIds.length > 0 && (
-              <div className="selection-bar" role="toolbar" aria-label="Selected node actions">
-                <strong>{selectedNodeIds.length} selected</strong>
-                <button onClick={() => {
-                  if (selectedBubbleIds.length > 0) setBulkStatusOpen(true);
-                  else if (selectedTag) setStatusDialogTag(selectedTag.id);
-                }}><Icon name="refresh" size={14} /> Change status</button>
-                <button className="text-button" onClick={clearSelection}>Clear selection</button>
-              </div>
-            )}
-            <div className={`workspace-grid ${list ? "list-mode" : ""} ${inspectorOpen ? "inspector-open" : ""}`}>
-              <div className={list ? "hidden" : "graph-area"}>
-                <GraphCanvas
-                  ref={graphRef}
-                  onImport={() => setScreen("import")}
-                  onClearSearch={() => setQuery("")}
-                  onShowList={() => setList(true)}
-                  onPinsChanged={setPinnedIds}
-                  workspace={workspace}
-                  selected={selected}
-                  onSelect={(id) => selectRecord(id)}
-                  query=""
-                  matchingBubbleIds={visibleBubbles.map((bubble) => bubble.id)}
-                  filtering={filterActive || Boolean(query.trim())}
-                  hiddenTagIds={hiddenTagIds}
-                  feedback={workspaceFeedback}
-                  loadMedia={(id) => store.media(id)}
-                  geometry={geometry}
-                  onGeometry={(g) => {
-                    setGeometry(g);
-                    void store
-                      .saveGeometry(g)
-                      .catch((e) =>
-                        setError(
-                          "Unable to save graph positions: " + String(e),
-                        ),
-                      );
-                  }}
-                />
-              </div>
-              {list && (
-                <section className="panel list-panel">
-                  {visibleBubbles.map((b) => (
-                    <div className={`list-item-row ${selectedIds.includes(b.id) ? "checked" : ""}`} key={b.id}>
-                      <label className="list-select" aria-label={`Select ${b.title}`}>
-                        <input type="checkbox" checked={selectedIds.includes(b.id)} onChange={() => toggleBubbleSelection(b.id)} />
-                      </label>
-                      <button
-                        aria-pressed={selected === b.id}
-                        className={`list-item ${selected === b.id ? "selected" : ""}`}
-                        onClick={() => selectRecord(b.id)}
-                      >
-                        <span className="list-item-main">
-                          <strong>{b.title}</strong>
-                          <span>{b.description || "No description"}</span>
-                        </span>
-                        <span className="badge">
-                          {
-                            workspace.statuses.find((s) => s.id === b.statusId)
-                              ?.label
-                          }
-                        </span>
-                      </button>
-                    </div>
-                  ))}
-                  {!workspace.bubbles.length && (
-                    <div className="list-empty">
-                      <Icon name="collection" size={24} />
-                      <strong>Your collection is empty</strong>
-                      <span>Import links, notes, or a backup to begin.</span>
-                      <button className="primary" onClick={() => { setScreen("import"); if (window.innerWidth <= 820) setPanelOpen(false); }}>Open Import</button>
-                    </div>
-                  )}
-                  {workspace.bubbles.length > 0 && !visibleBubbles.length && (
-                    <div className="list-empty">
-                      <Icon name="search" size={24} />
-                      <strong>No matching bubbles</strong>
-                      <span>Try a different search or clear the filter.</span>
-                      <button onClick={() => { setQuery(""); setActiveFilter({ op: "all", rules: [] }); setHiddenTagIds([]); setViewSort("title"); setActiveViewId(undefined); }}>Clear filters</button>
-                    </div>
-                  )}
-                </section>
-              )}
-              <aside className={`inspector ${inspectorOpen ? "" : "hidden"}`}>
-                <div className="detail-header">
-                  <div className="detail-header-copy">
-                    <div className="eyebrow">
-                      {selectedTag ? "TAG DETAILS" : selectedRecord ? "BUBBLE DETAILS" : "DETAILS"}
-                    </div>
-                    {selectedRecord ? (
-                      <h2 className="detail-title" title={selectedRecord.title}>{selectedRecord.title}</h2>
-                    ) : selectedTag ? (
-                      <h2 className="detail-title" title={selectedTag.name}>{selectedTag.name}</h2>
-                    ) : (
-                      <h2 className="detail-title">Select an item</h2>
-                    )}
-                  </div>
-                  <div className="detail-header-actions">
-                    {(selectedRecord || selectedTag) && <>
-                      <IconButton label="Edit record" icon="edit" onClick={() => setEditing(selected!)} />
-                      <IconButton label={pinnedIds.includes(selected!) ? "Unpin record" : "Pin record"} icon="pin" aria-pressed={pinnedIds.includes(selected!)} onClick={() => graphRef.current?.setPinned(selected!, !pinnedIds.includes(selected!))} />
-                    </>}
-                  <IconButton label="Close details" icon="close" size={17} className="inspector-close" onClick={() => setInspectorOpen(false)} />
-                  </div>
-                </div>
-                {selectedRecord || selectedTag ? (
-                  <>
-                    <section className="detail-section detail-overview">
-                      <div className="detail-meta">
-                        <span className="badge">
-                          {workspace.statuses.find((s) => s.id === (selectedRecord ?? selectedTag)?.statusId)?.label}
-                        </span>
-                        {selectedTag?.typeId && (
-                          <span className="detail-type">
-                            {workspace.tagTypes.find((t) => t.id === selectedTag.typeId)?.name}
-                          </span>
-                        )}
-                      </div>
-                      {selectedTag && (
-                        <div className="detail-actions">
-                          <button className="section-toggle" onClick={() => setCopyDialogTag(selectedTag.id)}>
-                            <Icon name="copy" size={14} /> Compose copy
-                          </button>
-                        </div>
-                      )}
-                      {selectedRecord && (
-                        <div className="detail-actions">
-                          <button className="section-toggle" onClick={() => void copyBubble(selectedRecord.id)}>
-                            <Icon name="copy" size={14} /> Copy
-                          </button>
-                          <button className="section-toggle status-action" onClick={() => { setSelectedIds([selectedRecord.id]); setMediaDialogOpen(true); }}>
-                            <Icon name="upload" size={14} /> Attach media
-                          </button>
-                        </div>
-                      )}
-                      <p>{selectedRecord?.description || selectedTag?.description || "No description yet."}</p>
-                      {selectedRecord?.asset && <AssetPreview asset={selectedRecord.asset} load={(id) => store.media(id)} />}
-                      {(selectedRecord?.url || selectedTag?.url) && isWebUrl((selectedRecord ?? selectedTag)!.url! as string) && (
-                        <a className="detail-link" href={(selectedRecord ?? selectedTag)!.url!} target="_blank" rel="noreferrer">
-                          <Icon name="external" size={14} /> Open source
-                        </a>
-                      )}
-                      {(selectedRecord?.url || selectedTag?.url) && !isWebUrl((selectedRecord ?? selectedTag)!.url! as string) && (
-                        <p className="url-warning">
-                          {(selectedRecord ?? selectedTag)!.url}
-                          <span className="url-warning-label">Not a link</span>
-                        </p>
-                      )}
-                    </section>
-                    {selectedRecord?.notes?.length ? (
-                      <section className="detail-section source-notes">
-                        <h3>From import</h3>
-                        <ul>
-                          {selectedRecord.notes.map((n, i) => (
-                            <li key={i}><strong>{n.label}</strong>{n.text && <span>{n.text}</span>}</li>
-                          ))}
-                        </ul>
-                      </section>
-                    ) : null}
-                    <section className="detail-section connection-section">
-                      <div className="section-heading">
-                        <div>
-                          <h3>Connections</h3>
-                          <p className="subtle">
-                            {selectedRecord
-                              ? `${workspace.memberships.filter((m) => m.bubbleId === selectedRecord.id).length} linked tags`
-                              : `${workspace.memberships.filter((m) => m.tagId === selectedTag!.id).length} linked bubbles`}
-                          </p>
-                        </div>
-                        {selectedRecord && (
-                          <button className="section-toggle" onClick={() => setManageMemberships((v) => !v)} aria-pressed={manageMemberships}>
-                            <Icon name="tag" size={14} /> {manageMemberships ? "Done" : "Manage tags"}
-                          </button>
-                        )}
-                      </div>
-                      {selectedRecord && manageMemberships ? (
-                        <div className="membership-list">
-                          {workspace.tags.map((t) => (
-                            <label className="membership-option" key={t.id}>
-                              <input
-                                type="checkbox"
-                                checked={workspace.memberships.some((m) => m.bubbleId === selectedRecord.id && m.tagId === t.id)}
-                                onChange={(e) => void save({ type: "membership.set", bubbleId: selectedRecord.id, tagId: t.id, linked: e.target.checked }).catch((e) => setError(String(e)))}
-                              />
-                              <span>{t.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                      ) : selectedRecord ? (
-                        <div className="connection-chips">
-                          {workspace.memberships.filter((m) => m.bubbleId === selectedRecord.id).map((m) => (
-                            <button className="connection-chip" key={m.id} onClick={() => selectRecord(m.tagId)}>
-                              <Icon name="tag" size={13} /> {workspace.tags.find((t) => t.id === m.tagId)?.name}
-                            </button>
-                          ))}
-                          {!workspace.memberships.some((m) => m.bubbleId === selectedRecord.id) && <span className="empty-inline">No linked tags yet.</span>}
-                        </div>
-                      ) : (
-                        <div className="connection-list">
-                          {workspace.memberships.filter((m) => m.tagId === selectedTag!.id).map((m) => {
-                            const bubble = workspace.bubbles.find((b) => b.id === m.bubbleId);
-                            return bubble ? <button className="linked-item" title={bubble.title} key={m.id} onClick={() => selectRecord(bubble.id)}><span>{bubble.title}</span><Icon name="chevron-right" size={14} /></button> : null;
-                          })}
-                          {!workspace.memberships.some((m) => m.tagId === selectedTag!.id) && <span className="empty-inline">No linked bubbles yet.</span>}
-                        </div>
-                      )}
-                    </section>
-                  </>
-                ) : (
-                  <div className="detail-empty">
-                    <div className="empty-illustration"><Icon name="collection" size={30} /></div>
-                    <p>Inspect an item to see its information and connections.</p>
-                    <span className="subtle">Select a bubble or tag in the graph or list.</span>
-                  </div>
-                )}
-              </aside>
-            </div>
-            {list && <div className="list-feedback-bar">{workspaceFeedback}</div>}
-          </div>
+          <TriageScreen
+            workspace={workspace}
+            geometry={geometry}
+            onGeometry={(g) => {
+              setGeometry(g);
+              void store.saveGeometry(g).catch((e) => setError("Unable to save graph positions: " + String(e)));
+            }}
+            save={save}
+            loadMedia={(id) => store.media(id)}
+            toast={toastElement}
+            notify={notify}
+            onEdit={setEditing}
+            onImport={() => setScreen("import")}
+            onError={setError}
+            headerStart={collectionMenu}
+            headerEnd={<>{undoButton}{moreMenu}</>}
+          />
         )}
       </main>
       {editing && (
@@ -1491,59 +973,6 @@ export default function App() {
           id={editing}
           onSave={save}
           onClose={() => setEditing(undefined)}
-        />
-      )}
-      {statusDialogTag && workspace.tags.some((tag) => tag.id === statusDialogTag) && (
-        <StatusPropagationDialog
-          workspace={workspace}
-          tag={workspace.tags.find((tag) => tag.id === statusDialogTag)!}
-          onSave={save}
-          onClose={() => setStatusDialogTag(undefined)}
-        />
-      )}
-      {filterDialogOpen && (
-        <FilterDialog
-          workspace={workspace}
-          initialFilter={activeFilter}
-          initialHiddenTagIds={hiddenTagIds}
-          initialSort={viewSort}
-          initialViewId={activeViewId}
-          onApply={(filter, hidden, sort, viewId) => {
-            setActiveFilter(filter);
-            setHiddenTagIds(hidden);
-            setViewSort(sort);
-            setActiveViewId(viewId);
-          }}
-          onSaveView={saveView}
-          onDeleteView={deleteView}
-          onClose={() => setFilterDialogOpen(false)}
-        />
-      )}
-      {bulkStatusOpen && selectedBubbleIds.length > 0 && (
-        <BulkStatusDialog
-          workspace={workspace}
-          bubbleIds={selectedBubbleIds}
-          onSave={save}
-          onClose={() => setBulkStatusOpen(false)}
-        />
-      )}
-      {mediaDialogOpen && selectedBubbleIds.length > 0 && (
-        <MediaUploadDialog
-          workspace={workspace}
-          bubbleIds={selectedBubbleIds}
-          onAttach={attachMedia}
-          onClose={() => setMediaDialogOpen(false)}
-        />
-      )}
-      {copyDialogTag && workspace.tags.some((tag) => tag.id === copyDialogTag) && (
-        <CopyComposerDialog
-          workspace={workspace}
-          tagId={copyDialogTag}
-          currentBubbleIds={visibleBubbles.map((bubble) => bubble.id)}
-          presets={workspace.settings.copyPresets ?? []}
-          onSavePreset={savePreset}
-          onDeletePreset={deletePreset}
-          onClose={() => setCopyDialogTag(undefined)}
         />
       )}
       {promptKind && (
@@ -1561,6 +990,27 @@ export default function App() {
             setPromptValue("");
           }}
         />
+      )}
+      {deleting && (
+        <Dialog labelledBy="delete-title" className="delete-modal" onClose={() => { if (!busy) setDeleting(undefined); }}>
+          <h2 id="delete-title">Delete “{deleting.name}”?</h2>
+          <p>This removes it from this device and can't be undone:</p>
+          <ul>
+            <li>{deleting.bubbles.length} bubbles and {deleting.tags.length} tags</li>
+            <li>Their images, notes, and import history</li>
+            <li>Graph positions and pins</li>
+          </ul>
+          <div className="delete-backup">
+            <span>Keep a copy you can restore later.</span>
+            <button onClick={() => void backup(deleting.id)}><Icon name="download" size={15} /> Download backup</button>
+          </div>
+          <footer>
+            <button disabled={busy} onClick={() => setDeleting(undefined)}>Cancel</button>
+            <button className="danger" disabled={busy} onClick={() => void deleteCollection(deleting)}>
+              <Icon name="trash" size={15} /> {busy ? "Deleting…" : "Delete collection"}
+            </button>
+          </footer>
+        </Dialog>
       )}
       {history && !undoBatch && (
         <Dialog labelledBy="history-title" onClose={() => setHistory(false)}>

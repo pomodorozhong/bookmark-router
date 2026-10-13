@@ -51,10 +51,15 @@ There are no checkpoint tags, deferred-verification registers, or release gates.
 
 ### 1. Triage
 
-The main screen for job 1. Its shape is decided in the mockup. The likely starting point is a queue of pending bookmarks with the current one's details beside it and fast actions: add to an existing issue, proposal issue, or topic, keep, skip, mark duplicate, defer. Warnings (broken link, possible duplicate) appear inline.
+Triage **replaces the current graph screen** (decided October 11, 2026). The approved direction is the mockup at `app/mockups/triage.html`:
 
-- Decide in the mockup: which decisions you need (the prototype had keep / attach / skip / duplicate / defer) and how they map to statuses.
-- **You try:** triage 10 real bookmarks and see how long it takes.
+- The force-directed graph stays at the center. The current bookmark is framed with all of its groups; bookmarks sharing a group are highlighted as related; everything else fades.
+- Two-finger scrolling pans and pinching zooms. Dragging on the canvas draws a selection box (Shift adds, Esc clears); the queue narrows to the selection, ordered clockwise around its center.
+- A filter bar narrows the graph and the queue by text, group type, and whether decided bookmarks show.
+- Decisions: **Done**, **Drop**, and **Deselect** (removes the bookmark from the selection without deciding it). Each moves to the next bookmark, with Undo. Done does not require a group; a hint shows when there is none.
+- **Copy** (the core feature kept from the old screen): copies the selected bookmarks, the current list (filter + tab), or the current bookmark, in queue order, through a template with presets and fields (`{title}`, `{url}`, `{groups}`, …), with a live preview.
+- **Header** (decided October 11, 2026): no sidebar. The header starts with the logo and a collection menu and ends with a ⋯ menu: Add bubble… (the Import screen), Add tag…, Import history…, Download backup, Restore backup…. The graph toolbar has Queue, Whole collection, and Current (scope icon).
+- **You try:** triage 10 real bookmarks and copy one selection into a real destination.
 
 ### 1.5. Fetch title, description, and image from the URL
 
@@ -98,9 +103,9 @@ Starting this round requires naming the browser and agent you will use.
 | Feature | Decision |
 |---|---|
 | Graph view, import wizard, backup/restore, current Undo | Keep. Fix bugs as they are found. |
-| Copy composer | Freeze: keep the one-click Copy and quick presets; no more template work. |
+| Copy composer | Rebuilt in round 1 as triage selection copy (templates, presets, preview). The old composer goes with the old graph screen. |
 | Media upload | Freeze, except image assets from round 1.5. |
-| Bulk status propagation | Keep; revisit in round 1 if triage replaces it. |
+| Bulk status propagation | Revisit in round 1: triage replaces the old graph screen. |
 | C.1 undo rework (change sets, Redo, schema 2) | Cut. Current undo stays until it causes a real problem. |
 | New bubble, archive | Moved into rounds 1/4 (WebMCP needs add item; triage may need archive). |
 | 1,000/5,000 measurements, release review | Cut. |

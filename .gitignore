@@ -5,3 +5,4 @@ bookmarks-working.json
 *.tsbuildinfo
 __pycache__/
 bookmarks-converted.json
+.DS_Store

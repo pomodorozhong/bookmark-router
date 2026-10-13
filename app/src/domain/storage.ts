@@ -69,13 +69,14 @@ export class WorkspaceStore {
     id: string,
     expectedRevision: number,
     command: Command | Command[],
+    label?: string,
   ): Promise<Workspace> {
     const commands = Array.isArray(command) ? command : [command];
     if (!commands.length) throw new Error("No changes to save.");
     return this.mutate(id, (current) => {
       if (current.revision !== expectedRevision) throw new ConflictError();
       return commands.reduce((next, item) => applyCommand(next, next.revision, item), current);
-    }, commandLabel(commands[0]));
+    }, label ?? commandLabel(commands[0]));
   }
   async import(id: string, command: ImportCommitCommand) {
     return this.mutate(id, (w) => commitImport(w, command), "Import bubbles");
@@ -178,6 +179,15 @@ export class WorkspaceStore {
       await tx.done.catch(() => {});
       throw e;
     }
+  }
+  /** Deletes a collection with its graph positions and media, in one transaction. */
+  async remove(id: string) {
+    const tx = (await this.database).transaction(["workspaces", "geometry", "media"], "readwrite");
+    const media = tx.objectStore("media");
+    await tx.objectStore("workspaces").delete(id);
+    await tx.objectStore("geometry").delete(id);
+    for (const m of await media.getAll()) if (m.workspaceId === id) await media.delete(m.id);
+    await tx.done;
   }
   async media(id: string) {
     return (await this.database).get("media", id);

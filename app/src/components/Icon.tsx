@@ -27,11 +27,15 @@ export type IconName =
   | "list"
   | "menu"
   | "minus"
+  | "more"
   | "plus"
   | "pin"
   | "refresh"
+  | "scope"
   | "search"
   | "tag"
+  | "trash"
+  | "undo"
   | "upload"
   | "zoom-in"
   | "zoom-out";
@@ -67,6 +71,8 @@ const paths: Record<IconName, ReactNode> = {
       <path d="m7.7 7.2 2.8 8.1m1.9 1.1 3.8-6.6M8 6.4l8 1" />
     </>
   ),
+  trash: <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
+  undo: <path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />,
   history: <path d="M4.5 11a7.5 7.5 0 1 0 2.2-5.3L4.5 8M4.5 4.5V8h3.5M12 8v4l2.8 1.7" />,
   import: <path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14" />,
   info: <path d="M12 10.5v6M12 6.8h.01M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" />,
@@ -75,8 +81,15 @@ const paths: Record<IconName, ReactNode> = {
   list: <path d="M5 6.5h1M9 6.5h10M5 12h1M9 12h10M5 17.5h1M9 17.5h10" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   minus: <path d="M5 12h14" />,
+  more: <path d="M5.5 12h.01M12 12h.01M18.5 12h.01" strokeWidth="2.8" />,
   plus: <path d="M12 5v14M5 12h14" />,
   pin: <path d="m8 4 8 0-1 5 3 3-5 1v7l-1 1-1-1v-7l-5-1 3-3-1-5Z" />,
+  scope: (
+    <>
+      <circle cx="12" cy="12" r="7" />
+      <path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5" />
+    </>
+  ),
   refresh: <path d="M19 8V4l-2.2 2.2A7.5 7.5 0 1 0 19.2 14M19 4l-3 3" />,
   search: <path d="m16.5 16.5 4 4M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" />,
   tag: <path d="M4 5v6l9 9 7-7-9-9H4Zm3.5 3.5h.01" />,

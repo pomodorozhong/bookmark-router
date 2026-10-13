@@ -1,8 +1,9 @@
-import { bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
+import { bubbleImageMinZoom, bubbleLabelMinZoom, tagLabelOutside } from "./graph-labels";
 import { placeNear, type Point } from "./graph-placement";
 import "./focus-adapt-label";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from "react";
 import {
+  CanvasEvent,
   Graph,
   GraphEvent,
   NodeEvent,
@@ -10,6 +11,9 @@ import {
   type NodeData,
 } from "@antv/g6";
 import {
+  forceCollide,
+  forceLink,
+  forceManyBody,
   forceSimulation,
   type SimulationNodeDatum,
   type SimulationLinkDatum,
@@ -19,7 +23,15 @@ import { appearanceFor, type Bubble, type Geometry, type Workspace } from "../do
 import { Icon, IconButton } from "./Icon";
 export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
+  /** Zoom and center so these nodes, with room for titles, fill the view. */
+  frame(ids: string[]): void;
+  /** Zoom out until every visible node fits. */
+  /** Clears pins and lays every node out again from a grid. */
+  resetPositions(): void;
+  positionOf(id: string): readonly [number, number] | undefined;
 }
+// Titles show for related or box-selected bookmarks only while there are few enough to read.
+const emphasisLabelLimit = 30;
 // About a bubble at maximum zoom on a 2x display.
 const thumbnailSize = 256;
 function roundThumbnail(img: HTMLImageElement, key: string): HTMLCanvasElement {
@@ -49,19 +61,27 @@ export function GraphCanvas({
   geometry,
   onGeometry,
   onImport, onClearSearch, onShowList,
-  feedback,
   loadMedia,
+  boxSelection,
+  onBoxSelect,
+  tools,
 }: {
+  /** Extra buttons placed before the fit button in the bottom bar. */
+  tools?: ReactNode;
+  /** Bookmarks in the current box selection. */
+  boxSelection?: ReadonlySet<string>;
+  /** Called when a box is drawn on empty canvas; `adding` when Shift was held. */
+  onBoxSelect?: (ids: string[], adding: boolean) => void;
   loadMedia?: (id: string) => Promise<{ blob: Blob } | undefined>;
   onImport: () => void;
   onClearSearch: () => void;
-  onShowList: () => void;
-  feedback?: ReactNode;
+  onShowList?: () => void;
   ref?: Ref<GraphCanvasHandle>;
   onPinsChanged: (ids: string[]) => void;
   workspace: Workspace;
   selected?: string;
-  onSelect: (id: string) => void;
+  /** Called with a node's ID, or with nothing when empty canvas is clicked. */
+  onSelect: (id?: string) => void;
   query: string;
   matchingBubbleIds?: string[];
   filtering?: boolean;
@@ -81,6 +101,8 @@ export function GraphCanvas({
       Simulation<ForceNode, SimulationLinkDatum<ForceNode>> | undefined
     >(undefined),
     pins = useRef(new Set<string>()),
+    // Nodes the filters hide; they keep their place while the shown ones lay out.
+    hiddenNodes = useRef(new Set<string>()),
     frozen = useRef(false),
     // Nodes allowed to move while the rest of the layout is frozen.
     settling = useRef(new Set<string>()),
@@ -95,6 +117,16 @@ export function GraphCanvas({
   const drawPinsRef = useRef<() => void>(() => {});
   const outsideLabels = useRef(new Map<string, boolean>());
   const hovered = useRef<string | undefined>(undefined);
+  const onBoxSelectRef = useRef(onBoxSelect);
+  onBoxSelectRef.current = onBoxSelect;
+  // Triage emphasis: the selected bookmark's groups, bookmarks sharing them, and the box selection.
+  const emphasis = useMemo(() => {
+    const groups = new Set(workspace.memberships.filter((m) => m.bubbleId === selected).map((m) => m.tagId));
+    const related = new Set(workspace.memberships.filter((m) => groups.has(m.tagId) && m.bubbleId !== selected).map((m) => m.bubbleId));
+    return { groups, related, box: boxSelection ?? new Set<string>() };
+  }, [workspace.memberships, selected, boxSelection]);
+  const emphasisRef = useRef(emphasis);
+  emphasisRef.current = emphasis;
   const bubbles = useMemo(() => new Map(workspace.bubbles.map((b) => [b.id, b])), [workspace.bubbles]);
   const bubblesRef = useRef(bubbles);
   bubblesRef.current = bubbles;
@@ -134,9 +166,11 @@ export function GraphCanvas({
   const textMetrics = useRef<CanvasRenderingContext2D | null>(null);
   function labelStyle(node: NodeData, scale: number): NonNullable<NodeData["style"]> {
     if (!node.data?.tag) {
-      const shown = scale >= bubbleLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current;
-      // Images only when zoomed in; at hover or selection while zoomed out they are too small to read.
-      const image = scale >= bubbleLabelMinZoom ? bubbleImage(bubblesRef.current.get(node.id)) : undefined;
+      const { related, box } = emphasisRef.current;
+      const shown = scale >= bubbleLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current
+        || (related.has(node.id) && related.size <= emphasisLabelLimit) || (box.has(node.id) && box.size <= emphasisLabelLimit);
+      // Images show with the title once the bubble is big enough to read; far out they are too small.
+      const image = shown && scale >= bubbleImageMinZoom ? bubbleImage(bubblesRef.current.get(node.id)) : undefined;
       // The 2px outline is centered on the edge; tucking the image 0.5px under
       // it fills the inner circle without a seam.
       const diameter = Number(node.style?.size ?? 25) - 1;
@@ -192,7 +226,7 @@ export function GraphCanvas({
     drawPinsRef.current();
     void g.draw().catch((e) => setError(String(e)));
   }
-  useImperativeHandle(ref, () => ({
+  const handle: GraphCanvasHandle = {
     setPinned(id, pinned) {
       const g = graph.current;
       if (!g || renderedGraph.current !== g) return;
@@ -207,8 +241,73 @@ export function GraphCanvas({
       refreshPins();
       persist();
     },
-  }));
+    frame(ids) {
+      const g = graph.current;
+      if (!g || renderedGraph.current !== g) return;
+      const points = ids.filter((id) => g.hasNode(id)).map((id) => g.getElementPosition(id));
+      if (!points.length) return;
+      autoFit.current = false;
+      const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
+      const [width, height] = g.getSize();
+      const padX = 130, padY = 80; // screen room for titles around the outer nodes
+      const spanX = Math.max(Math.max(...xs) - Math.min(...xs), 1), spanY = Math.max(Math.max(...ys) - Math.min(...ys), 1);
+      const zoom = Math.max(0.15, Math.min(1.2, (width - 2 * padX) / spanX, (height - 2 * padY) / spanY));
+      const center: [number, number] = [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...ys) + Math.min(...ys)) / 2];
+      void g.zoomTo(zoom, false)
+        .then(() => {
+          const [x, y] = g.getViewportByCanvas(center);
+          return g.translateBy([width / 2 - x, height / 2 - y], { duration: 300 });
+        })
+        .catch((e) => setError(String(e)));
+    },
+    resetPositions,
+    positionOf(id) {
+      const g = graph.current;
+      return g && renderedGraph.current === g && g.hasNode(id) ? (g.getElementPosition(id).slice(0, 2) as [number, number]) : undefined;
+    },
+  };
+  useImperativeHandle(ref, () => handle);
   const tagSizes = useRef(new Map<string, number>());
+  // Fit everything shown. G6's fitView also counts hidden nodes, which would
+  // zoom far out past a filtered graph.
+  async function fitWhole(g: Graph) {
+    handle.frame(g.getNodeData().map((n) => n.id).filter((id) => g.getElementVisibility(id) !== "hidden"));
+  }
+  const collideRadius = (id: string) => (tagSizes.current.has(id) ? tagSizes.current.get(id)! / 2 + 20 : 34);
+  function resetPositions() {
+    pins.current.clear();
+    refreshPins();
+    const sim = simulation.current;
+    if (!sim) return;
+    // Lay out only what is shown: hidden nodes hold still and exert no force.
+    const hidden = (node: ForceNode | string | number) => hiddenNodes.current.has(typeof node === "object" ? node.id : String(node));
+    (sim.force("charge") as ReturnType<typeof forceManyBody<ForceNode>> | undefined)?.strength((n) => (hidden(n) ? 0 : -250));
+    (sim.force("collide") as ReturnType<typeof forceCollide<ForceNode>> | undefined)?.radius((n) => (hidden(n) ? 0 : collideRadius(n.id)));
+    (sim.force("link") as ReturnType<typeof forceLink<ForceNode, SimulationLinkDatum<ForceNode>>> | undefined)?.strength((l) => (hidden(l.source as ForceNode) || hidden(l.target as ForceNode) ? 0 : 0.45));
+    const shown = sim.nodes().filter((n) => !hidden(n));
+    const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
+    for (const [i, n] of shown.entries()) {
+      n.x = 90 + (i % columns) * 90;
+      n.y = 120 + Math.floor(i / columns) * 100;
+      n.vx = 0;
+      n.vy = 0;
+      n.fx = null;
+      n.fy = null;
+    }
+    // Settle the layout at once instead of animating it, then fit the view
+    // right away, as the Whole collection button does.
+    frozen.current = false;
+    sim.stop();
+    sim.alpha(1);
+    while (sim.alpha() > sim.alphaMin()) sim.tick();
+    const g = graph.current;
+    if (g && renderedGraph.current === g) {
+      const ids = new Set(g.getNodeData().map((node) => node.id));
+      g.updateNodeData(sim.nodes().filter((node) => ids.has(node.id)).map((node) => ({ id: node.id, style: { x: node.x ?? 0, y: node.y ?? 0 } })));
+      void g.draw().then(() => fitWhole(g)).catch((e) => setError(String(e)));
+    }
+    persist();
+  }
   tagSizes.current = new Map(
     workspace.tags.map((t) => [t.id, appearanceFor(t, workspace).size]),
   );
@@ -336,7 +435,7 @@ export function GraphCanvas({
       for (const node of sim.nodes()) {
         if (dragging.current.has(node.id)) continue;
         const datum = graph.current?.getNodeData(node.id);
-        if ((frozen.current && !settling.current.has(node.id)) || pins.current.has(node.id)) {
+        if ((frozen.current && !settling.current.has(node.id)) || pins.current.has(node.id) || hiddenNodes.current.has(node.id)) {
           node.fx = Number(datum?.style?.x ?? node.x ?? 0);
           node.fy = Number(datum?.style?.y ?? node.y ?? 0);
         } else {
@@ -345,6 +444,13 @@ export function GraphCanvas({
         }
       }
     });
+    const boxStyle = { fill: "#2563eb", fillOpacity: 0.06, stroke: "#2563eb", lineWidth: 1, lineDash: [4, 3] };
+    const boxed = (states: Record<string, string | string[]>, adding: boolean) => {
+      const ids = Object.entries(states)
+        .filter(([id, state]) => bubblesRef.current.has(id) && [state].flat().includes("boxed"))
+        .map(([id]) => id);
+      onBoxSelectRef.current?.(ids, adding);
+    };
     const g = new Graph({
       container: container.current,
       width: container.current.clientWidth,
@@ -376,12 +482,7 @@ export function GraphCanvas({
         animation: !reduced,
         link: { distance: 120, strength: 0.45 },
         manyBody: { strength: -250 },
-        collide: {
-          radius: (d) =>
-            tagSizes.current.has(d.id)
-              ? tagSizes.current.get(d.id)! / 2 + 20
-              : 34,
-        },
+        collide: { radius: (d) => collideRadius(String(d.id)) },
         alphaDecay: 0.035,
         velocityDecay: 0.45,
       },
@@ -393,8 +494,10 @@ export function GraphCanvas({
           padding: 4,
           throttle: 32,
           sort: (a: NodeData, b: NodeData) => {
+            const { groups, related, box } = emphasisRef.current;
             const priority = (n: typeof a) =>
-              n.id === hovered.current ? 3 : n.id === selectedRef.current ? 2 : n.data?.tag ? 1 : 0;
+              n.id === hovered.current ? 4 : n.id === selectedRef.current ? 3 : groups.has(n.id) ? 2
+                : n.data?.tag ? 1 : related.has(n.id) || box.has(n.id) ? 0.5 : 0;
             const diff = priority(b) - priority(a);
             return diff > 0
               ? 1
@@ -412,6 +515,29 @@ export function GraphCanvas({
           key: "node-drag",
           fixed: false,
           trigger: [],
+        },
+        // Dragging on empty canvas draws a selection box; Shift adds to the selection.
+        {
+          type: "brush-select",
+          key: "box",
+          trigger: ["drag"],
+          enableElements: ["node"],
+          state: "boxed",
+          mode: "default",
+          enable: (e: { targetType?: string; shiftKey?: boolean }) => e.targetType === "canvas" && !e.shiftKey,
+          onSelect: (states: Record<string, string | string[]>) => boxed(states, false),
+          style: boxStyle,
+        },
+        {
+          type: "brush-select",
+          key: "box-add",
+          trigger: ["shift"],
+          enableElements: ["node"],
+          state: "boxed",
+          mode: "union",
+          enable: (e: { targetType?: string }) => e.targetType === "canvas",
+          onSelect: (states: Record<string, string | string[]>) => boxed(states, true),
+          style: boxStyle,
         },
         {
           type: "scroll-canvas",
@@ -580,6 +706,7 @@ export function GraphCanvas({
     g.on(NodeEvent.CLICK, (event: IElementEvent) =>
       onSelectRef.current(event.target.id),
     );
+    g.on(CanvasEvent.CLICK, () => onSelectRef.current());
     let saved = "",
       changes = 0,
       last = 0,
@@ -808,42 +935,55 @@ export function GraphCanvas({
           : "hidden";
     for (const m of workspace.memberships)
       visibility[m.id] = matching.has(m.bubbleId) && !hiddenTagIds.includes(m.tagId) ? "visible" : "hidden";
-    g.updateNodeData(
-      workspace.tags.map((tag) => ({
+    // Triage emphasis: the current bookmark with its groups and related bookmarks
+    // stays strong, the box selection is outlined, and everything else fades.
+    const { groups, related, box } = emphasis;
+    const focusing = Boolean(selected && workspace.bubbles.some((b) => b.id === selected));
+    const decided = new Set(workspace.statuses.filter((s) => s.outcome !== "active").map((s) => s.id));
+    g.updateNodeData([
+      ...workspace.tags.map((tag) => ({
         id: tag.id,
         style: {
-          stroke:
-            tag.id === selected
-              ? "#183e35"
-              : appearanceFor(tag, workspace).color,
-          lineWidth: tag.id === selected ? 4 : 1,
-          halo: tag.id === selected,
-          haloStroke: "#0f766e",
-          haloLineWidth: 12,
-          haloStrokeOpacity: 0.25,
+          opacity: !focusing || groups.has(tag.id) ? 1 : 0.28,
+          stroke: appearanceFor(tag, workspace).color,
+          lineWidth: 1,
+          halo: false,
         },
       })),
-    );
+      ...workspace.bubbles.map((b) => {
+        const current = b.id === selected, inBox = box.has(b.id), done = decided.has(b.statusId);
+        return {
+          id: b.id,
+          style: {
+            opacity: !focusing || current || related.has(b.id) || inBox ? 1 : 0.18,
+            stroke: current ? "#0f766e" : inBox ? "#2563eb" : done ? "#cbd5d1" : "#94a3b8",
+            lineWidth: current ? 4 : inBox ? 3 : 2,
+            fill: done ? "#eef2f0" : "#fff",
+            halo: current || inBox,
+            haloStroke: current ? "#0f766e" : "#2563eb",
+            haloLineWidth: current ? 14 : 8,
+            haloStrokeOpacity: current ? 0.25 : 0.16,
+          },
+        };
+      }),
+    ]);
+    const tagOf = new Map(workspace.memberships.map((m) => [m.id, m.tagId]));
     g.setEdge({
       style: {
-        stroke: (edge) =>
-          edge.source === selected || edge.target === selected
-            ? "#0f766e"
-            : "#a9bdba",
-        lineWidth: (edge) =>
-          edge.source === selected || edge.target === selected ? 2.5 : 1.2,
+        stroke: (edge) => (edge.source === selected ? "#0f766e" : "#a9bdba"),
+        lineWidth: (edge) => (edge.source === selected ? 2.5 : 1.2),
+        opacity: (edge) => (!focusing || edge.source === selected ? 1 : groups.has(tagOf.get(String(edge.id)) ?? "") ? 0.45 : 0.08),
         endArrow: false,
       },
     });
-    g.updateNodeData(
-      workspace.bubbles.map((b) => ({
-        id: b.id,
-        style: {
-          stroke: b.id === selected ? "#0f766e" : "#94a3b8",
-          lineWidth: b.id === selected ? 4 : 2,
-        },
-      })),
-    );
+    // Keep G6's brush state in step with the selection (it is cleared outside the graph too).
+    const brushStates: Record<string, string[]> = {};
+    for (const b of workspace.bubbles) {
+      const has = g.getElementState(b.id).includes("boxed");
+      if (has !== box.has(b.id)) brushStates[b.id] = box.has(b.id) ? ["boxed"] : [];
+    }
+    if (Object.keys(brushStates).length) void g.setElementState(brushStates, false);
+    hiddenNodes.current = new Set(Object.keys(visibility).filter((id) => visibility[id] === "hidden"));
     void g
       .setElementVisibility(visibility, false)
       .then(() => {
@@ -853,7 +993,7 @@ export function GraphCanvas({
       .catch((e) => {
         if (graph.current === g) setError(String(e));
       });
-  }, [ready, selected, query, matchingBubbleIds, filtering, hiddenTagIds, workspace]);
+  }, [ready, selected, query, matchingBubbleIds, filtering, hiddenTagIds, workspace, emphasis]);
   async function action(work: (g: Graph) => Promise<unknown>) {
     if (!graph.current || !ready) return;
     autoFit.current = false;
@@ -887,16 +1027,14 @@ export function GraphCanvas({
           <strong>The graph couldn’t load</strong>
           <p>{error}</p>
           <button onClick={() => setRetry((n) => n + 1)}>Retry graph</button>
-          <button onClick={onShowList}>Open list</button>
+          {onShowList && <button onClick={onShowList}>Open list</button>}
         </div>
       )}
       <div className="canvas-bottom">
         <div className="canvas-status">
           {!ready && <span className="subtle" role="status">{status}</span>}
-          {feedback}
         </div>
         <div className="canvas-tools">
-          <details className="help-menu"><summary aria-label="Graph help"><Icon name="info" /><span>Help</span></summary><div className="help-popover"><strong>Explore your collection</strong><p>Drag a bubble to move it. Scroll with two fingers to pan; pinch to zoom.</p><p>Select an item for Details. Pin it there to keep its position during layout.</p></div></details>
           <span className="zoom-value">{Math.round(zoom * 100)}%</span>
           <div className="layout-menu">
             <button
@@ -915,18 +1053,7 @@ export function GraphCanvas({
                 <button onClick={() => {
                   setLayoutOpen(false);
                   if (window.confirm("Reset positions and clear all pins?")) {
-                    pins.current.clear();
-                    refreshPins();
-                    for (const [i, n] of (simulation.current?.nodes() ?? []).entries()) {
-                      n.x = 90 + (i % 6) * 90;
-                      n.y = 120 + Math.floor(i / 6) * 100;
-                      n.vx = 0;
-                      n.vy = 0;
-                      n.fx = null;
-                      n.fy = null;
-                    }
-                    simulation.current?.alpha(1).restart();
-                    persist();
+                    resetPositions();
                   }
                 }}>
                   <Icon name="refresh" size={15} /> Reset positions
@@ -934,23 +1061,12 @@ export function GraphCanvas({
               </div>
             )}
           </div>
+          {tools}
           <IconButton
-            label="Fit graph"
+            label="Whole collection"
             icon="fit"
             disabled={!ready}
-            onClick={() => void action(async (g) => {
-              const rect = container.current!.getBoundingClientRect();
-              const inspector = container.current!
-                .closest(".workspace-grid")
-                ?.querySelector<HTMLElement>(".inspector");
-              const panel = inspector?.getBoundingClientRect();
-              const covered = panel && panel.width > 0
-                ? Math.max(0, rect.right - panel.left) : 0;
-              g.setOptions({
-                padding: [65, Math.min(rect.width - 85, covered + 40), 40, 40],
-              });
-              await g.fitView({}, false);
-            })}
+            onClick={() => void action(fitWhole)}
           />
           <IconButton label="Zoom out" icon="zoom-out" disabled={!ready} onClick={() => void action((g) => g.zoomBy(0.8, false))} />
           <IconButton label="Zoom in" icon="zoom-in" disabled={!ready} onClick={() => void action((g) => g.zoomBy(1.25, false))} />
