@@ -35,7 +35,7 @@ Keep rounds small. There are no checkpoint tags, deferred-verification registers
 
 ## In progress: round 4 — WebMCP for the user's agent
 
-The approved integration is implemented. Its scope, accepted review flow, client setup, verification, and remaining Codex acceptance are maintained together in the standalone [WebMCP document](webmcp.md). Claude testing is deferred at the user’s request; finish Codex acceptance before closing this round.
+The approved integration is implemented. Its scope, accepted review flow, client setup, verification, and remaining Codex acceptance are maintained together in the standalone [WebMCP document](webmcp.md). Claude testing is done; finish Codex acceptance before closing this round.
 
 ## Later, only if needed
 
