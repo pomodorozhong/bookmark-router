@@ -35,7 +35,7 @@ test("proposals do not save, duplicate retries are stable, and only one batch ca
   assert.equal(session.submit(input(w), w), proposal);
   assert.throws(() => session.submit(input(w, "other-task"), w), (e: unknown) => e instanceof AgentInputError && e.code === "review_pending");
   assert.throws(() => session.submit({ ...input(w), summary: "Different" }, w), (e: unknown) => e instanceof AgentInputError && e.code === "request_id_reused");
-  session.reject(proposal.id); assert.equal(proposal.state, "rejected"); assert.deepEqual(w, before);
+  session.setAside(proposal.id); assert.equal(proposal.state, "set_aside"); assert.deepEqual(w, before);
   assert.equal(session.submit(input(w, "other-task"), w).state, "pending_review");
   session.reset(); assert.equal(session.current, undefined); assert.throws(() => session.get(proposal.id, w), /no longer available/);
 });
@@ -58,6 +58,81 @@ test("invalid proposals fail before staging, including duplicate URLs, fields, g
   for (const changes of badChanges) { assert.throws(() => session.submit({ ...input(w), changes }, w)); assert.equal(session.current, undefined); }
   assert.throws(() => session.submit({ ...input(w), expectedRevision: -1 }, w));
   assert.throws(() => session.submit({ ...input(w), collectionId: "wrong" }, w), ConflictError);
+});
+
+test("batch selection retains set-aside proposals without freeing another pending batch", () => {
+  const w = demoWorkspace(), session = new AgentReviewSession(), first = session.submit(input(w), w);
+  session.setAside(first.id);
+  const second = session.submit(input(w, "second"), w);
+  session.select(first.id);
+  assert.equal(session.current, first); assert.equal(session.pending, second);
+  assert.deepEqual(session.batches, [first, second]);
+  assert.equal(session.submit(input(w), w), first);
+  assert.equal(first.state, "set_aside"); assert.equal(session.current, first);
+  assert.throws(() => session.submit(input(w, "third"), w), (e: unknown) => e instanceof AgentInputError && e.code === "review_pending");
+  session.refresh({ ...w, revision: w.revision + 1 });
+  assert.equal(second.state, "stale"); assert.equal(first.state, "set_aside"); assert.equal(session.pending, second);
+  assert.throws(() => session.select("missing"), /no longer available/);
+  session.reset(); assert.deepEqual(session.batches, []); assert.equal(session.pending, undefined);
+  assert.throws(() => session.select(first.id), /no longer available/);
+});
+
+test("a set-aside batch applies later with stable creation IDs and one Undo", async () => {
+  const w = demoWorkspace(), before = structuredClone(w), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession();
+  await store.create(w);
+  const p = session.submit(input(w), w), ids = [...p.createdBookmarkIds];
+  session.setAside(p.id);
+  assert.deepEqual(await store.get(w.id), before); assert.equal(await store.nextUndo(w.id), undefined);
+  assert.equal(session.submit(input(w), w), p);
+  const saved = await session.apply(p.id, w, store.command.bind(store));
+  assert.equal(p.state, "applied"); assert.deepEqual(saved.bookmarks.slice(-2).map((b) => b.id), ids);
+  await assert.rejects(session.apply(p.id, saved, store.command.bind(store)), ConflictError);
+  const undo = (await store.nextUndo(w.id))!;
+  const undone = await store.undoLast(w.id, saved.revision, undo.id);
+  assert.deepEqual(undone.bookmarks, before.bookmarks); assert.deepEqual(undone.memberships, before.memberships);
+  await store.close();
+});
+
+test("an older set-aside batch reviews newer edits, protects races and failure retries, and Undo preserves another batch", async () => {
+  const w = demoWorkspace(), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession();
+  await store.create(w);
+  const firstInput: ProposalInput = { ...input(w), changes: [{ kind: "update", bookmarkId: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { title: "Agent title" } }] };
+  const first = session.submit(firstInput, w), originalInput = structuredClone(first.input); session.setAside(first.id);
+  const second = session.submit(input(w, "second"), w);
+  let current = await session.apply(second.id, w, store.command.bind(store));
+  current = await store.command(w.id, current.revision, { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { title: "Manual title" } });
+  session.select(first.id);
+  assert.equal(first.state, "set_aside"); assert.deepEqual(reviewAgentProposal(first, current).overwrites, [{ bookmarkId: w.bookmarks[0].id, field: "title" }]);
+  await assert.rejects(session.apply(first.id, current, store.command.bind(store)), ConflictError);
+  await assert.rejects(session.apply(first.id, current, store.command.bind(store), { reviewedRevision: w.revision }), /changed again/);
+  await assert.rejects(session.apply(first.id, current, async () => { throw new Error("Disk full"); }, { reviewedRevision: current.revision }), /Disk full/);
+  assert.equal(first.state, "set_aside"); assert.deepEqual(await store.get(w.id), current);
+  const unseen = await store.command(w.id, current.revision, { type: "bookmark.patch", id: w.bookmarks[0].id, expectedRecordRevision: current.bookmarks[0].revision, patch: { title: "Newest manual title" } });
+  await assert.rejects(session.apply(first.id, current, store.command.bind(store), { reviewedRevision: current.revision }), ConflictError);
+  assert.equal(first.state, "set_aside"); assert.deepEqual(await store.get(w.id), unseen);
+  const saved = await session.apply(first.id, unseen, store.command.bind(store), { reviewedRevision: unseen.revision });
+  assert.equal(saved.bookmarks[0].title, "Agent title"); assert.equal(saved.bookmarks.length, 14);
+  assert.deepEqual(first.input, originalInput);
+  const undo = (await store.nextUndo(w.id))!, undone = await store.undoLast(w.id, saved.revision, undo.id);
+  const content = (w: Workspace) => w.bookmarks.map(({ revision: _, updatedAt: __, ...b }) => b);
+  assert.deepEqual(content(undone), content(unseen)); assert.deepEqual(undone.memberships, unseen.memberships);
+  assert.ok(undone.bookmarks[0].revision > unseen.bookmarks[0].revision);
+  assert.equal(second.state, "applied"); await store.close();
+});
+
+test("tools report set-aside batches and identical retries without reviving or saving them", async () => {
+  const w = demoWorkspace(), session = new AgentReviewSession(), before = structuredClone(w);
+  const tools = createAgentTools({ session, getWorkspace: async () => w });
+  const call = async (name: string, value: unknown) => JSON.parse(await tools.find((t) => t.name === name)!.execute(value));
+  const staged = await call("propose_changes", input(w)); session.setAside(staged.proposalId);
+  const status = await call("get_proposal_status", { proposalId: staged.proposalId });
+  assert.equal(status.state, "set_aside"); assert.deepEqual(status.createdBookmarkIds, []);
+  assert.match(status.nextStep, /apply it later/); assert.match(status.nextStep, /Do not resubmit/);
+  assert.equal((await call("propose_changes", input(w))).state, "set_aside");
+  const newer = await call("propose_changes", input(w, "newer"));
+  assert.equal(newer.state, "pending_review");
+  assert.equal((await call("get_proposal_status", { proposalId: staged.proposalId })).state, "set_aside");
+  assert.equal(session.current?.id, newer.proposalId); assert.deepEqual(w, before);
 });
 
 test("field updates preserve omitted values and apply group changes, then one Undo restores the entire batch", async () => {
@@ -86,7 +161,7 @@ test("stale review and a concurrent storage write cannot overwrite newer content
   // The caller may still hold the old snapshot; the storage transaction enforces revision too.
   await assert.rejects(session.apply(p.id, w, store.command.bind(store)), ConflictError);
   assert.equal(p.state, "stale"); assert.deepEqual(await store.get(w.id), newer);
-  session.reject(p.id);
+  session.setAside(p.id);
   const fresh = session.submit(input(newer, "fresh"), newer);
   session.refresh({ ...newer, revision: newer.revision + 1 }); assert.equal(fresh.state, "stale");
   await assert.rejects(session.apply(fresh.id, newer, store.command.bind(store)), ConflictError);
@@ -200,8 +275,9 @@ test("Apply anyway revalidates duplicate URLs, removed records and groups, inval
     assert.throws(() => reviewAgentProposal(p, current));
     await assert.rejects(session.apply(p.id, current, async () => { committed = true; return current; }, { reviewedRevision: current.revision }));
     assert.equal(committed, false); assert.equal(p.state, "stale");
-    session.reject(p.id);
-    await assert.rejects(session.apply(p.id, current, async () => { committed = true; return current; }, { reviewedRevision: current.revision }), ConflictError);
+    session.setAside(p.id);
+    await assert.rejects(session.apply(p.id, current, async () => { committed = true; return current; }, { reviewedRevision: current.revision }));
+    assert.equal(committed, false); assert.equal(p.state, "set_aside");
   }
 });
 
@@ -227,7 +303,8 @@ test("failed batch storage rolls back every operation and can be retried", async
   let release!: (w: Workspace) => void;
   const saving = session.apply(p.id, w, async () => new Promise((resolve) => { release = resolve; }));
   await assert.rejects(session.apply(p.id, w, store.command.bind(store)), /already saving/);
-  assert.throws(() => session.reject(p.id), /finish saving/); assert.throws(() => session.reset(), /finish saving/);
+  assert.throws(() => session.setAside(p.id), /finish saving/); assert.throws(() => session.reset(), /finish saving/);
+  assert.throws(() => session.select(p.id), /finish saving/);
   release(await store.command(w.id, 0, p.commands)); await saving;
   assert.equal(p.state, "applied"); await store.close();
 });
@@ -375,7 +452,7 @@ test("agent can fill a selected missing image while preserving existing assets a
   await store.close();
 });
 
-test("reviewed image replacements restore a local or remote asset on Undo; rejection and staleness never replace it", async () => {
+test("reviewed image replacements restore a local or remote asset on Undo; setting aside and staleness never replace it", async () => {
   for (const original of [
     { kind: "image", source: "local", blobId: "existing-blob", filename: "existing.png" },
     { kind: "image", source: "remote", url: "https://images.example/original.png" },
@@ -383,7 +460,7 @@ test("reviewed image replacements restore a local or remote asset on Undo; rejec
     let w = demoWorkspace(); w.bookmarks[0].asset = original;
     const store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession(); await store.create(w);
     const request = { ...input(w, "replace-image"), changes: [{ kind: "update", bookmarkId: w.bookmarks[0].id, expectedRecordRevision: 0, patch: { asset: { kind: "image", source: "remote", url: "https://images.example/replacement.png" } } }] };
-    const rejected = session.submit(request, w); session.reject(rejected.id);
+    const rejected = session.submit(request, w); session.setAside(rejected.id);
     assert.deepEqual((await store.get(w.id))!.bookmarks[0].asset, original); assert.equal(await store.nextUndo(w.id), undefined);
     const proposal = session.submit({ ...request, requestId: "apply-image" }, w);
     w = await session.apply(proposal.id, w, store.command.bind(store));

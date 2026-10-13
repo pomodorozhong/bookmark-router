@@ -5,7 +5,7 @@ import type { LoadMedia } from "./Cover";
 import { Dialog } from "./Dialog";
 import { IconButton } from "./Icon";
 
-const stateLabels = { pending_review: "Pending review", applied: "Applied", rejected: "Rejected", stale: "Stale" };
+const stateLabels = { pending_review: "Pending review", applied: "Applied", set_aside: "Set aside", stale: "Stale" };
 const fieldLabels = { title: "Title", url: "URL", description: "Description", statusId: "Status" };
 function fieldValue(bookmark: Bookmark, field: keyof typeof fieldLabels, workspace: Workspace) {
   return field === "statusId" ? workspace.statuses.find((s) => s.id === bookmark.statusId)?.label ?? bookmark.statusId : bookmark[field] || "None";
@@ -72,8 +72,9 @@ function MembershipDiff({ bookmarkId, tagId, before, after, overwritten }: {
   </div>;
 }
 
-export function AgentReviewDialog({ proposal, workspace, availability, busy, error, loadMedia, onApply, onApplyAnyway, onReject, onClose }: {
+export function AgentReviewDialog({ proposal, proposals, workspace, availability, busy, error, loadMedia, onApply, onApplyAnyway, onSetAside, onSelect, onClose }: {
   proposal?: AgentProposal;
+  proposals: AgentProposal[];
   workspace: Workspace;
   availability: "checking" | "available" | "unavailable" | "failed";
   busy: boolean;
@@ -81,15 +82,16 @@ export function AgentReviewDialog({ proposal, workspace, availability, busy, err
   loadMedia: LoadMedia;
   onApply: () => void;
   onApplyAnyway: (reviewedRevision: number) => void;
-  onReject: () => void;
+  onSetAside: () => void;
+  onSelect: (proposalId: string) => void;
   onClose: () => void;
 }) {
   const [confirmation, setConfirmation] = useState<{ proposalId: string; revision: number }>();
   // Confirm only the proposal and saved values shown when the first click happened.
-  useEffect(() => { setConfirmation(undefined); }, [proposal?.id, workspace.id, workspace.revision, error]);
+  useEffect(() => { setConfirmation(undefined); }, [proposal?.id, proposal?.state, workspace.id, workspace.revision, error]);
   let creationIndex = 0;
-  const reviewable = proposal?.state === "pending_review" || proposal?.state === "stale";
-  const stale = reviewable && (proposal.state === "stale" || proposal.input.expectedRevision !== workspace.revision);
+  const reviewable = Boolean(proposal && proposal.state !== "applied");
+  const stale = reviewable && proposal && (proposal.state === "stale" || proposal.input.expectedRevision !== workspace.revision);
   const review = useMemo(() => {
     if (!proposal || !reviewable) return undefined;
     try { return { values: reviewAgentProposal(proposal, workspace) }; }
@@ -112,6 +114,11 @@ export function AgentReviewDialog({ proposal, workspace, availability, busy, err
         </div>
         <IconButton label="Close agent review" icon="close" disabled={busy} onClick={onClose} />
       </div>
+      {proposal && proposals.length > 1 && <label className="agent-review-picker">Batch
+        <select aria-label="Choose batch" value={proposal.id} disabled={busy} onChange={(event) => { setConfirmation(undefined); onSelect(event.target.value); }}>
+          {proposals.map((batch) => <option key={batch.id} value={batch.id}>{batch.input.summary} · {stateLabels[batch.state]}</option>)}
+        </select>
+      </label>}
       {error && <div className="alert" role="alert">{error}</div>}
       {!proposal ? (
         <div className="agent-review-empty">
@@ -120,11 +127,11 @@ export function AgentReviewDialog({ proposal, workspace, availability, busy, err
         </div>
       ) : (
         <>
-          <p className="agent-review-summary" aria-live="polite"><span className="agent-review-state">{stale ? "Stale" : stateLabels[proposal.state]}</span><span className="subtle">{[additions && `${additions} ${additions === 1 ? "addition" : "additions"}`, updates && `${updates} ${updates === 1 ? "update" : "updates"}`].filter(Boolean).join(" · ")} · {proposal.before.name}</span></p>
+          <p className="agent-review-summary" aria-live="polite"><span className="agent-review-state">{proposal.state === "set_aside" ? "Set aside" : stale ? "Stale" : stateLabels[proposal.state]}</span><span className="subtle">{[additions && `${additions} ${additions === 1 ? "addition" : "additions"}`, updates && `${updates} ${updates === 1 ? "update" : "updates"}`].filter(Boolean).join(" · ")} · {proposal.before.name}</span></p>
           {stale && <div className="agent-review-warning" role="alert"><strong>The collection changed after this proposal.</strong><p>{review?.error ? "This batch could not be validated against the latest collection. Review the error below." : overwriteSummary}</p></div>}
-          {review?.error && <div className="alert" role="alert">This batch cannot be applied: {review.error} Reject it and ask the agent for a fresh proposal.</div>}
+          {review?.error && <div className="alert" role="alert">This batch cannot be applied: {review.error} {proposal.state === "set_aside" ? "Ask the agent for a fresh proposal." : "Set it aside and ask the agent for a fresh proposal."}</div>}
           {proposal.state === "applied" && <p role="status">The whole batch was saved. Close this review to use Undo. If you already undid it, this remains a record of the original application.</p>}
-          {proposal.state === "rejected" && <p role="status">Batch rejected. No bookmark changes saved.</p>}
+          {proposal.state === "set_aside" && <p role="status">Nothing saved. You can apply this batch later or review another batch.</p>}
           {proposal.input.changes.map((change, index) => {
             const id = change.kind === "create" ? proposal.createdBookmarkIds[creationIndex++] : change.bookmarkId;
             const after = previewWorkspace!.bookmarks.find((b) => b.id === id)!;
@@ -165,14 +172,14 @@ export function AgentReviewDialog({ proposal, workspace, availability, busy, err
         </div>}
         {error && <p className="agent-review-save-error" role="status">Not saved: {error}</p>}
         <div className="agent-review-actions">
-          {reviewable ? <><button disabled={busy} onClick={onReject}>Reject batch</button>{stale ? <button className={`agent-review-apply-anyway${confirming ? " is-confirming" : ""}`} aria-describedby={confirming ? "agent-apply-warning agent-confirm-reminder" : "agent-apply-warning"} disabled={busy || !review?.values} onClick={() => {
+          {reviewable ? <>{proposal?.state !== "set_aside" && <button disabled={busy} onClick={onSetAside}>Set aside</button>}{stale ? <button className={`agent-review-apply-anyway${confirming ? " is-confirming" : ""}`} aria-describedby={confirming ? "agent-apply-warning agent-confirm-reminder" : "agent-apply-warning"} disabled={busy || !review?.values} onClick={() => {
             if (confirming) onApplyAnyway(confirmation!.revision);
             else setConfirmation({ proposalId: proposal!.id, revision: workspace.revision });
           }}>{busy ? "Saving batch…" : confirming ? overwrites.length ? "Confirm overwrite" : "Confirm apply" : "Apply anyway"}</button> : <button className="primary" disabled={busy || !review?.values} onClick={onApply}>{busy ? "Saving batch…" : "Apply batch"}</button>}</> : <button onClick={onClose}>Close</button>}
         </div>
         {confirming && <p className="agent-review-confirm-reminder" id="agent-confirm-reminder" role="status">{overwrites.length ? `Nothing saved yet. Confirming will overwrite ${overwrites.length} newer ${overwrites.length === 1 ? "edit" : "edits"} listed above.` : "Nothing saved yet. Confirming will save the whole batch; no newer edits will be overwritten."}</p>}
       </footer>
-      <p className="agent-review-note subtle">The whole batch saves together as one Undo action. Proposals stay in this tab; reloading or switching collections discards them. Claude, Codex, and Chrome may also ask for connection or tool permission.</p>
+      <p className="agent-review-note subtle">The whole batch saves together as one Undo action. Set-aside batches stay available in this tab; reloading or switching collections discards proposals. Claude, Codex, and Chrome may also ask for connection or tool permission.</p>
     </Dialog>
   );
 }

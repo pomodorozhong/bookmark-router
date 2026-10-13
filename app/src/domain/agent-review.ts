@@ -26,7 +26,7 @@ export interface ProposalInput {
   summary: string;
   changes: Array<CreateChange | UpdateChange>;
 }
-export type ProposalState = "pending_review" | "applied" | "rejected" | "stale";
+export type ProposalState = "pending_review" | "applied" | "set_aside" | "stale";
 export interface AgentProposal {
   id: string;
   input: ProposalInput;
@@ -158,7 +158,7 @@ export function reviewAgentProposal(proposal: AgentProposal, workspace: Workspac
   const input: ProposalInput = { ...proposal.input, expectedRevision: workspace.revision, changes: proposal.input.changes.map((change) => {
     if (change.kind === "create") return change;
     const bookmark = workspace.bookmarks.find((b) => b.id === change.bookmarkId);
-    if (!bookmark) throw new ConflictError("A bookmark in this batch no longer exists. Reject it and ask for a fresh proposal.");
+    if (!bookmark) throw new ConflictError("A bookmark in this batch no longer exists. Set it aside and ask for a fresh proposal.");
     return { ...change, expectedRecordRevision: bookmark.revision };
   }) };
   const { commands, preview } = previewChanges(input, workspace, proposal.createdBookmarkIds);
@@ -180,7 +180,7 @@ export function reviewAgentProposal(proposal: AgentProposal, workspace: Workspac
   return { before: workspace, preview, commands, overwrites };
 }
 
-/** Tab-local review state. Only the human-facing UI calls apply/reject; tools cannot. */
+/** Tab-local review state. Only the human-facing UI applies or sets batches aside. */
 export class AgentReviewSession {
   private proposals = new Map<string, AgentProposal>();
   private requestIds = new Map<string, string>();
@@ -188,15 +188,25 @@ export class AgentReviewSession {
   private currentId?: string;
   constructor(private readonly changed: () => void = () => {}) {}
   get current(): AgentProposal | undefined { return this.currentId ? this.proposals.get(this.currentId) : undefined; }
+  get batches(): AgentProposal[] { return [...this.proposals.values()]; }
+  get pending(): AgentProposal | undefined { return this.batches.find((p) => p.state === "pending_review" || p.state === "stale"); }
+  select(id: string) {
+    if (this.applying) throw new AgentInputError("Wait for the batch to finish saving.", "review_busy");
+    if (!this.proposals.has(id)) throw new AgentInputError("Proposal is no longer available in this tab.", "proposal_not_found");
+    this.currentId = id; this.changed();
+  }
   reset() {
     if (this.applying) throw new AgentInputError("Wait for the batch to finish saving.", "review_busy");
     this.proposals.clear(); this.requestIds.clear(); this.currentId = undefined; this.changed();
   }
   refresh(workspace: Workspace) {
-    const current = this.current;
-    if (current?.state === "pending_review" && (current.input.collectionId !== workspace.id || current.input.expectedRevision !== workspace.revision)) {
-      current.state = "stale"; this.changed();
+    let changed = false;
+    for (const proposal of this.proposals.values()) {
+      if (proposal.state === "pending_review" && (proposal.input.collectionId !== workspace.id || proposal.input.expectedRevision !== workspace.revision)) {
+        proposal.state = "stale"; changed = true;
+      }
     }
+    if (changed) this.changed();
   }
   submit(value: unknown, workspace: Workspace): AgentProposal {
     const input = parseProposal(value);
@@ -207,7 +217,7 @@ export class AgentReviewSession {
       if (JSON.stringify(proposal.input) !== JSON.stringify(input)) throw new AgentInputError("This request ID already belongs to a different proposal.", "request_id_reused");
       return proposal;
     }
-    if (this.applying || this.current?.state === "pending_review" || this.current?.state === "stale") throw new AgentInputError("Review or reject the current batch before submitting another.", "review_pending");
+    if (this.applying || this.pending) throw new AgentInputError("Apply or set aside the pending batch before submitting another.", "review_pending");
     const createdBookmarkIds = input.changes.filter((c) => c.kind === "create").map(() => crypto.randomUUID());
     const { commands, preview } = previewChanges(input, workspace, createdBookmarkIds);
     const proposal: AgentProposal = { id: crypto.randomUUID(), input: structuredClone(input), state: "pending_review", createdBookmarkIds, commands, before: structuredClone(workspace), preview };
@@ -220,17 +230,18 @@ export class AgentReviewSession {
     if (!proposal) throw new AgentInputError("Proposal is no longer available in this tab.", "proposal_not_found");
     return proposal;
   }
-  reject(id: string) {
+  setAside(id: string) {
     if (this.applying) throw new AgentInputError("Wait for the batch to finish saving.", "review_busy");
     const proposal = this.proposals.get(id);
-    if (!proposal || !["pending_review", "stale"].includes(proposal.state)) throw new AgentInputError("There is no pending batch to reject.");
-    proposal.state = "rejected"; this.changed();
+    if (!proposal || !["pending_review", "stale"].includes(proposal.state)) throw new AgentInputError("There is no pending batch to set aside.");
+    proposal.state = "set_aside"; this.changed();
   }
   async apply(id: string, workspace: Workspace, commit: (collectionId: string, expectedRevision: number, commands: Command[], label: string) => Promise<Workspace>, options?: { reviewedRevision: number }): Promise<Workspace> {
     const proposal = this.get(id, workspace);
     if (this.applying) throw new AgentInputError("The batch is already saving.", "review_busy");
-    if (proposal.state !== "pending_review" && !(proposal.state === "stale" && options)) throw new ConflictError("This batch is no longer pending. Review the latest values or ask the agent for a fresh proposal.");
-    if (options && (proposal.state !== "stale" || options.reviewedRevision !== workspace.revision))
+    const stale = proposal.state === "stale" || proposal.input.expectedRevision !== workspace.revision;
+    if (proposal.state === "applied" || (stale && !options)) throw new ConflictError("Review the latest values and overwrite warning before applying this batch.");
+    if (options && (!stale || options.reviewedRevision !== workspace.revision))
       throw new ConflictError("This collection changed again. Review the updated overwrite warning before applying anyway.");
     // Rebuild and validate immediately before the storage transaction, retaining stable IDs.
     const { commands, preview } = options ? reviewAgentProposal(proposal, workspace) : previewChanges(proposal.input, workspace, proposal.createdBookmarkIds);
@@ -240,7 +251,7 @@ export class AgentReviewSession {
       proposal.before = structuredClone(workspace); proposal.preview = preview; proposal.commands = commands;
       proposal.state = "applied"; this.changed(); return saved;
     } catch (error) {
-      if (error instanceof ConflictError) proposal.state = "stale";
+      if (error instanceof ConflictError && proposal.state !== "set_aside") proposal.state = "stale";
       this.changed(); throw error;
     } finally { this.applying = false; }
   }
