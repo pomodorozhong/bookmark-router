@@ -1,0 +1,329 @@
+<title>Find Thumbnail Online</title>
+<style>
+  /* Layout: the triage detail panel at full fidelity beside a scenario picker, then the More actions setting, then notes. Single light look, matching the app. */
+  :root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --ink: #243b35; --muted: #536b62; --line: #dce5e0; --teal: #0f766e; --tint: #e8f3ee;
+    --bg: #f6f8f7; --card: #ffffff; --toast: #183e35; --toast-ink: #eef7f3;
+    --warn-bg: #fff7e8; --warn-line: #f2d7a6; --warn-ink: #b45309;
+    --ok: #15803d; --bad: #b42318; --skip: #8a9a93;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { background: var(--bg); color: var(--ink); font-size: 14px; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; }
+  button:hover:not(:disabled) { background: #f0f5f2; border-color: #b7ccc1; }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, input:focus-visible { outline: 3px solid #2e9586; outline-offset: 2px; }
+  .primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .primary:hover:not(:disabled) { background: #115e59; color: #fff; }
+  .text-button { border: 0; padding: 4px 0; min-height: 0; color: var(--teal); background: transparent; }
+  .text-button:hover:not(:disabled) { text-decoration: underline; background: transparent; }
+  a { color: var(--teal); text-decoration: none; }
+  svg { flex-shrink: 0; }
+
+  .wrap { padding-inline: 16px; padding-block: 16px 48px; max-width: 1100px; margin: 0 auto; display: grid; gap: 20px; }
+  .banner { background: var(--toast); color: var(--toast-ink); border-radius: 10px; padding: 10px 16px; font-size: 13px; line-height: 1.5; }
+  .banner strong { color: #fff; }
+  .row { display: grid; grid-template-columns: 260px minmax(0, 400px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .row { grid-template-columns: 1fr; } }
+
+  /* Scenario picker */
+  .picker { display: grid; gap: 8px; }
+  .picker h3, .notes h3, .side h3 { font-size: 11px; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; color: var(--muted); margin: 0 0 2px; }
+  .scenario { display: grid; gap: 2px; text-align: left; justify-items: start; padding: 9px 11px; }
+  .scenario small { color: var(--muted); font-size: 12px; }
+  .scenario.on { background: var(--tint); border-color: var(--teal); box-shadow: inset 3px 0 var(--teal); }
+  .quota { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--muted); padding: 6px 2px; line-height: 1.4; }
+  .quota input { accent-color: var(--teal); margin-top: 2px; }
+  .reset { justify-self: start; }
+
+  /* Detail panel, matching .triage-detail */
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px 16px; min-width: 0; }
+  .top { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
+  .top h2 { font-size: 18px; line-height: 1.3; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  /* Fixed action bar: the same place for every bookmark, whatever the title's length. */
+  .links { display: flex; gap: 12px; align-items: center; justify-content: space-between; font-size: 13px; padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .links > a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .links-actions { display: flex; gap: 12px; align-items: center; flex-shrink: 0; }
+  .icon-button { border: 0; background: transparent; padding: 4px; min-height: 0; color: var(--muted); }
+  .links a, .links .text-button { display: inline-flex; gap: 4px; align-items: center; font-size: 13px; }
+  .cover { width: 88px; height: 88px; border-radius: 10px; border: 1px solid var(--line); flex-shrink: 0; overflow: hidden; display: grid; place-items: center; position: relative; }
+  .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cover.icon { background: #f4f7f5; }
+  .cover.icon img { width: 40px; height: 40px; object-fit: contain; }
+  .tile { width: 100%; height: 100%; display: grid; place-items: center; font-size: 34px; font-weight: 600; color: #fff; }
+  .desc { color: #334d45; line-height: 1.55; margin: 12px 0; white-space: pre-line; font-size: 13.5px; overflow-wrap: anywhere; }
+
+  /* The new thumbnail row */
+  .thumb-row { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 10px 0; margin: 12px 0; display: grid; gap: 8px; }
+  .thumb-line { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
+  .thumb-line .state { min-width: 0; overflow-wrap: anywhere; line-height: 1.45; }
+  .thumb-line .state strong { color: var(--ink); font-weight: 600; }
+  .thumb-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .thumb-actions button { min-height: 30px; padding: 5px 10px; font-size: 12.5px; }
+  .thumb-actions button[aria-expanded="true"] { background: var(--tint); border-color: var(--teal); }
+  .hide { justify-self: start; font-size: 12.5px; }
+  .counter { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .counter.empty { color: var(--warn-ink); }
+
+  .confirm { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.45; display: grid; gap: 8px; }
+  .confirm strong.head { color: var(--warn-ink); }
+  .confirm ol { margin: 0; padding-left: 20px; display: grid; gap: 3px; }
+  .confirm li small { color: var(--muted); }
+  .confirm li.skipped { color: var(--skip); }
+  .confirm .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .confirm .btns button { min-height: 30px; padding: 5px 10px; font-size: 12.5px; }
+
+  .steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 12.5px; }
+  .steps li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 6px; align-items: start; line-height: 1.4; }
+  .steps .mark { font-weight: 700; text-align: center; }
+  .steps .ok .mark { color: var(--ok); } .steps .bad .mark { color: var(--bad); } .steps .skip .mark, .steps .skip { color: var(--skip); } .steps .wait .mark { color: var(--muted); }
+  .steps small { color: var(--muted); }
+
+  .section h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  .group { display: flex; gap: 8px; align-items: center; font-size: 13px; padding: 6px 0; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; background: #0f766e; }
+
+  /* Right column */
+  .side { display: grid; gap: 14px; min-width: 0; }
+  .menu { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 6px; display: grid; gap: 2px; box-shadow: 0 8px 28px #183e3514; max-width: 340px; }
+  .menu .item { justify-content: space-between; border: 0; width: 100%; text-align: left; padding: 8px 10px; }
+  .menu .item small { color: var(--muted); }
+  .switch { width: 34px; height: 20px; border-radius: 10px; background: #c9d8d0; position: relative; flex-shrink: 0; transition: background .15s; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+  .switch.on { background: var(--teal); } .switch.on::after { transform: translateX(14px); }
+  .setting-confirm { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5; display: grid; gap: 8px; max-width: 340px; }
+  .setting-confirm p { margin: 0; color: var(--muted); }
+  .setting-confirm .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .notes { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.55; color: var(--muted); }
+  .notes ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+  .notes strong { color: var(--ink); }
+  @media (prefers-reduced-motion: reduce) { .switch, .switch::after { transition: none; } }
+</style>
+
+<div class="wrap">
+  <div class="banner"><strong>Mockup for #7.</strong> Pick a bookmark on the left, then press <strong>Find thumbnail online</strong> in the detail panel. The three bookmarks are from your collection, and each one fails in the way the cover check found. Network results are simulated.</div>
+
+  <div class="row">
+    <div class="picker" aria-label="Scenarios">
+      <h3>Bookmark</h3>
+      <div id="scenarios" class="picker"></div>
+      <label class="quota"><input type="checkbox" id="quota"> Microlink lookups used up today (0 of 25 left)</label>
+      <button class="reset" id="reset">Reset this bookmark</button>
+    </div>
+
+    <section class="panel" aria-label="Current bookmark" id="panel"></section>
+
+    <div class="side">
+      <div>
+        <h3>More actions menu</h3>
+        <div class="menu" role="menu">
+          <button class="item" role="menuitem" disabled>Back up collection…</button>
+          <button class="item" role="menuitem" id="setting-item"><span>Find thumbnails online<br><small id="setting-sub">Off · nothing is sent</small></span><span class="switch" id="switch"></span></button>
+        </div>
+      </div>
+      <div class="setting-confirm" id="setting-confirm" hidden>
+        <strong>Find thumbnails for all bookmarks?</strong>
+        <p id="setting-count"></p>
+        <p>Each bookmark's link goes to the services it needs: FxTwitter, YouTube, GitHub, wsrv.nl, Microlink, Raindrop and Google. Stored thumbnails are never replaced.</p>
+        <div class="btns"><button class="primary" id="setting-on">Turn on and start</button><button id="setting-cancel">Cancel</button></div>
+      </div>
+      <div class="notes">
+        <h3>What this shows</h3>
+        <ul>
+          <li><strong>Nothing is sent until you confirm.</strong> The warning lists only the services this bookmark could reach, in the order they're tried. The run stops at the first image found.</li>
+          <li><strong>The counter</strong> shows Microlink lookups left today, out of 25. It goes down only when the run reaches Microlink.</li>
+          <li>Once a thumbnail is stored, the button becomes <strong>Retry thumbnail</strong>. That's the only way it changes.</li>
+          <li>The imported cover stays in the bookmark untouched. The same thumbnail shows in the queue and on the graph node.</li>
+          <li>The setting is off by default. The button works whether the setting is on or off.</li>
+          <li><strong>Copy, Edit and Pin sit in a fixed bar</strong> above the title, so a long title no longer moves them. That change is tracked separately in #13, not in #7.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const svg = (s) => "data:image/svg+xml;utf8," + encodeURIComponent(s);
+const IMG = {
+  avatar: svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#d7e3f4"/><circle cx="50" cy="40" r="18" fill="#5b7fb5"/><path d="M18 100c4-22 18-32 32-32s28 10 32 32z" fill="#5b7fb5"/></svg>`),
+  threads: svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#111"/><rect x="12" y="16" width="76" height="68" rx="8" fill="#1f1f1f"/><circle cx="26" cy="30" r="7" fill="#e1306c"/><rect x="38" y="25" width="36" height="5" rx="2" fill="#bbb"/><rect x="20" y="46" width="60" height="5" rx="2" fill="#888"/><rect x="20" y="56" width="52" height="5" rx="2" fill="#888"/><rect x="20" y="66" width="40" height="5" rx="2" fill="#888"/></svg>`),
+  screenshot: svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#fafafa"/><rect width="100" height="14" fill="#e9e9e9"/><circle cx="14" cy="30" r="6" fill="#ccc"/><rect x="24" y="27" width="40" height="5" rx="2" fill="#bbb"/><rect x="10" y="44" width="80" height="5" rx="2" fill="#ddd"/><rect x="10" y="54" width="72" height="5" rx="2" fill="#ddd"/><rect x="10" y="64" width="78" height="5" rx="2" fill="#ddd"/></svg>`),
+  youtube: svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="4" y="14" width="56" height="36" rx="10" fill="#ff0033"/><path d="M27 23v18l15-9z" fill="#fff"/></svg>`),
+};
+const today = "Oct 14, 2026";
+
+const SCENARIOS = [
+  {
+    id: "x", label: "X post, dead avatar cover", hint: "twitter.com · cover returns 404",
+    title: "Retention and paid conversion over downloads", domain: "twitter.com", letter: "R", tileColor: "#0f766e",
+    desc: "“@leftphilangie In the initial phase, I don't focus too much on downloads but on retention and conversion rate from user to paying user.”",
+    before: "Imported cover no longer loads (404).",
+    plan: [
+      { svc: "FxTwitter", what: "the post link, to find its photos or the author's current avatar" },
+      { svc: "wsrv.nl", what: "image links, to resize them" },
+      { svc: "Microlink", what: "the post link", microlink: true },
+      { svc: "Raindrop", what: "the post link, for a page screenshot" },
+      { svc: "Google", what: "the domain twitter.com, for its icon" },
+    ],
+    run: () => [{ name: "X post via FxTwitter", ok: true, note: "Found the author's current avatar" }],
+    result: { img: IMG.avatar, by: "FxTwitter" },
+  },
+  {
+    id: "threads", label: "Threads post, expired cover", hint: "threads.net · cover link expired (403)",
+    title: "Five App Store submission tips", domain: "threads.net", letter: "F", tileColor: "#475569",
+    desc: "💡 5 pro-tips when submitting to the AppStore. 1. Submit early. Don't wait until you're 100% happy with your app…",
+    before: "Imported cover link expired (403).",
+    plan: [
+      { svc: "wsrv.nl", what: "the imported cover link, then any image found" },
+      { svc: "Microlink", what: "the post link, to find its preview image", microlink: true },
+      { svc: "Raindrop", what: "the post link, for a page screenshot" },
+      { svc: "Google", what: "the domain threads.net, for its icon" },
+    ],
+    run: (quota) => [
+      { name: "Imported cover via wsrv.nl", ok: false, note: "Link expired: URL signature expired" },
+      quota ? { name: "Microlink", ok: true, note: "Found the post's preview image", usesQuota: true }
+            : { name: "Microlink", skip: true, note: "Skipped: no lookups left today" },
+      ...(quota ? [] : [{ name: "Raindrop screenshot", ok: true, note: "Took a screenshot of the post page" }]),
+    ],
+    result: (quota) => quota ? { img: IMG.threads, by: "Microlink" } : { img: IMG.screenshot, by: "Raindrop screenshot" },
+  },
+  {
+    id: "yt", label: "YouTube video, deleted", hint: "youtube.com · video no longer exists",
+    title: "Indie iOS income in 2020", domain: "youtube.com", letter: "I", tileColor: "#b45309",
+    desc: "So I didn't make much but this video was to show people that there are varying levels of success when it comes to being an indie app developer.",
+    before: "Imported cover no longer loads (404).",
+    plan: [
+      { svc: "YouTube", what: "the video ID, for its thumbnail" },
+      { svc: "wsrv.nl", what: "image links, to resize them" },
+      { svc: "Microlink", what: "the video link", microlink: true },
+      { svc: "Raindrop", what: "the video link, for a page screenshot" },
+      { svc: "Google", what: "the domain youtube.com, for its icon" },
+    ],
+    run: (quota) => [
+      { name: "YouTube thumbnail", ok: false, note: "Video no longer exists (404)" },
+      { name: "Imported cover via wsrv.nl", ok: false, note: "Gone (404)" },
+      quota ? { name: "Microlink", ok: false, note: "No preview image on the page", usesQuota: true }
+            : { name: "Microlink", skip: true, note: "Skipped: no lookups left today" },
+      { name: "Raindrop screenshot", ok: false, note: "Page not found (404)" },
+      { name: "Google favicon", ok: true, note: "Found the youtube.com icon" },
+    ],
+    result: { img: IMG.youtube, by: "Google favicon", icon: true },
+  },
+];
+
+const state = { scenario: "x", quota: 18, quotaOff: false, setting: false, perBookmark: {} };
+const bm = () => state.perBookmark[state.scenario] ??= { phase: "idle", steps: [], stored: null, done: 0 };
+const left = () => state.quotaOff ? 0 : state.quota;
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function renderScenarios() {
+  document.getElementById("scenarios").innerHTML = SCENARIOS.map((s) =>
+    `<button class="scenario ${s.id === state.scenario ? "on" : ""}" data-id="${s.id}" aria-pressed="${s.id === state.scenario}">${esc(s.label)}<small>${esc(s.hint)}</small></button>`).join("");
+}
+
+function counter() {
+  const n = left();
+  return `<span class="counter ${n ? "" : "empty"}" title="Microlink allows 25 lookups a day without a key">Microlink: ${n} of 25 left today</span>`;
+}
+
+function render() {
+  renderScenarios();
+  const s = SCENARIOS.find((x) => x.id === state.scenario), b = bm();
+  const cover = b.stored
+    ? `<div class="cover ${b.stored.icon ? "icon" : ""}"><img src="${b.stored.img}" alt=""></div>`
+    : `<div class="cover"><div class="tile" style="background:${s.tileColor}">${s.letter}</div></div>`;
+  // The button and counter always come first, so the button stays put while the warning or steps open below it.
+  const status = b.phase === "running" ? "Searching…"
+    : b.stored ? `<strong>Stored thumbnail</strong> · found by ${esc(b.stored.by)} · ${today}`
+    : esc(s.before) + " Showing a letter tile.";
+  let row = `<div class="thumb-actions"><button id="find" aria-expanded="${b.phase === "confirm"}" ${b.phase === "running" ? "disabled" : ""}>${icon("search")} ${b.stored ? "Retry thumbnail" : "Find thumbnail online"}</button>${counter()}</div>
+    <div class="thumb-line"><span class="state">${status}</span></div>`;
+  if (b.phase === "confirm") {
+    const n = left();
+    row += `<div class="confirm" role="group" aria-label="Confirm sending">
+      <strong class="head">Send this bookmark's link to outside services?</strong>
+      <span>They're tried in this order, and the search stops at the first image found:</span>
+      <ol>${s.plan.map((p) => p.microlink && !n
+          ? `<li class="skipped">${p.svc}: skipped, no lookups left today</li>`
+          : `<li><strong>${p.svc}</strong>: ${esc(p.what)}${p.microlink ? ` <small>· uses 1 of ${n} lookups left today</small>` : ""}</li>`).join("")}</ol>
+      ${b.stored ? `<span>The new image replaces the stored thumbnail only if one is found.</span>` : ""}
+      <div class="btns"><button class="primary" id="go">${icon("search")} Send and find</button><button id="cancel">Cancel</button></div></div>`;
+  } else if (b.phase !== "idle") {
+    row += `<ul class="steps" aria-live="polite">${b.steps.map((st) => {
+        const cls = st.wait ? "wait" : st.skip ? "skip" : st.ok ? "ok" : "bad";
+        const mark = st.wait ? "…" : st.skip ? "–" : st.ok ? "✓" : "✕";
+        return `<li class="${cls}"><span class="mark" aria-hidden="true">${mark}</span><span>${esc(st.name)} <small>${st.wait ? "trying…" : "· " + esc(st.note)}</small></span></li>`;
+      }).join("")}</ul>
+      ${b.phase === "done" ? `<button class="text-button hide" id="hide">Hide details</button>` : ""}`;
+  }
+  document.getElementById("panel").innerHTML = `
+    <div class="links"><a href="#" onclick="return false">${s.domain} ${icon("external")}</a>
+      <span class="links-actions"><button class="text-button">${icon("copy")} Copy</button><button class="text-button">${icon("edit")} Edit</button><button class="text-button">${icon("pin")} Pin</button><button class="icon-button" aria-label="Clear current bookmark">${icon("close")}</button></span></div>
+    <div class="top"><h2>${esc(s.title)}</h2>${cover}</div>
+    <div class="thumb-row">${row}</div>
+    <p class="desc">${esc(s.desc)}</p>`;
+  document.getElementById("find")?.addEventListener("click", () => {
+    b.phase = b.phase === "confirm" ? "idle" : "confirm"; render();
+    document.getElementById(b.phase === "confirm" ? "go" : "find")?.focus();
+  });
+  document.getElementById("cancel")?.addEventListener("click", () => { b.phase = "idle"; render(); });
+  document.getElementById("go")?.addEventListener("click", () => run(s, b));
+  document.getElementById("hide")?.addEventListener("click", () => { b.phase = "idle"; render(); });
+  renderSetting();
+}
+
+function run(s, b) {
+  const quotaOk = left() > 0;
+  const plan = s.run(quotaOk), result = typeof s.result === "function" ? s.result(quotaOk) : s.result;
+  b.phase = "running"; b.steps = [];
+  const myScenario = s.id;
+  let i = 0;
+  const next = () => {
+    if (i >= plan.length) { b.phase = "done"; b.stored = result; if (state.scenario === myScenario) render(); return; }
+    const step = plan[i];
+    b.steps.push({ ...step, wait: !step.skip });
+    if (state.scenario === myScenario) render();
+    setTimeout(() => {
+      b.steps[i] = { ...step };
+      if (step.usesQuota && !state.quotaOff) state.quota = Math.max(0, state.quota - 1);
+      i++; next();
+    }, step.skip ? 250 : 700);
+  };
+  next();
+}
+
+function renderSetting() {
+  document.getElementById("switch").classList.toggle("on", state.setting);
+  document.getElementById("setting-sub").textContent = state.setting ? "On · filling in 148 bookmarks" : "Off · nothing is sent";
+  document.getElementById("setting-count").textContent = "148 bookmarks have no stored thumbnail. Most finish in about a minute; the ones that need Microlink continue at 25 a day.";
+}
+
+function icon(name) {
+  const p = {
+    search: '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
+    external: '<path d="M14 4h6v6M20 4l-9 9M18 14v5H5V6h5"/>',
+    copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5H4v12h4"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+    pin: '<path d="M9 4h6l-1 6 4 4H6l4-4zM12 14v6"/>',
+    close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  }[name];
+  return `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+}
+
+document.getElementById("scenarios").addEventListener("click", (e) => {
+  const btn = e.target.closest(".scenario"); if (!btn) return;
+  state.scenario = btn.dataset.id; render();
+});
+document.getElementById("quota").addEventListener("change", (e) => { state.quotaOff = e.target.checked; render(); });
+document.getElementById("reset").addEventListener("click", () => { delete state.perBookmark[state.scenario]; render(); });
+document.getElementById("setting-item").addEventListener("click", () => {
+  if (state.setting) { state.setting = false; renderSetting(); return; }
+  document.getElementById("setting-confirm").hidden = false;
+});
+document.getElementById("setting-cancel").addEventListener("click", () => { document.getElementById("setting-confirm").hidden = true; });
+document.getElementById("setting-on").addEventListener("click", () => { state.setting = true; document.getElementById("setting-confirm").hidden = true; renderSetting(); });
+render();
+</script>
