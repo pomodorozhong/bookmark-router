@@ -1,6 +1,6 @@
 # Progress
 
-Updated October 14, 2026. Rounds 0–4 are approved; round 1.5 was skipped because the user’s local fetcher works. All agent-integration details are maintained in the standalone [WebMCP document](webmcp.md). See [the plan](plan.md) for product scope and [the completed round history](archive/rounds-0-3.md) for earlier work.
+Updated October 14, 2026. Rounds 0–4 are approved; round 1.5 was skipped because the user’s local fetcher works. Open work is tracked in GitHub issues. All agent-integration details are maintained in the standalone [WebMCP document](webmcp.md). See [the plan](plan.md) for product scope and [the completed round history](archive/rounds-0-3.md) for earlier work.
 
 ## Current behavior and decisions
 
@@ -35,7 +35,7 @@ Updated October 14, 2026. Rounds 0–4 are approved; round 1.5 was skipped becau
 - Explain the use case behind a proposal in terms of what the user does in the app; round 3 was unclear until it was put that way.
 - When the user proposes a solution, evaluate it and suggest better options before building; build their proposal only after they pick.
 - Keep the code simple: a one-off command beats permanent in-app machinery for something done a few times (the rename's in-app upgrade was replaced by `npm run upgrade-backup` for this reason).
-- Small rounds, each ending with 2–4 short "You try" tasks; verify on the user's real collection before reporting; conventional commits split by concern.
+- Small changes, one issue each, ending with 2–4 short "You try" tasks whose result is recorded on the issue; verify on the user's real collection before reporting; conventional commits split by concern.
 - The user runs the dev server themselves at `http://127.0.0.1:5199` (`.claude/launch.json` can start it too); their collections live in that origin's browser storage.
 
 **Verifying on the real collection**
