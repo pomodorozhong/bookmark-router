@@ -10,9 +10,9 @@ export function isRelayServerHello(value: unknown): boolean {
   return !!value && typeof value === "object" && (value as { type?: unknown }).type === "server-hello";
 }
 /**
- * The polyfill follows the current navigator.modelContext API while the relay
- * widget currently reads document.modelContext. Keep the two references joined
- * without replacing an existing native document context.
+ * The polyfill may expose modelContext on navigator while the page-owned relay
+ * uses document.modelContext. Keep the two references joined without replacing
+ * an existing native document context.
  */
 export async function installLocalAgentRuntime(): Promise<WebMcpContext> {
   if (!detectWebMcp()) {
@@ -52,7 +52,7 @@ export function relayResult(value: unknown): unknown {
 
 /**
  * Keep the relay connection in the page. This avoids a hidden cross-document
- * widget, which is unreliable in embedded browsers, while speaking the same
+ * bridge, which is unreliable in embedded browsers, while speaking the same
  * protocol as the pinned local relay server.
  */
 export function connectLocalRelay(context: WebMcpContext, signal: AbortSignal, onStatus: (status: Extract<LocalAgentStatus, "searching" | "connected">) => void): () => void {

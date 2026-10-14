@@ -195,9 +195,9 @@ function decorateContext(context: WebMcpContext, relayContext: WebMcpContext): b
 }
 
 /**
- * The relay widget reads document.modelContext, while the current polyfill and
- * native WebMCP implementations may expose navigator.modelContext. Reuse the
- * existing context when the document surface is missing it.
+ * The page-owned relay uses document.modelContext, while the current polyfill
+ * and native WebMCP implementations may expose navigator.modelContext. Reuse
+ * the existing context when the document surface is missing it.
  */
 export function ensureDocumentWebMcpContext(doc: Document | undefined = typeof document === "undefined" ? undefined : document): WebMcpContext | undefined {
   if (!doc) return detectWebMcp(undefined);
