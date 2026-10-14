@@ -661,7 +661,7 @@ export default function App() {
         {screen === "import" && (
           <header className="topbar">
             {collectionMenu}
-            <span className="topbar-end">{agentMenu}{undoButton}{moreMenu}</span>
+            <span className="topbar-end">{undoButton}{agentMenu}{moreMenu}</span>
           </header>
         )}
         {screen === "import" && toastElement}
@@ -1129,7 +1129,7 @@ export default function App() {
             onTagTypes={() => setTagTypesOpen(true)}
             onError={setError}
             headerStart={collectionMenu}
-            headerEnd={<>{agentMenu}{undoButton}{moreMenu}</>}
+            headerEnd={<>{undoButton}{agentMenu}{moreMenu}</>}
           />
         )}
       </main>
