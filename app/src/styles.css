@@ -565,10 +565,10 @@ th { background: #f4f7f5; color: var(--muted); }
 .connection-toggle small { margin-top: 3px; color: var(--muted); font-size: 11.5px; font-weight: 400; }
 .connection-switch { position: relative; display: block; flex: 0 0 auto; }
 .connection-switch input { position: absolute; width: 38px; height: 22px; margin: 0; opacity: 0; cursor: pointer; }
-.connection-switch > span { display: block; width: 38px; height: 22px; border-radius: 999px; background: #b9c9c1; transition: background .15s ease; }
-.connection-switch > span::after { content: ""; display: block; width: 18px; height: 18px; margin: 2px; border-radius: 50%; background: white; box-shadow: 0 1px 3px #183e3530; transition: transform .15s ease; }
+.connection-switch > span { position: relative; display: block; width: 38px; height: 22px; border-radius: 999px; background: #b9c9c1; transition: background .15s ease; }
+.connection-switch > span::after { content: ""; position: absolute; top: 50%; left: 2px; display: block; width: 18px; height: 18px; border-radius: 50%; background: white; box-shadow: 0 1px 3px #183e3530; transform: translateY(-50%); transition: transform .15s ease; }
 .connection-switch.is-on > span { background: var(--teal); }
-.connection-switch.is-on > span::after { transform: translateX(16px); }
+.connection-switch.is-on > span::after { transform: translate(16px, -50%); }
 .connection-switch input:focus-visible + span { outline: 3px solid #2e9586; outline-offset: 3px; }
 .connection-status { display: flex; align-items: flex-start; gap: 9px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: white; }
 .connection-status-dot { width: 8px; height: 8px; margin-top: 4px; flex: 0 0 auto; border-radius: 50%; background: #9aaea4; }
