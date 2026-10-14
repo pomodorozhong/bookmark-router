@@ -12,6 +12,7 @@ Updated October 14, 2026. Rounds 0–4 are approved; round 1.5 was skipped becau
 - Bookmarks and tags have Pin/Unpin. Pins survive queue-tab layout changes and reloads; only **Layout → Reset positions** clears them. The bottom toolbar matches the 34 px filter controls and floats over the graph.
 - Collections can be deleted with confirmation and a backup offer. Bookmarks, tags, and tag types cannot be individually deleted; archive/unarchive is not implemented.
 - **Agent review** (round 4) was approved October 14, 2026; its accepted behavior and verification are documented in [WebMCP](webmcp.md).
+- **Thumbnails** (#7) are stored locally. Per-bookmark lookup names the outside services before sending, and bulk lookup defaults off. Captures survive Undo and backup/restore, retain imported covers, and refresh only on manual retry. See [thumbnail behavior and verification](thumbnails.md#implementation-and-verification).
 - The app is **Bookmark & Tag**. Backups use `bookmark-tag` version 2 and browser storage uses `bookmark-tag`. Old `bubble-tag` version 1 backups require `npm run upgrade-backup`; there is no in-app upgrade.
 
 ## Open items
@@ -20,7 +21,7 @@ Updated October 14, 2026. Rounds 0–4 are approved; round 1.5 was skipped becau
 - Not verified on real hardware: the system clipboard for Copy and the Custom color swatch's system picker. The user reported trackpad pan/pinch working.
 - Below about 1150 px with the queue open, the filter bar wraps. At phone width the header is crowded and tapping a tag was not verified.
 - Titles of non-focused bookmarks can be partly covered by nearby nodes when zoomed in; zooming above 60% still stutters slightly. The user accepted the remaining high-zoom panning cost.
-- [#7](https://github.com/pomodorozhong/bookmark-router/issues/7) is implemented locally and awaiting user review: per-bookmark lookup with named-service consent, local thumbnails included in backups, and an optional bulk queue that defaults off. Live X avatar recovery passed; the Threads example currently falls back to a screenshot of its loading/landing screen. See [thumbnail verification and You try tasks](thumbnails.md#implementation-and-verification).
+- The live Threads thumbnail example currently falls back to a screenshot of its loading/landing screen after Microlink's image fails during resizing. See [thumbnail verification](thumbnails.md#implementation-and-verification). The separate detail-panel Copy/Edit/Pin bar is tracked in [#13](https://github.com/pomodorozhong/bookmark-router/issues/13).
 - Hidden nodes hold their positions during a reset, so peeking or re-shown nodes can overlap shown nodes or sit off-screen.
 - The cluster-edge selection start was not verified by eye on a lopsided group; the 90° threshold may need adjustment.
 - Import filter behavior was not browser-verified because the converted collection has no import batches.

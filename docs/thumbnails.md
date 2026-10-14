@@ -1,6 +1,6 @@
 # Thumbnails — store once, resolve with fallbacks
 
-Reviewed and implemented October 14, 2026 (see [Decisions](#decisions)); awaiting user review. This is the reference for [#7](https://github.com/pomodorozhong/bookmark-router/issues/7): how the app finds an image for each bookmark, stores it, and what goes wrong with each service. Services were probed on 2026-10-13/14. All of them are unofficial or best-effort and can change without notice.
+Reviewed and implemented October 14, 2026 (see [Decisions](#decisions)). This is the reference for [#7](https://github.com/pomodorozhong/bookmark-router/issues/7): how the app finds an image for each bookmark, stores it, and what goes wrong with each service. Services were probed on 2026-10-13/14. All of them are unofficial or best-effort and can change without notice.
 
 ## Decision: store the bytes, not the URL
 
@@ -107,7 +107,7 @@ Recorded October 14, 2026, after reviewing this draft:
 
 ## Implementation and verification
 
-Implemented on `feat/thumbnail-store` for #7; the fixed Copy/Edit/Pin bar remains in #13. The detail button and counter keep their position, with the warning, step list, result, and **Hide details** underneath. Opening the warning leaves focus on **Find thumbnail online** or **Retry thumbnail**, preserving the detail panel's scroll position; Tab moves to **Send and find**. A failed retry retains a previously stored image. Attached images take precedence, then stored thumbnails, imported covers, and letter tiles, in the detail panel, queue, group view, and graph. Stored favicons are inset rather than stretched.
+Implemented for #7; the fixed Copy/Edit/Pin bar remains in #13. The detail button and counter keep their position, with the warning, step list, result, and **Hide details** underneath. Opening the warning leaves focus on **Find thumbnail online** or **Retry thumbnail**, preserving the detail panel's scroll position; Tab moves to **Send and find**. A failed retry retains a previously stored image. Attached images take precedence, then stored thumbnails, imported covers, and letter tiles, in the detail panel, queue, group view, and graph. Stored favicons are inset rather than stretched.
 
 Captures and media replacements are atomic IndexedDB transactions. They preserve bookmark and collection revisions and the existing Undo action. A changed URL or imported asset during a lookup rejects the capture. Undo, including import-merge Undo, retains current thumbnails. Restore remaps thumbnail media IDs and rejects missing bytes; retry does not delete media still referenced by another bookmark or import snapshot.
 
@@ -116,10 +116,12 @@ The setting and daily counter are remembered per origin on this device. Quota da
 Verified October 14, 2026:
 
 - `npm run build` and all 110 tests passed. Regression coverage includes 404 image placeholders, expired-cover fallback, URL encoding, quota exhaustion/reset, cancellation, service rate limits, GitHub cooldown, atomic storage failure, shared media, Undo, and backup remapping.
+- PR preparation repeated `npm ci`, `npm run build`, and `npm test` in a clean worktree of the final application code, including the retry-scroll fix; all passed. Vite still reports its large-chunk warning.
 - Browser checks used a converted copy of the 148-bookmark collection in a throwaway Chrome profile on port 5201. The user's storage at port 5199 was not used. Thumbnail controls fit at desktop, 390 px, and 320 px; the result and step list remained visible until hidden. Existing narrow-header/queue behavior is outside #7.
 - With explicit permission, the two agreed examples were checked live. **Retention and paid conversion over downloads** recovered the current avatar through FxTwitter and wsrv.nl without using Microlink. **Five App Store submission tips** still had an expired cover; Microlink supplied an image URL that wsrv.nl rejected with 400, so Raindrop's screenshot won. That screenshot shows a Threads loading/landing screen rather than the post content. Its single Microlink request adjusted the counter to the service's IP-wide remaining count.
 - Both live captures survived reload and the Download backup → Restore backup flow into a new collection. Their imported cover URLs and revisions remained unchanged; images loaded from local Blob URLs after reload without online lookup requests.
 - Bulk network responses were simulated locally, without sending additional collection links outside the browser. Cancel sent nothing, the setting defaulted off, requests started roughly 250 ms apart, existing thumbnails stayed untouched, turning off stopped new requests and saves, and a zero-quota queue waited without storing failures and resumed when quota became available.
+- The compiled static build was served with `npm run preview -- --port 5202` and checked in another throwaway Chrome profile with two synthetic bookmarks. All external requests were intercepted locally. X and generic-page lookup, the Microlink counter, bundled thumbnail bytes, restore ID remapping, unchanged covers, and local-image reload passed; no online lookup requests ran before confirmation or after reload. Retry opening kept the same scroll position at 1440, 390, and 320 px, and Tab reached **Send and find**. Only compiled assets were loaded, with no development source modules or application backend.
 
 **You try:**
 
