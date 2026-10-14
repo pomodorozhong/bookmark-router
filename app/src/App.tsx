@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TriageScreen } from "./components/TriageScreen";
-import { CollectionMenu, MoreMenu } from "./components/AppMenus";
+import { AgentMenu, CollectionMenu, MoreMenu, type LocalAgentStatus } from "./components/AppMenus";
 import { Toast, type ToastMessage } from "./components/Toast";
 import {
   fields,
@@ -27,12 +27,14 @@ import { Dialog } from "./components/Dialog";
 import { Icon, IconButton, type IconName } from "./components/Icon";
 import { AgentReviewDialog } from "./components/AgentReviewDialog";
 import { AgentInputError, AgentReviewSession } from "./domain/agent-review";
-import { registerAgentTools } from "./agent/webmcp";
+import { ensureDocumentWebMcpContext, registerAgentTools } from "./agent/webmcp";
+import { connectLocalRelay, installLocalAgentRuntime } from "./agent/local-relay";
 import { readCopyFormat, type CopyContext } from "./copy-settings";
 import { useThumbnails } from "./use-thumbnails";
 import { setFindOnline } from "./thumbnail-settings";
 const store = new WorkspaceStore();
 const loadReviewMedia = (id: string) => store.media(id);
+const localAgentPreferenceKey = "bookmark-tag-local-agent-enabled";
 function activeCollection() {
   try {
     return localStorage.getItem("bookmark-tag-active");
@@ -45,6 +47,20 @@ function rememberCollection(id: string) {
     localStorage.setItem("bookmark-tag-active", id);
   } catch {
     /* IndexedDB content still persists when preferences are unavailable. */
+  }
+}
+function localAgentPreference() {
+  try {
+    return localStorage.getItem(localAgentPreferenceKey) === "true";
+  } catch {
+    return false;
+  }
+}
+function rememberLocalAgent(enabled: boolean) {
+  try {
+    localStorage.setItem(localAgentPreferenceKey, String(enabled));
+  } catch {
+    /* The connection can still be enabled for this tab when preferences are unavailable. */
   }
 }
 const fieldLabels: Record<Field, string> = {
@@ -107,6 +123,8 @@ export default function App() {
   const [agentSession] = useState(() => new AgentReviewSession(() => renderAgentReview((v) => v + 1)));
   const [agentReviewOpen, setAgentReviewOpen] = useState(false);
   const [agentAvailability, setAgentAvailability] = useState<"checking" | "available" | "unavailable" | "failed">("checking");
+  const [localAgentEnabled, setLocalAgentEnabled] = useState(() => localAgentPreference());
+  const [localAgentStatus, setLocalAgentStatus] = useState<LocalAgentStatus>(() => localAgentPreference() ? "searching" : "off");
   const [agentError, setAgentError] = useState("");
   const agentApplying = useRef(false), switchingCollection = useRef(false);
   const copyContext = useRef<CopyContext | undefined>(undefined);
@@ -186,7 +204,8 @@ export default function App() {
   useEffect(() => {
     if (!loaded) return;
     const controller = new AbortController();
-    void registerAgentTools({ session: agentSession, getCopyContext: () => copyContext.current, getCopyFormat: readCopyFormat, getWorkspace: async () => {
+    let stopRelay: (() => void) | undefined;
+    const host = { session: agentSession, getCopyContext: () => copyContext.current, getCopyFormat: readCopyFormat, getWorkspace: async () => {
       const id = workspaceRef.current.id;
       if (switchingCollection.current) throw new AgentInputError("The collection is switching. Read it again when ready.", "collection_switching");
       const latest = await store.get(id);
@@ -198,11 +217,40 @@ export default function App() {
         void store.nextUndo(id).then(setNextUndo);
       }
       return latest;
-    } }, undefined, controller.signal).then((handle) => {
-      if (!controller.signal.aborted) setAgentAvailability(handle.available ? "available" : "unavailable");
-    }).catch(() => { if (!controller.signal.aborted) setAgentAvailability("failed"); });
-    return () => controller.abort();
-  }, [loaded, agentSession]);
+    } };
+    async function setupAgentConnection() {
+      setAgentAvailability("checking");
+      let agentContext = ensureDocumentWebMcpContext();
+      if (localAgentEnabled) {
+        setLocalAgentStatus("starting");
+        agentContext = await installLocalAgentRuntime();
+      } else {
+        setLocalAgentStatus("off");
+      }
+      const handle = await registerAgentTools(host, agentContext, controller.signal);
+      if (controller.signal.aborted) return;
+      setAgentAvailability(handle.available ? "available" : "unavailable");
+      if (!localAgentEnabled) return;
+      try {
+        if (!agentContext) throw new Error("The local agent context is unavailable.");
+        stopRelay = connectLocalRelay(agentContext, controller.signal, (status) => {
+          if (!controller.signal.aborted) setLocalAgentStatus(status);
+        });
+      } catch {
+        if (!controller.signal.aborted) setLocalAgentStatus("failed");
+      }
+    }
+    void setupAgentConnection().catch(() => {
+      if (!controller.signal.aborted) {
+        setAgentAvailability("failed");
+        if (localAgentEnabled) setLocalAgentStatus("failed");
+      }
+    });
+    return () => {
+      controller.abort();
+      stopRelay?.();
+    };
+  }, [loaded, agentSession, localAgentEnabled]);
   async function openWorkspace(w: Workspace) {
     if (agentApplying.current || switchingCollection.current) return;
     switchingCollection.current = true;
@@ -578,9 +626,8 @@ export default function App() {
   );
   const agentProposal = agentSession.current;
   const agentPending = Boolean(agentSession.pending);
-  const agentReviewButton = <button className="agent-review-entry" disabled={busy} onClick={() => void openAgentReview()} aria-label={`Agent review${agentPending ? ", 1 batch awaiting review" : ""}`}>
-    <Icon name="check" size={15} /><span>Agent review</span>{agentPending && <span className="agent-review-count" aria-hidden="true">1</span>}
-  </button>;
+  const agentMenu = <AgentMenu pending={agentPending} busy={busy} onReview={() => void openAgentReview()} localAgentEnabled={localAgentEnabled} localAgentStatus={localAgentStatus}
+    onLocalAgentChange={(enabled) => { rememberLocalAgent(enabled); setLocalAgentEnabled(enabled); setLocalAgentStatus(enabled ? "starting" : "off"); }} />;
   function restoreBackup() {
     setScreen("import");
     setFormat("json");
@@ -614,7 +661,7 @@ export default function App() {
         {screen === "import" && (
           <header className="topbar">
             {collectionMenu}
-            <span className="topbar-end">{agentReviewButton}{undoButton}{moreMenu}</span>
+            <span className="topbar-end">{agentMenu}{undoButton}{moreMenu}</span>
           </header>
         )}
         {screen === "import" && toastElement}
@@ -1082,7 +1129,7 @@ export default function App() {
             onTagTypes={() => setTagTypesOpen(true)}
             onError={setError}
             headerStart={collectionMenu}
-            headerEnd={<>{agentReviewButton}{undoButton}{moreMenu}</>}
+            headerEnd={<>{agentMenu}{undoButton}{moreMenu}</>}
           />
         )}
       </main>

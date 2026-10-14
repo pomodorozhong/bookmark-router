@@ -15,6 +15,11 @@ export interface WebMcpTool {
 }
 export interface WebMcpContext {
   registerTool(tool: WebMcpTool, options: { signal: AbortSignal }): void | Promise<void>;
+  unregisterTool?(tool: WebMcpTool | string): void | Promise<void>;
+  getTools?(): WebMcpTool[] | Promise<WebMcpTool[]>;
+  executeTool?(tool: WebMcpTool | string, input: unknown, options?: { signal?: AbortSignal }): unknown | Promise<unknown>;
+  addEventListener?(type: "toolchange", listener: () => void): void;
+  removeEventListener?(type: "toolchange", listener: () => void): void;
 }
 export interface AgentToolHost {
   /** Read the latest stored active collection; do not serve stale React closures. */
@@ -119,20 +124,118 @@ export function createAgentTools(host: AgentToolHost): WebMcpTool[] {
   ];
 }
 export function detectWebMcp(doc: Document | undefined = typeof document === "undefined" ? undefined : document): WebMcpContext | undefined {
-  const context = (doc as (Document & { modelContext?: WebMcpContext }) | undefined)?.modelContext;
-  return context && typeof context.registerTool === "function" ? context : undefined;
+  const documentContext = (doc as (Document & { modelContext?: WebMcpContext }) | undefined)?.modelContext;
+  if (documentContext && typeof documentContext.registerTool === "function") return documentContext;
+  const navigatorContext = (typeof navigator === "undefined" ? undefined : (navigator as Navigator & { modelContext?: WebMcpContext }).modelContext);
+  return navigatorContext && typeof navigatorContext.registerTool === "function" ? navigatorContext : undefined;
+}
+
+function hasRelaySurface(context: WebMcpContext): boolean {
+  return typeof context.getTools === "function" && typeof context.executeTool === "function";
+}
+
+const relayAdapters = new WeakMap<WebMcpContext, WebMcpContext>();
+const relayManagedContexts = new WeakSet<WebMcpContext>();
+
+export function isRelayManagedContext(context: WebMcpContext): boolean {
+  return relayManagedContexts.has(context);
+}
+
+function createRelayContext(context: WebMcpContext): WebMcpContext {
+  const existing = relayAdapters.get(context);
+  if (existing) return existing;
+  const originalRegister = context.registerTool.bind(context);
+  const originalUnregister = context.unregisterTool?.bind(context);
+  const tools = new Map<string, WebMcpTool>();
+  const listeners = new Set<() => void>();
+  const notify = () => { for (const listener of listeners) listener(); };
+  const relayContext: WebMcpContext = {
+    registerTool(tool, options) {
+      const result = originalRegister(tool, options);
+      const registered = () => { tools.set(tool.name, tool); notify(); };
+      if (result && typeof (result as Promise<void>).then === "function") return (result as Promise<void>).then(registered);
+      registered();
+    },
+    unregisterTool(tool) {
+      const name = typeof tool === "string" ? tool : tool.name;
+      tools.delete(name);
+      notify();
+      return originalUnregister?.(tool);
+    },
+    getTools: () => [...tools.values()],
+    executeTool: async (tool, input, options) => {
+      const name = typeof tool === "string" ? tool : tool.name;
+      const registered = tools.get(name);
+      if (!registered) throw new Error(`Tool not found: ${name}`);
+      return registered.execute(input, options?.signal ? { signal: options.signal } : undefined);
+    },
+    addEventListener(type, listener) { if (type === "toolchange") listeners.add(listener); },
+    removeEventListener(type, listener) { if (type === "toolchange") listeners.delete(listener); },
+  };
+  relayAdapters.set(context, relayContext);
+  relayManagedContexts.add(relayContext);
+  return relayContext;
+}
+
+function decorateContext(context: WebMcpContext, relayContext: WebMcpContext): boolean {
+  try {
+    Object.defineProperties(context, {
+      registerTool: { configurable: true, writable: true, value: relayContext.registerTool },
+      unregisterTool: { configurable: true, writable: true, value: relayContext.unregisterTool },
+      getTools: { configurable: true, writable: true, value: relayContext.getTools },
+      executeTool: { configurable: true, writable: true, value: relayContext.executeTool },
+      addEventListener: { configurable: true, writable: true, value: relayContext.addEventListener },
+      removeEventListener: { configurable: true, writable: true, value: relayContext.removeEventListener },
+    });
+    relayManagedContexts.add(context);
+    return hasRelaySurface(context);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The relay widget reads document.modelContext, while the current polyfill and
+ * native WebMCP implementations may expose navigator.modelContext. Reuse the
+ * existing context when the document surface is missing it.
+ */
+export function ensureDocumentWebMcpContext(doc: Document | undefined = typeof document === "undefined" ? undefined : document): WebMcpContext | undefined {
+  if (!doc) return detectWebMcp(undefined);
+  const documentContext = (doc as Document & { modelContext?: WebMcpContext }).modelContext;
+  if (documentContext && typeof documentContext.registerTool === "function" && hasRelaySurface(documentContext)) return documentContext;
+  const context = documentContext && typeof documentContext.registerTool === "function" ? documentContext : detectWebMcp(doc);
+  if (!context) return undefined;
+  if (hasRelaySurface(context)) {
+    try { Object.defineProperty(doc, "modelContext", { configurable: true, writable: true, value: context }); } catch { /* Keep using the native navigator context. */ }
+    return context;
+  }
+  const relayContext = createRelayContext(context);
+  try {
+    Object.defineProperty(doc, "modelContext", { configurable: true, writable: true, value: relayContext });
+    return relayContext;
+  } catch {
+    // A browser may expose a non-configurable document property. Decorating the
+    // native object keeps its identity while adding the relay's discovery API.
+    return decorateContext(context, relayContext) ? context : relayContext;
+  }
 }
 /** Abort registration on unmount. No legacy navigator alias or global fallback API. */
 export async function registerAgentTools(host: AgentToolHost, context = detectWebMcp(), signal?: AbortSignal): Promise<{ available: boolean; dispose(): void }> {
   if (!context) return { available: false, dispose() {} };
   const registration = new AbortController();
-  const dispose = () => { registration.abort(); signal?.removeEventListener("abort", dispose); };
+  const registeredTools: WebMcpTool[] = [];
+  const dispose = () => {
+    registration.abort();
+    for (const tool of registeredTools) void context.unregisterTool?.(tool);
+    signal?.removeEventListener("abort", dispose);
+  };
   if (signal?.aborted) return { available: false, dispose };
   signal?.addEventListener("abort", dispose, { once: true });
   try {
     for (const tool of createAgentTools(host)) {
       registration.signal.throwIfAborted();
       await context.registerTool(tool, { signal: registration.signal });
+      registeredTools.push(tool);
     }
     registration.signal.throwIfAborted();
     return { available: true, dispose };

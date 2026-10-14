@@ -19,6 +19,22 @@ For the user's existing Chrome profile:
 
 The connection settings follow [Chrome's configuration guide](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/configuration.md) and [existing-profile connection guide](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/advanced-usage.md). The task connection disables clicking and JavaScript evaluation: human approval stays in the app. It also disables unrelated inspection categories and bridge usage telemetry. External research belongs to the agent's separate browsing tools.
 
+### Local relay and static deployments
+
+The app also supports an opt-in local connection for browsers without native WebMCP, including the Codex/Claude in-app browser and a static GitHub Pages deployment. In the app header, **Agent review** remains the direct human-review action. Its adjacent connection menu contains the **Connect to a local agent** switch, relay status, setup hint, and local-connection note; collection actions remain in **More actions**.
+
+When the switch is off (the default), the app does not load the polyfill or open a loopback WebSocket. Native WebMCP detection and the ordinary app continue to work. When it is enabled, the app dynamically loads the pinned `@mcp-b/webmcp-polyfill` **2.2.0** only when a context is missing, registers the same six tools, and opens the relay protocol directly from the page. The page-owned connection keeps static deployments and embedded browsers working without a hidden cross-document widget; the pinned `@mcp-b/webmcp-local-relay` **6.0.2** package supplies the matching local relay server.
+
+Start the relay on the same machine as the browser and MCP client:
+
+```bash
+npx @mcp-b/webmcp-local-relay@6.0.2 --widget-origin http://127.0.0.1:5199
+```
+
+For a deployed page, replace the origin with its exact `https://…` origin. The relay listens on loopback port `9333` by default. The browser may ask for local-network access the first time; allow it only for the intended page and relay. The menu reports **Searching** until the relay accepts the page, then **Connected**. The page closes its tool WebSocket when the setting is turned off or the page unloads.
+
+The relay's MCP client exposes `webmcp_list_sources`, `webmcp_list_tools`, and the six app tools. The same human-only Agent review and Apply/Set aside/Undo rules still apply; the relay does not add an approval or direct-save tool.
+
 ### Claude Desktop
 
 Merge this entry into `mcpServers` in the existing macOS configuration at `~/Library/Application Support/Claude/claude_desktop_config.json`; retain any other server entries. The example below uses the absolute executable and PATH installed on this Mac. On another machine, substitute its `npx` location and Node.js PATH. Restart Claude Desktop after configuring.
@@ -47,7 +63,7 @@ Merge this entry into `mcpServers` in the existing macOS configuration at `~/Lib
 
 Claude Desktop rewrote this file on October 13, 2026 and dropped the entry; re-add it (or use **Settings → Developer**) if `bookmark-tag-chrome` stops appearing. Code sessions in the desktop app also load this entry and receive the bridge tools.
 
-**Limitation: the Claude Code in-app browser cannot run WebMCP.** Its embedded Chromium (152 in Claude 2.31226.1) has no `document.modelContext`, so the app registers no tools there, and the browser pane's tools cannot invoke WebMCP tools. Use the app in normal Chrome through `bookmark-tag-chrome` instead. Calling app code through the pane's JavaScript tool bypasses WebMCP and does not count as a test. [#8](https://github.com/pomodorozhong/bookmark-router/issues/8) plans a WebMCP polyfill and local relay so the pane, and a static deployment, can be used.
+The in-app browser still has no native `document.modelContext`; enable the app's local-agent switch and run the local relay when using that pane or a static deployment. Calling app code through a pane's JavaScript tool bypasses WebMCP and does not count as a relay test. Normal Chrome can continue to use the native `bookmark-tag-chrome` connection.
 
 Claude Desktop supports local MCP servers through its Developer configuration and desktop extensions. Packaging an extension is outside this small round. See [Claude Desktop's local MCP documentation](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
 

@@ -3,3 +3,4 @@ dist/
 *.tsbuildinfo
 
 .vite/
+public/webmcp-relay/

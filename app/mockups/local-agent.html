@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Local Agent Connection</title>
+</head>
+<body>
+<style>
+  :root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --ink: #243b35; --muted: #536b62; --line: #dce5e0; --teal: #0f766e; --tint: #e8f3ee;
+    --bg: #f6f8f7; --card: #ffffff; --dark: #183e35; --amber: #805008;
+    --shadow: 0 10px 30px rgba(24, 62, 53, .14);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-size: 14px; }
+  button, input { font: inherit; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 18px 16px 56px; display: grid; gap: 20px; }
+  .banner { padding: 11px 16px; border-radius: 10px; background: var(--dark); color: #eef7f3; line-height: 1.55; }
+  .banner strong { color: #fff; }
+  .caption { margin: 0 0 7px; color: var(--teal); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .stage { min-height: 178px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #fafcfb; }
+  .stage.menu-stage { min-height: 340px; align-items: flex-start; }
+  .stage.short { min-height: 76px; display: flex; align-items: flex-start; justify-content: flex-end; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 46px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+  .collection { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+  .logo { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 11px; }
+  .actions { display: flex; align-items: center; gap: 7px; }
+  .undo { padding: 7px 10px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--muted); }
+  .more, .agent { position: relative; }
+  .more-button { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--muted); cursor: pointer; }
+  .agent-control { display: inline-flex; align-items: stretch; height: 36px; border: 1px solid var(--line); border-radius: 8px; background: #fff; overflow: hidden; }
+  .agent-review-button, .agent-menu-trigger { border: 0; border-radius: 0; background: transparent; color: var(--ink); cursor: pointer; }
+  .agent-review-button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 10px; font-weight: 500; }
+  .agent-menu-trigger { width: 29px; min-height: 34px; padding: 0; border-left: 1px solid var(--line); color: var(--muted); }
+  .agent-review-button:hover, .agent-menu-trigger:hover, .agent-menu-trigger[aria-expanded=true], .more-button:hover, .more-button[aria-expanded=true] { background: var(--tint); color: var(--teal); }
+  .agent-review-button .count { display: grid; place-items: center; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 11px; }
+  .agent-review-button:focus-visible, .agent-menu-trigger:focus-visible, .more-button:focus-visible, .agent-toggle:focus-visible { outline: 3px solid #2e9586; outline-offset: -3px; }
+  .app-menu, .agent-menu { position: absolute; top: calc(100% + 7px); right: 0; z-index: 2; width: min(330px, calc(100vw - 64px)); padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: #fff; box-shadow: var(--shadow); }
+  .agent-menu { width: min(330px, calc(100vw - 64px)); padding: 12px; }
+  .menu-item, .agent-review { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); text-align: left; }
+  .menu-item:hover, .agent-review:hover { background: #f3f7f5; }
+  .menu-icon, .agent-icon { width: 16px; flex: 0 0 16px; color: var(--muted); text-align: center; }
+  .menu-divider { margin: 6px 4px; border: 0; border-top: 1px solid var(--line); }
+  .agent-review { cursor: pointer; }
+  .agent-review strong { display: block; font-weight: 600; }
+  .agent-review small { display: block; margin-top: 3px; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+  .agent-review .count { margin-left: auto; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--teal); color: #fff; font-size: 11px; }
+  .connection-heading { display: flex; align-items: center; gap: 10px; padding: 2px 2px 11px; border-bottom: 1px solid var(--line); }
+  .connection-mark { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; border-radius: 9px; background: var(--tint); color: var(--teal); font-size: 18px; }
+  .connection-copy { min-width: 0; }
+  .connection-copy strong { display: block; font-weight: 600; }
+  .connection-copy small { display: block; margin-top: 3px; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+  .connection-state { margin-left: auto; padding: 4px 7px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .connection-state.connected { border-color: #a5ccbc; background: var(--tint); color: #24624f; }
+  .connection-state.searching { border-color: #e4c17a; background: #fff8e8; color: var(--amber); }
+  .connection-card { margin-top: 11px; padding: 11px; border: 1px solid var(--line); border-radius: 9px; background: #fafcfb; }
+  .connection-toggle { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; cursor: pointer; }
+  .connection-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .connection-toggle input:focus-visible + .switch { outline: 3px solid #2e9586; outline-offset: 3px; }
+  .connection-toggle > span:last-child { display: block; }
+  .switch { display: block; width: 38px; height: 22px; flex: 0 0 38px; padding: 2px; border-radius: 12px; background: #cbd7d1; transition: background .15s ease; }
+  .switch::after { content: ""; display: block; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #183e3526; transition: transform .15s ease; }
+  .connection-toggle input:checked + .switch { background: var(--teal); }
+  .connection-toggle input:checked + .switch::after { transform: translateX(16px); }
+  .connection-status { display: flex; align-items: center; gap: 7px; margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+  .connection-status::before { content: ""; width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #9aa9a2; }
+  .connection-status.connected { color: #24624f; }
+  .connection-status.connected::before { background: var(--teal); }
+  .connection-status.searching { color: var(--amber); }
+  .connection-status.searching::before { background: #d49a2a; }
+  .connection-status code { margin-left: auto; color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; }
+  .connection-note { margin: 10px 2px 1px; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+  .notes { margin: 0; padding-left: 19px; color: var(--ink); line-height: 1.55; }
+  .notes li + li { margin-top: 6px; }
+</style>
+
+<div class="wrap">
+  <div class="banner"><strong>One Agent control.</strong> The existing Agent review button stays recognizable, with a small adjacent menu for the local connection switch and status. More actions stays focused on collection actions.</div>
+
+  <div>
+    <p class="caption">1 · Agent menu closed (default)</p>
+    <div class="stage short">
+      <div class="topbar">
+        <div class="collection"><span class="logo">B</span> Product ideas</div>
+        <div class="actions"><span class="undo">Undo</span><div class="agent-control"><button class="agent-review-button" aria-label="Agent review"><span>✓</span><span>Agent review</span></button><button class="agent-menu-trigger" aria-label="Agent options" title="Agent options">⌄</button></div><button class="more-button" aria-label="More actions" title="More actions">•••</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <p class="caption">2 · Connection menu open, connection off</p>
+    <div class="stage menu-stage">
+      <div class="topbar">
+        <div class="collection"><span class="logo">B</span> Product ideas</div>
+        <div class="actions"><span class="undo">Undo</span><div class="agent"><div class="agent-control"><button class="agent-review-button" aria-label="Agent review"><span>✓</span><span>Agent review</span></button><button class="agent-menu-trigger" aria-label="Agent options" aria-expanded="true">⌄</button></div>
+          <div class="agent-menu" role="menu" aria-label="Connection">
+            <div class="connection-heading"><span class="connection-mark">↔</span><span class="connection-copy"><strong>Local agent</strong><small>Connect this tab to an MCP relay.</small></span><span class="connection-state">Off</span></div>
+            <div class="connection-card">
+              <label class="connection-toggle"><span class="connection-copy"><strong>Allow local access</strong><small>Expose six read/propose-only bookmark tools.</small></span><span><input id="off" type="checkbox"><span class="switch" aria-hidden="true"></span></span></label>
+              <div class="connection-status">Relay widget not loaded</div>
+            </div>
+            <p class="connection-note">Local-only connection. Native WebMCP in supported Chrome browsers remains available.</p>
+          </div>
+        </div><button class="more-button" aria-label="More actions" title="More actions">•••</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <p class="caption">3 · Connection menu open, relay not found</p>
+    <div class="stage menu-stage">
+      <div class="topbar">
+        <div class="collection"><span class="logo">B</span> Product ideas</div>
+        <div class="actions"><span class="undo">Undo</span><div class="agent"><div class="agent-control"><button class="agent-review-button" aria-label="Agent review"><span>✓</span><span>Agent review</span></button><button class="agent-menu-trigger" aria-label="Agent options" aria-expanded="true">⌄</button></div>
+          <div class="agent-menu" role="menu" aria-label="Connection">
+            <div class="connection-heading"><span class="connection-mark">↔</span><span class="connection-copy"><strong>Local agent</strong><small>Connect this tab to an MCP relay.</small></span><span class="connection-state searching">Searching</span></div>
+            <div class="connection-card">
+              <label class="connection-toggle"><span class="connection-copy"><strong>Allow local access</strong><small>Expose six read/propose-only bookmark tools.</small></span><span><input id="on" type="checkbox" checked><span class="switch" aria-hidden="true"></span></span></label>
+              <div class="connection-status searching">Looking for relay <code>127.0.0.1:9333</code></div>
+            </div>
+            <p class="connection-note">Start the local relay, then return to this tab. The browser may ask for Local Network Access.</p>
+          </div>
+        </div><button class="more-button" aria-label="More actions" title="More actions">•••</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <p class="caption">4 · Connection menu open, connected with a pending review</p>
+    <div class="stage menu-stage">
+      <div class="topbar">
+        <div class="collection"><span class="logo">B</span> Product ideas</div>
+        <div class="actions"><span class="undo">Undo</span><div class="agent"><div class="agent-control"><button class="agent-review-button" aria-label="Agent review, one batch awaiting review"><span>✓</span><span>Agent review</span><span class="count">1</span></button><button class="agent-menu-trigger" aria-label="Agent options" aria-expanded="true">⌄</button></div>
+          <div class="agent-menu" role="menu" aria-label="Connection">
+            <div class="connection-heading"><span class="connection-mark">↔</span><span class="connection-copy"><strong>Local agent</strong><small>Connect this tab to an MCP relay.</small></span><span class="connection-state connected">Connected</span></div>
+            <div class="connection-card">
+              <label class="connection-toggle"><span class="connection-copy"><strong>Allow local access</strong><small>Expose six read/propose-only bookmark tools.</small></span><span><input id="connected" type="checkbox" checked><span class="switch" aria-hidden="true"></span></span></label>
+              <div class="connection-status connected">Six tools available <code>127.0.0.1:9333</code></div>
+            </div>
+            <p class="connection-note">Local-only connection. The Agent review button still requires human approval before anything is saved.</p>
+          </div>
+        </div><button class="more-button" aria-label="More actions" title="More actions">•••</button></div>
+      </div>
+    </div>
+  </div>
+
+  <ul class="notes">
+    <li>The outer Agent review button opens the review screen; its adjacent control opens a focused Connection menu.</li>
+    <li>More actions remains the home for collection actions such as backup, import history, and tag management.</li>
+    <li>Off means no relay widget or loopback WebSocket is started. Native WebMCP in Chrome can still use the existing tools.</li>
+  </ul>
+</div>
+
+</body>
+</html>

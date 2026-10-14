@@ -29,7 +29,8 @@ function MenuButton({ label, button, className = "", align = "start", children }
   useEffect(() => {
     if (!open) return;
     const items = () => Array.from(root.current?.querySelectorAll<HTMLElement>(':is([role="menuitem"], [role="menuitemcheckbox"]):not([disabled])') ?? []);
-    (root.current?.querySelector<HTMLElement>('[aria-current="true"]') ?? items()[0])?.focus();
+    const firstFocusable = root.current?.querySelector<HTMLElement>('[aria-current="true"], [role="menuitem"]:not([disabled]), [role="menuitemcheckbox"]:not([disabled]), button:not([disabled]), input:not([disabled]), [tabindex="0"]');
+    (firstFocusable ?? items()[0])?.focus();
     const outside = (e: PointerEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false); };
     const keys = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.stopPropagation(); setOpen(false); trigger.current?.focus(); }
@@ -89,6 +90,62 @@ export function CollectionMenu({ workspace, collections, onOpen, onNew, onDelete
         </>
       )}
     </MenuButton>
+  );
+}
+
+export type LocalAgentStatus = "off" | "starting" | "searching" | "connected" | "failed";
+
+const localAgentCopy: Record<LocalAgentStatus, { pill: string; title: string; detail: string }> = {
+  off: { pill: "Off", title: "Local connection is off", detail: "Native WebMCP clients can still use the app when supported." },
+  starting: { pill: "Starting", title: "Preparing the local connection", detail: "Loading the browser bridge…" },
+  searching: { pill: "Searching", title: "Looking for the local relay", detail: "Run npx @mcp-b/webmcp-local-relay to connect." },
+  connected: { pill: "Connected", title: "Local relay connected", detail: "Agent tools are available on this device." },
+  failed: { pill: "Needs attention", title: "Couldn’t start the local connection", detail: "Check the relay and browser permission, then try again." },
+};
+
+export function AgentMenu({ pending, busy, onReview, localAgentEnabled, localAgentStatus, onLocalAgentChange }: {
+  pending: boolean;
+  busy: boolean;
+  onReview: () => void;
+  localAgentEnabled: boolean;
+  localAgentStatus: LocalAgentStatus;
+  onLocalAgentChange: (enabled: boolean) => void;
+}) {
+  const status = localAgentCopy[localAgentStatus];
+  return (
+    <div className="agent-control">
+      <button className="agent-review-entry" disabled={busy} onClick={onReview} aria-label={`Agent review${pending ? ", 1 batch awaiting review" : ""}`}>
+        <Icon name="check" size={15} /><span>Agent review</span>{pending && <span className="agent-review-count" aria-hidden="true">1</span>}
+      </button>
+      <MenuButton label="Agent connection" align="end" className="agent-menu-root" button={<Icon name="chevron-down" size={15} />}>
+        {() => (
+          <>
+            <div className="connection-menu-heading">
+              <div>
+                <div className="menu-heading">Agent connection</div>
+                <p>Expose this collection to a local MCP agent.</p>
+              </div>
+              <span className={`connection-status-pill status-${localAgentStatus}`}>{status.pill}</span>
+            </div>
+            <label className="connection-toggle">
+              <span>
+                <strong>Connect to a local agent</strong>
+                <small>Uses a loopback relay on this device.</small>
+              </span>
+              <span className={`connection-switch ${localAgentEnabled ? "is-on" : ""}`}>
+                <input type="checkbox" checked={localAgentEnabled} onChange={(event) => onLocalAgentChange(event.target.checked)} aria-label="Connect to a local agent" />
+                <span aria-hidden="true" />
+              </span>
+            </label>
+            <div className={`connection-status status-${localAgentStatus}`} role="status" aria-live="polite">
+              <span className="connection-status-dot" aria-hidden="true" />
+              <span><strong>{status.title}</strong><small>{status.detail}</small></span>
+            </div>
+            <p className="connection-menu-note">The relay stays on 127.0.0.1. Nothing is sent until an agent calls one of the app’s tools.</p>
+          </>
+        )}
+      </MenuButton>
+    </div>
   );
 }
 
