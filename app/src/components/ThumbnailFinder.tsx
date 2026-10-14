@@ -79,7 +79,8 @@ export function ThumbnailFinder({ bookmark, onFind }: {
           </ol>
           {thumbnail && "blobId" in thumbnail && <span>The new image replaces the stored thumbnail only if one is found.</span>}
           <div className="thumb-confirm-buttons">
-            <button className="primary" autoFocus onClick={() => void run()}><Icon name="search" size={14} /> Send and find</button>
+            {/* Keep focus on the disclosure button so opening the warning preserves scroll. */}
+            <button className="primary" onClick={() => void run()}><Icon name="search" size={14} /> Send and find</button>
             <button onClick={() => setPhase("idle")}>Cancel</button>
           </div>
         </div>
