@@ -544,8 +544,41 @@ th { background: #f4f7f5; color: var(--muted); }
 .app-toast.error strong, .app-toast.error button { color: #973c30; }
 .app-toast.error button:hover { background: #973c3014; }
 .header-undo { flex-shrink: 0; }
-.agent-review-entry { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.agent-control { display: inline-flex; align-items: stretch; flex-shrink: 0; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.agent-review-entry { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; flex-shrink: 0; border: 0; border-radius: 7px 0 0 7px; background: white; }
+.agent-review-entry:hover:not(:disabled) { background: #f0f5f2; }
+.agent-menu-root { display: flex; align-items: stretch; }
+.agent-menu-root .menu-trigger { width: 34px; min-height: 34px; height: 100%; padding: 0; border: 0; border-left: 1px solid var(--line); border-radius: 0 7px 7px 0; background: white; }
+.agent-menu-root .menu-trigger:hover, .agent-menu-root .menu-trigger[aria-expanded=true] { background: #f0f5f2; }
+.agent-menu-root .app-menu { width: min(326px, calc(100vw - 32px)); min-width: 0; padding: 10px; }
 .agent-review-count { display: inline-grid; place-items: center; min-width: 19px; height: 19px; border-radius: 50%; background: var(--teal); color: white; font-size: 11px; }
+.connection-menu-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 2px 2px 10px; }
+.connection-menu-heading .menu-heading { padding: 0; }
+.connection-menu-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.connection-status-pill { flex-shrink: 0; padding: 4px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: #f4f7f5; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.connection-status-pill.status-connected { border-color: #a5ccbc; color: #115e59; background: #e8f3ee; }
+.connection-status-pill.status-failed { border-color: #e4baac; color: #973c30; background: #fff4ef; }
+.connection-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 4px 0 10px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: #f8faf9; cursor: pointer; }
+.connection-toggle:hover { border-color: #a5ccbc; background: var(--tint); }
+.connection-toggle strong, .connection-toggle small { display: block; }
+.connection-toggle strong { font-size: 13px; }
+.connection-toggle small { margin-top: 3px; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+.connection-switch { position: relative; display: block; flex: 0 0 auto; }
+.connection-switch input { position: absolute; width: 38px; height: 22px; margin: 0; opacity: 0; cursor: pointer; }
+.connection-switch > span { position: relative; display: block; width: 38px; height: 22px; border-radius: 999px; background: #b9c9c1; transition: background .15s ease; }
+.connection-switch > span::after { content: ""; position: absolute; top: 50%; left: 2px; display: block; width: 18px; height: 18px; border-radius: 50%; background: white; box-shadow: 0 1px 3px #183e3530; transform: translateY(-50%); transition: transform .15s ease; }
+.connection-switch.is-on > span { background: var(--teal); }
+.connection-switch.is-on > span::after { transform: translate(16px, -50%); }
+.connection-switch input:focus-visible + span { outline: 3px solid #2e9586; outline-offset: 3px; }
+.connection-status { display: flex; align-items: flex-start; gap: 9px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.connection-status-dot { width: 8px; height: 8px; margin-top: 4px; flex: 0 0 auto; border-radius: 50%; background: #9aaea4; }
+.connection-status.status-starting .connection-status-dot, .connection-status.status-searching .connection-status-dot { background: #b45309; }
+.connection-status.status-connected .connection-status-dot { background: var(--teal); }
+.connection-status.status-failed .connection-status-dot { background: #b42318; }
+.connection-status strong, .connection-status small { display: block; }
+.connection-status strong { font-size: 12.5px; }
+.connection-status small { margin-top: 3px; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
+.connection-menu-note { margin: 10px 2px 2px; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
 .agent-review-modal { width: min(760px, calc(100% - 32px)); }
 .agent-review-modal .modal-heading p { margin: 8px 0 0; }
 .agent-review-picker { display: grid; gap: 6px; margin: 16px 0; min-width: 0; }

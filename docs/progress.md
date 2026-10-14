@@ -13,11 +13,12 @@ Updated October 14, 2026. Rounds 0–4 are approved; round 1.5 was skipped becau
 - Collections can be deleted with confirmation and a backup offer. Bookmarks, tags, and tag types cannot be individually deleted; archive/unarchive is not implemented.
 - **Agent review** (round 4) was approved October 14, 2026; its accepted behavior and verification are documented in [WebMCP](webmcp.md).
 - **Thumbnails** (#7) are stored locally. Per-bookmark lookup names the outside services before sending, and bulk lookup defaults off. Captures survive Undo and backup/restore, retain imported covers, and refresh only on manual retry. See [thumbnail behavior and verification](thumbnails.md#implementation-and-verification).
+- The Agent review button remains the direct human-review action. Its adjacent Agent connection menu owns the opt-in loopback relay switch and status; **More actions** stays focused on collection operations. The page-side relay was verified on a disposable `127.0.0.1:5201` origin with six tools discovered and removed again when the switch was turned off.
 - The app is **Bookmark & Tag**. Backups use `bookmark-tag` version 2 and browser storage uses `bookmark-tag`. Old `bubble-tag` version 1 backups require `npm run upgrade-backup`; there is no in-app upgrade.
 
 ## Open items
 
-- Agent review was checked at measured 390- and 320-pixel widths, not on a real touch device. The Claude Code in-app browser cannot run WebMCP; [#8](https://github.com/pomodorozhong/bookmark-router/issues/8) adds a relay for it.
+- Agent review was checked at measured 390- and 320-pixel widths, not on a real touch device. The local relay was verified on a disposable origin, but not yet against the user's real collection at `127.0.0.1:5199`.
 - Not verified on real hardware: the system clipboard for Copy and the Custom color swatch's system picker. The user reported trackpad pan/pinch working.
 - Below about 1150 px with the queue open, the filter bar wraps. At phone width the header is crowded and tapping a tag was not verified.
 - Titles of non-focused bookmarks can be partly covered by nearby nodes when zoomed in; zooming above 60% still stutters slightly. The user accepted the remaining high-zoom panning cost.
