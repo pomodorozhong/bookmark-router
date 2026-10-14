@@ -29,6 +29,8 @@ import { AgentReviewDialog } from "./components/AgentReviewDialog";
 import { AgentInputError, AgentReviewSession } from "./domain/agent-review";
 import { registerAgentTools } from "./agent/webmcp";
 import { readCopyFormat, type CopyContext } from "./copy-settings";
+import { useThumbnails } from "./use-thumbnails";
+import { setFindOnline } from "./thumbnail-settings";
 const store = new WorkspaceStore();
 const loadReviewMedia = (id: string) => store.media(id);
 function activeCollection() {
@@ -119,6 +121,13 @@ export default function App() {
   const submitting = useRef(false),
     workspaceRef = useRef(workspace);
   workspaceRef.current = workspace;
+  const [confirmThumbnails, setConfirmThumbnails] = useState(false);
+  const thumbnails = useThumbnails(store, workspace.id, loaded, (next) => {
+    if (!switchingCollection.current && next.id === workspaceRef.current.id && next.revision >= workspaceRef.current.revision) {
+      workspaceRef.current = next;
+      setWorkspace(next);
+    }
+  });
   useEffect(() => {
     let active = true;
     const storageTimeout = window.setTimeout(() => {
@@ -155,11 +164,14 @@ export default function App() {
     const refresh = () => {
       const id = workspaceRef.current.id;
       void store.get(id).then((w) => {
-        if (w && id === workspaceRef.current.id && !switchingCollection.current && w.revision > workspaceRef.current.revision) {
-          agentSession.refresh(w);
+        if (w && id === workspaceRef.current.id && !switchingCollection.current && (w.revision > workspaceRef.current.revision
+          || (w.revision === workspaceRef.current.revision && JSON.stringify(w.bookmarks.map((b) => b.thumbnail)) !== JSON.stringify(workspaceRef.current.bookmarks.map((b) => b.thumbnail))))) {
+          const edited = w.revision > workspaceRef.current.revision;
+          workspaceRef.current = w;
+          if (edited) agentSession.refresh(w);
           setWorkspace(w);
           void store.nextUndo(w.id).then(setNextUndo);
-          notify("This collection changed in another tab. Review pending changes again.");
+          if (edited) notify("This collection changed in another tab. Review pending changes again.");
         }
       }).catch((e) => setError("Unable to refresh local storage: " + String(e)));
     };
@@ -363,7 +375,7 @@ export default function App() {
       a.download = "bookmark-tag-backup.json";
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      notify("Backup downloaded. Remote media remains linked; uploaded media is bundled.");
+      notify("Backup downloaded. Stored thumbnails and uploaded media are bundled; remote media remains linked.");
     } catch (e) {
       setError(String(e));
     }
@@ -407,6 +419,7 @@ export default function App() {
       setStep(0);
       setParsed(undefined);
       setReviewTarget(undefined);
+      if (!workspace.bookmarks.length) void navigator.storage?.persist?.().catch(() => {});
     } catch (e) {
       setError(String(e));
       if (e instanceof ConflictError) {
@@ -588,6 +601,9 @@ export default function App() {
       onDownload={() => void backup()}
       onRestore={restoreBackup}
       onDelete={() => setDeleting(workspace)}
+      thumbnailsOnline={thumbnails.enabled}
+      thumbnailStatus={thumbnails.status}
+      onThumbnails={() => thumbnails.enabled ? setFindOnline(false) : setConfirmThumbnails(true)}
     />
   );
   return (
@@ -1057,7 +1073,8 @@ export default function App() {
               void store.saveGeometry(g).catch((e) => setError("Unable to save graph positions: " + String(e)));
             }}
             save={save}
-            loadMedia={(id) => store.media(id)}
+            loadMedia={loadReviewMedia}
+            onThumbnail={thumbnails.find}
             toast={toastElement}
             notify={notify}
             onEdit={setEditing}
@@ -1069,6 +1086,16 @@ export default function App() {
           />
         )}
       </main>
+      {confirmThumbnails && <Dialog labelledBy="thumbnails-title" className="prompt-modal" onClose={() => setConfirmThumbnails(false)}>
+        <h2 id="thumbnails-title">Find thumbnails online?</h2>
+        <p>This fills in missing thumbnails for the active collection and continues when you open another collection. Stored thumbnails and attached images are skipped.</p>
+        <p>Bookmark links, image links, or domains may be sent to YouTube, FxTwitter, GitHub, wsrv.nl, Microlink, Raindrop, Google, and DuckDuckGo. The search stops at the first image found.</p>
+        <p>Images are stored on this device and included in backups. Microlink allows 25 lookups a day; remaining bookmarks wait for another day. You can turn this off from More actions.</p>
+        <footer className="modal-actions">
+          <button onClick={() => setConfirmThumbnails(false)}>Cancel</button>
+          <button className="primary" onClick={() => { setConfirmThumbnails(false); setFindOnline(true); }}>Turn on and find</button>
+        </footer>
+      </Dialog>}
       {agentReviewOpen && <AgentReviewDialog proposal={agentProposal} proposals={agentSession.batches} workspace={workspace} availability={agentAvailability} busy={busy} error={agentError} loadMedia={loadReviewMedia}
         onApply={() => void applyAgentBatch()}
         onApplyAnyway={(revision) => void applyAgentBatch(revision)}

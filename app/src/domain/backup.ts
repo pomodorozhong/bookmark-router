@@ -59,9 +59,12 @@ export function prepareRestore(backup: Backup): {
   for (const b of [
     ...workspace.bookmarks,
     ...workspace.batches.flatMap((batch) => batch.beforeMerged),
-  ])
+  ]) {
     if (b.asset?.source === "local")
       b.asset.blobId = remap.get(b.asset.blobId!)!;
+    if (b.thumbnail && "blobId" in b.thumbnail)
+      b.thumbnail.blobId = remap.get(b.thumbnail.blobId)!;
+  }
   return {
     workspace,
     media,

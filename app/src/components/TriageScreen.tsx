@@ -5,6 +5,8 @@ import { RecordEditor } from "./RecordEditor";
 import { TagView } from "./TagView";
 import { FilterBar } from "./FilterBar";
 import { Cover, type LoadMedia } from "./Cover";
+import { ThumbnailFinder } from "./ThumbnailFinder";
+import type { FindBookmarkThumbnail } from "../use-thumbnails";
 import { Icon, IconButton } from "./Icon";
 import type { Command } from "../domain/commands";
 import type { CopyContext } from "../copy-settings";
@@ -28,8 +30,10 @@ import {
 const relatedListLimit = 12;
 
 /** The main collection screen: triage bookmarks into groups beside the force-directed graph. */
-export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onTagTypes, onError, headerStart, headerEnd, onCopyContext }: {
+export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onTagTypes, onError, headerStart, headerEnd, onCopyContext, onThumbnail }: {
   onCopyContext: (context: CopyContext | undefined) => void;
+  /** Stores what a thumbnail lookup found for a bookmark, or that it failed. */
+  onThumbnail: FindBookmarkThumbnail;
   /** Opens the tag type manager. */
   onTagTypes: () => void;
   headerStart?: ReactNode;
@@ -262,7 +266,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             return (
               <button key={b.id} className={`queue-item ${b.id === current?.id ? "current" : ""}`} aria-current={b.id === current?.id} onClick={() => show(b.id)}>
                 {/* The slot is kept without an image so titles line up. */}
-                <span className="queue-thumb"><Cover asset={b.asset} load={loadMedia} className="" /></span>
+                <span className="queue-thumb"><Cover bookmark={b} load={loadMedia} className="" letterTile /></span>
                 <span className="queue-text">
                 <span className="queue-title">{b.title}</span>
                 <span className="queue-meta">
@@ -336,9 +340,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                       <PinButton pinned={pinnedIds.includes(current.id)} onToggle={(on) => graphRef.current?.setPinned(current.id, on)} />
                     </div>
                   </div>
-                  <Cover asset={current.asset} load={loadMedia} />
+                  <Cover bookmark={current} load={loadMedia} letterTile />
                   <IconButton className="triage-close" label="Clear current bookmark (Esc)" icon="close" size={15} onClick={() => show(undefined, false)} />
                 </div>
+                <ThumbnailFinder key={current.id} bookmark={current} onFind={onThumbnail} />
                 <p className="triage-desc">{current.description || <span className="subtle">No description.</span>}</p>
                 {current.source?.fields.tags && (
                   <div className="triage-raindrop">Raindrop {current.source.fields.tags.split(",").map((t) => t.trim()).filter((t) => t && t !== "indie-dev").map((t) => <span key={t} className="chip">{t}</span>)}</div>

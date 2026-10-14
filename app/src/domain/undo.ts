@@ -33,6 +33,12 @@ export function restoreUndoSnapshot(before: Workspace, current: Workspace): Work
   const restored = structuredClone(before);
   restored.revision = current.revision + 1;
   const currentRecords = new Map([...current.bookmarks, ...current.tags].map((record) => [record.id, record]));
+  // Thumbnails aren't edits, so Undo keeps the ones stored since.
+  for (const bookmark of restored.bookmarks) {
+    const thumbnail = current.bookmarks.find((b) => b.id === bookmark.id)?.thumbnail;
+    if (thumbnail) bookmark.thumbnail = structuredClone(thumbnail);
+    else delete bookmark.thumbnail;
+  }
   const content = (record: Workspace["bookmarks"][number] | Workspace["tags"][number]) => {
     const { revision, updatedAt, ...values } = record;
     return JSON.stringify(values);
