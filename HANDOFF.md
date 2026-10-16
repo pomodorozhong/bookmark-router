@@ -6,7 +6,7 @@
 
 - Task: #18 Verify the local agent relay on a live GitHub Pages deployment
 - PR: #26, open, awaiting review
-- Code checkpoint: 6507fea docs: confirm why the in-app browser can't reach the relay from Pages (pushed to #26)
+- Code checkpoint: e46a5cf docs: restore the relay command for checking the page connection (pushed to #26)
 - State: no app code changes. `docs/webmcp.md` records the live-site results, the relay setup, and a control check: in the Claude desktop in-app browser the relay connects from a `127.0.0.1` page but not from the Pages site, so the pane's local network access denial (no prompt) is the cause. The limitation is tracked in #27.
 - Verification: in Arc, every #18 check passed against the live site with relay 6.0.2. In the in-app browser (Claude 2.42304.0, Chrome 152), the Pages site stayed on **Searching** with the relay logging nothing, while this branch's build on `127.0.0.1:5299` reached **Connected**. Switch off sends no loopback traffic in either browser.
 - Not run: the client entries in each client; plain Chrome's prompt (only Arc was tested); Arc's version not recorded.
