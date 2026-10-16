@@ -1,6 +1,6 @@
 # Plan — triage bookmarks into project ideas
 
-Updated October 14, 2026. v1 is complete: rounds 0–4 are approved and landed through PRs #2–#6; round 1.5 was skipped. New work is tracked as GitHub issues, ranked in [next steps](../.agents/next-steps.md). [Progress](progress.md) records current behavior and open items; [the archive](archive/README.md) preserves completed rounds and superseded checkpoint plans.
+Updated October 14, 2026. v1 is complete: rounds 0–4 are approved and landed through PRs #2–#6; round 1.5 was skipped. New work is tracked as GitHub issues, ranked in [HANDOFF.md](../HANDOFF.md). [Progress](progress.md) records current behavior and open items; [the archive](archive/README.md) preserves completed rounds and superseded checkpoint plans.
 
 ## What the app is for
 
