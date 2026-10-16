@@ -18,6 +18,7 @@ Bookmark & Tag is a local-first app for triaging bookmarks into project ideas, w
 ### During work
 
 - Create each work branch from its primary issue: `gh issue develop <N> --name <type>/<summary> --base <default branch> --checkout` (or `--worktree <path>`). This creates the branch on GitHub at once, so it needs the same authorization as a push; without it, create the branch locally and link it when pushing is approved. If the work has no issue yet, create the branch locally, add an issue draft to its subsection's pending requests, and link the branch once the issue is filed. The PR may close other issues too; list each with `Closes #N`.
+- Open PRs with the `handoff` skill's PR procedure: the user approves a detailed plan before any work, and approves the finished branch before anything is pushed.
 - Edit only the current branch's subsection, plus `Ranked work` and `Pending` when they actually change. Keep subsections in alphabetical order. Remove subsections whose PR has merged or closed.
 - The branch subsection records: task and issue, PR, code checkpoint, observed state, verification run and results, one concrete next action, and when useful: checks not run, approaches to avoid, and pending IDs with what they block. Describe unmerged work as awaiting review or merge.
 - Keep it current rather than a log. History and decisions belong on the issue; lasting knowledge belongs in the docs folder. Never write secrets or local paths containing personal IDs.

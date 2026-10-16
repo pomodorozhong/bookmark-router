@@ -5,12 +5,14 @@
 ### test/pages-relay
 
 - Task: #18 Verify the local agent relay on a live GitHub Pages deployment
-- PR: none yet
-- Code checkpoint: 8a12665 (main, after #24 merged)
-- State: no code changes. `docs/webmcp.md` records the results and now explains the relay setup: MCP client config entries (not tested in each client), the Pages origin, local network access, and troubleshooting. All #18 checks passed in Arc against the live site with relay 6.0.2. The Claude desktop in-app browser denies local network access from the Pages origin without a prompt, so it stays on **Searching**.
-- Verification: Arc reached **Connected**; the client saw one source with six tools; read (116 bookmarks, revision 0) and one create proposal worked, the user set it aside, and the collection stayed unchanged; turning the switch off dropped the source. Switch off sends no loopback traffic in both browsers.
-- Not run: a page from an unlisted origin (the relay answers the handshake for any origin, so the origin check comes later); Arc version not recorded. The Arc check used the user's restored collection, with their approval.
-- Next action: after the user approves the updated PR draft, push and open the PR that closes #18.
+- PR: #26, open, awaiting review; CI was pending at last check
+- Code checkpoint: 3796dec docs: restore the relay connection paragraph and clarify the in-app browser note (local only; the PR is at 011d639)
+- State: no app code changes. `docs/webmcp.md` records the live-site results and the relay setup (client entries untested in each client, origins, local network access, troubleshooting). 3796dec restores the user's original "For a deployed page…" paragraph word for word and rewrites the in-app browser note to say that the browser, not the site, is what differs.
+- Verification: in Arc, every #18 check passed against the live site with relay 6.0.2: Connected, six tools, read (116 bookmarks, revision 0), one proposal set aside by the user with the collection unchanged, and disconnect on switch off. In the Claude desktop in-app browser, the page reported local network access as `denied` with no prompt and stayed on **Searching**, even after the user changed a setting and the page was reloaded. Switch off sends no loopback traffic in either browser.
+- Not run: the client entries in each client; a page from an unlisted origin (the relay answers the handshake for any origin); Arc's version not recorded.
+- Avoid: rewording doc text the user relies on when a gap only needs an addition.
+- Open question for the user: how to word the in-app browser limitation. Soften "can't connect" to "didn't connect in our test; no prompt appeared"? State it once or in both places (Claude Desktop note and "Connect the page")?
+- Next action: settle that wording with the user, amend the doc, then push 3796dec and any follow-up to #26 (push not yet approved).
 
 ## Ranked work
 
