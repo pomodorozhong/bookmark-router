@@ -7,10 +7,10 @@
 - Task: #18 Verify the local agent relay on a live GitHub Pages deployment
 - PR: none yet
 - Code checkpoint: 8a12665 (main, after #24 merged)
-- State: no code changes; `docs/webmcp.md` records the results (uncommitted). All #18 checks passed in Arc against the live site with relay 6.0.2. The Claude desktop in-app browser denies local network access from the Pages origin without a prompt, so it stays on **Searching**.
+- State: no code changes. `docs/webmcp.md` records the results and now explains the relay setup: MCP client config entries (not tested in each client), the Pages origin, local network access, and troubleshooting. All #18 checks passed in Arc against the live site with relay 6.0.2. The Claude desktop in-app browser denies local network access from the Pages origin without a prompt, so it stays on **Searching**.
 - Verification: Arc reached **Connected**; the client saw one source with six tools; read (116 bookmarks, revision 0) and one create proposal worked, the user set it aside, and the collection stayed unchanged; turning the switch off dropped the source. Switch off sends no loopback traffic in both browsers.
 - Not run: a page from an unlisted origin (the relay answers the handshake for any origin, so the origin check comes later); Arc version not recorded. The Arc check used the user's restored collection, with their approval.
-- Next action: push and open the PR that closes #18 (approved by the user), then have the user review the recorded results.
+- Next action: after the user approves the updated PR draft, push and open the PR that closes #18.
 
 ## Ranked work
 

@@ -25,13 +25,58 @@ The app also supports an opt-in local connection for browsers without native Web
 
 When the switch is off (the default), the app does not load the polyfill or open a loopback WebSocket. Native WebMCP detection and the ordinary app continue to work. When it is enabled, the app dynamically loads the pinned `@mcp-b/webmcp-polyfill` **2.2.0** only when a context is missing, registers the same six tools, and opens the relay protocol directly from the page. The page-owned connection keeps static deployments and embedded browsers working without a hidden cross-document bridge; the pinned `@mcp-b/webmcp-local-relay` **6.0.2** package supplies the matching local relay server.
 
-Start the relay on the same machine as the browser and MCP client:
+#### Add the relay to the MCP client
+
+The relay is a stdio MCP server: the MCP client must start it. Running the command in a terminal lets the page connect, but no agent can reach the tools. Add it to the client on the same machine as the browser, with `--widget-origin` set to the page's exact origin: scheme and host, no path. Separate several origins with commas.
+
+| Page | `--widget-origin` |
+|---|---|
+| GitHub Pages | `https://pomodorozhong.github.io` |
+| Local dev server | `http://127.0.0.1:5199` |
+| Both | `https://pomodorozhong.github.io,http://127.0.0.1:5199` |
+
+Claude Code:
 
 ```bash
-npx @mcp-b/webmcp-local-relay@6.0.2 --widget-origin http://127.0.0.1:5199
+claude mcp add bookmark-tag-relay -- npx -y @mcp-b/webmcp-local-relay@6.0.2 --widget-origin https://pomodorozhong.github.io
 ```
 
-For a deployed page, replace the origin with its exact `https://…` origin. The relay listens on loopback port `9333` by default. The browser may ask for local-network access the first time; allow it only for the intended page and relay. The menu reports **Searching** until the relay accepts the page, then **Connected**. The page closes its tool WebSocket when the setting is turned off or the page unloads.
+Claude Desktop, merged into `mcpServers` beside the [bridge entry](#claude-desktop) (adjust `npx` and `PATH` the same way):
+
+```json
+"bookmark-tag-relay": {
+  "command": "/opt/homebrew/bin/npx",
+  "args": ["-y", "@mcp-b/webmcp-local-relay@6.0.2", "--widget-origin", "https://pomodorozhong.github.io"],
+  "env": { "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+}
+```
+
+Codex, in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.bookmark-tag-relay]
+command = "/opt/homebrew/bin/npx"
+args = ["-y", "@mcp-b/webmcp-local-relay@6.0.2", "--widget-origin", "https://pomodorozhong.github.io"]
+env = { PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
+```
+
+These three entries follow the relay's CLI and the bridge entries below; they have not been tested in each client. The [live-site check](#local-relay-on-the-live-github-pages-site) started the same package and arguments from a minimal stdio client.
+
+#### Connect the page
+
+The relay listens on loopback port `9333` by default. Open the page, then turn on **Connect to a local agent** in the Agent connection menu. The menu reports **Searching** until the relay accepts the page, then **Connected**. The page closes its tool WebSocket when the setting is turned off or the page unloads.
+
+A page on a public origin, such as GitHub Pages, needs the browser's local network access permission to reach the loopback relay. Chrome and Arc ask the first time; allow it only for this site. The Claude desktop in-app browser denies it without asking, so it can't connect from the deployed site.
+
+Collections are stored per origin: the Pages site starts empty until a backup is restored there, and it never touches the local dev server's collection.
+
+#### If it stays on Searching
+
+| Sign | Cause and fix |
+|---|---|
+| Console shows `WebSocket connection to 'ws://127.0.0.1:9333/' failed` and the relay logs no connection | The browser blocked local network access. Allow it in the site's settings, or use Chrome or Arc. |
+| The relay's stderr never shows `listening on ws://127.0.0.1:9333` | The MCP client hasn't started the relay. Check its server list and restart the client. |
+| The relay is running but the client's `webmcp_list_sources` returns 0 sources | Most likely `--widget-origin` doesn't match the page's origin exactly; check the scheme, the host, and that no path was included. This case was not reproduced in the live-site check. |
 
 The relay's MCP client exposes `webmcp_list_sources`, `webmcp_list_tools`, and the six app tools. The same human-only Agent review and Apply/Set aside/Undo rules still apply; the relay does not add an approval or direct-save tool.
 
