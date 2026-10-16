@@ -6,3 +6,5 @@ bookmarks-working.json
 __pycache__/
 bookmarks-converted.json
 .DS_Store
+.claude/
+bookmarks-*.json
