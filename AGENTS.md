@@ -40,13 +40,13 @@ Use the `commit` skill for any commit outside a handoff.
 - GitHub issues: work items, with handoff notes in their comments.
 - `HANDOFF.md`: per-branch resume points, ranked work, and requests awaiting the user's approval.
 - `docs/`: long-term knowledge: plan, behavior, decisions, and verification ([index](docs/README.md)).
-- The user runs the dev server at `http://127.0.0.1:5199`; their real collection lives in that origin's browser storage. Don't restore into it or reload a pending agent batch without asking; verify with a copy (see [verification](docs/progress.md#working-agreements-and-verification)).
+- The user runs the dev server at `http://127.0.0.1:5199`; their real collection lives in that origin's browser storage. Don't restore into it or reload a pending agent batch without asking; verify with a copy (see [verification](docs/workflow.md#verifying-on-the-real-collection)).
 - Keep local configuration (`.claude/`), personal collection data (`bookmarks-*.json`), and temporary evidence out of commits.
 
 ## Branches and pull requests
 
 - Name branches `<type>/<summary>` with Conventional Commit types (`feat/thumbnail-store`, `fix/filter-wrap`).
-- One issue per change; its PR closes it. Each follows [How each change works](docs/plan.md#how-each-change-works): mockup first for visual changes, then 2–4 "You try" tasks, with approval recorded on the issue. Ask before filing a new issue or pushing, unless the user already authorized that scope.
+- One issue per change; its PR closes it. Each follows [How each change works](docs/workflow.md#how-each-change-works): mockup first for visual changes, then 2–4 "You try" tasks, with approval recorded on the issue. Ask before filing a new issue or pushing, unless the user already authorized that scope.
 - Write PR titles in plain words about what that PR alone does, without planning jargon.
 - PRs are squash-merged. After a PR in a stack merges, rebase the next branch onto the new `main` (`git rebase --onto origin/main <old base commit> <branch>`) before filing it.
 

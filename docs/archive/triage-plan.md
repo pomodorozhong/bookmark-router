@@ -1,4 +1,4 @@
-> **Archived October 12, 2026.** Original round plan before later approvals and refinements. See [the current plan](../plan.md).
+> **Archived October 12, 2026.** Original round plan before later approvals and refinements. See [v1 rounds](v1-rounds.md) for what shipped and [product](../product.md) for current scope.
 
 # Plan — triage bookmarks into project ideas
 
