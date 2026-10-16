@@ -22,7 +22,7 @@ What Bookmark & Tag is for, what it deliberately leaves out, and how it behaves 
 | Single bookmark creation | Add bookmark opens Import; agent creation is covered in [WebMCP](webmcp.md). |
 | Advanced filter rules | Linked tag status, same-group, distance, and nested any/all remain in the domain engine but are not exposed by the compact filter UI. |
 | Performance | Only if the real collection is slow. The 148-bookmark collection does not need the former 5,000-bookmark budget; 1,000/5,000 measurements and release review are cut. |
-| Static deployment (GitHub Pages) | Planned in [#17](https://github.com/pomodorozhong/bookmark-router/issues/17). It has no bundled fetcher, so thumbnails come from keyless CORS services and are stored locally; a local agent reaches the app through a WebMCP relay. Collections are per origin, so a deployed copy starts empty until a backup is restored. |
+| Static deployment (GitHub Pages) | The `Pages` workflow builds `app/` and publishes it to `https://pomodorozhong.github.io/bookmark-router/` on every push to `main` ([#17](https://github.com/pomodorozhong/bookmark-router/issues/17)); the repository's Pages source must be set to GitHub Actions. It has no bundled fetcher, so thumbnails come from keyless CORS services and are stored locally; a local agent reaches the app through a WebMCP relay. Collections are per origin, so a deployed copy starts empty until a backup is restored. |
 
 ## Current behavior
 
