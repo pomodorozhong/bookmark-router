@@ -64,6 +64,14 @@ These three entries follow the relay's CLI and the bridge entries below; they ha
 
 #### Connect the page
 
+Start the relay on the same machine as the browser and MCP client:
+
+```bash
+npx @mcp-b/webmcp-local-relay@6.0.2 --widget-origin http://127.0.0.1:5199
+```
+
+Run this way, it lets you check that the page connects; for an agent to use the tools, start it from the MCP client as above.
+
 Open the page, then turn on **Connect to a local agent** in the Agent connection menu.
 
 For a deployed page, replace the origin with its exact `https://…` origin. The relay listens on loopback port `9333` by default. The browser may ask for local-network access the first time; allow it only for the intended page and relay. The menu reports **Searching** until the relay accepts the page, then **Connected**. The page closes its tool WebSocket when the setting is turned off or the page unloads.
