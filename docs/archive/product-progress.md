@@ -1,4 +1,4 @@
-> **Superseded October 11, 2026** by [plan.md](../plan.md). Kept as history.
+> **Superseded October 11, 2026** by the v1 round plan, summarized in [v1 rounds](v1-rounds.md). Kept as history.
 
 # Implementation progress
 

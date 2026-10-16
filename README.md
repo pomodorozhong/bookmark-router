@@ -3,8 +3,8 @@
 A local-first workspace for triaging bookmarks into project ideas, organized with tags on a force-directed graph.
 
 - [Documentation](docs/README.md)
-- [Current plan](docs/plan.md)
-- [Progress and open items](docs/progress.md)
+- [Product scope and current behavior](docs/product.md)
+- [Work in progress and open items](HANDOFF.md)
 - [App setup and usage](app/README.md)
 
 ```sh
