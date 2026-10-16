@@ -64,9 +64,11 @@ These three entries follow the relay's CLI and the bridge entries below; they ha
 
 #### Connect the page
 
-The relay listens on loopback port `9333` by default. Open the page, then turn on **Connect to a local agent** in the Agent connection menu. The menu reports **Searching** until the relay accepts the page, then **Connected**. The page closes its tool WebSocket when the setting is turned off or the page unloads.
+Open the page, then turn on **Connect to a local agent** in the Agent connection menu.
 
-A page on a public origin, such as GitHub Pages, needs the browser's local network access permission to reach the loopback relay. Chrome and Arc ask the first time; allow it only for this site. The Claude desktop in-app browser denies it without asking, so it can't connect from the deployed site.
+For a deployed page, replace the origin with its exact `https://…` origin. The relay listens on loopback port `9333` by default. The browser may ask for local-network access the first time; allow it only for the intended page and relay. The menu reports **Searching** until the relay accepts the page, then **Connected**. The page closes its tool WebSocket when the setting is turned off or the page unloads.
+
+The ask comes from Chrome and Arc. The Claude desktop in-app browser doesn't ask: it blocks the connection from the Pages site, so open that URL in Chrome or Arc instead.
 
 Collections are stored per origin: the Pages site starts empty until a backup is restored there, and it never touches the local dev server's collection.
 
@@ -108,7 +110,7 @@ Merge this entry into `mcpServers` in the existing macOS configuration at `~/Lib
 
 Claude Desktop rewrote this file on October 13, 2026 and dropped the entry; re-add it (or use **Settings → Developer**) if `bookmark-tag-chrome` stops appearing. Code sessions in the desktop app also load this entry and receive the bridge tools.
 
-The in-app browser still has no native `document.modelContext`; enable the app's local-agent switch and run the local relay when using that pane or a static deployment. From the deployed GitHub Pages site the pane denies local network access without a prompt, so use Chrome or Arc there ([results](#local-relay-on-the-live-github-pages-site)). Calling app code through a pane's JavaScript tool bypasses WebMCP and does not count as a relay test. Normal Chrome can continue to use the native `bookmark-tag-chrome` connection.
+The in-app browser still has no native `document.modelContext`; enable the app's local-agent switch and run the local relay when using that pane or a static deployment. The Pages URL is the same in every browser; the difference is the browser. With the Pages site open in this pane, the pane blocks the page's connection to the relay on `127.0.0.1` without asking, so it stays on **Searching**. Open the same URL in Chrome or Arc, which ask for local network access and then connect ([results](#local-relay-on-the-live-github-pages-site)). Calling app code through a pane's JavaScript tool bypasses WebMCP and does not count as a relay test. Normal Chrome can continue to use the native `bookmark-tag-chrome` connection.
 
 Claude Desktop supports local MCP servers through its Developer configuration and desktop extensions. Packaging an extension is outside this small round. See [Claude Desktop's local MCP documentation](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
 
