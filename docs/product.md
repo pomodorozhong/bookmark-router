@@ -31,6 +31,7 @@ What Bookmark & Tag is for, what it deliberately leaves out, and how it behaves 
 - Hidden groups linked to the current bookmark peek with faded fills and dashed outlines/links. Their bookmarks still follow the tab and filters. Peeking groups stay at their saved positions; showing them does not re-run layout.
 - Clicking a group selects its bookmarks clockwise around the group, starting at the cluster edge when more than 90° of the ring is empty; the issue view uses the same order. J/K and arrow keys wrap through the queue.
 - Issue views show descriptions, links, bookmarks, and membership reasons. Tag types can be created and edited. Appearance has four flat tag styles in eight directions, color presets/custom colors, size, and icons; titles always sit below tags, with no automatic initials.
+- The bookmark and issue panels open with a fixed bar: the link on the left, truncated with an ellipsis, and Copy, Edit, Pin, and close on the right. It stays in place for any title length and while the panel scrolls.
 - Bookmarks and tags have Pin/Unpin. Pins survive queue-tab layout changes and reloads; only **Layout → Reset positions** clears them. The bottom toolbar matches the 34 px filter controls and floats over the graph.
 - Collections can be deleted with confirmation and a backup offer. Bookmarks, tags, and tag types cannot be individually deleted; archive/unarchive is not implemented.
 - **Agent review** (round 4) was approved October 14, 2026; its accepted behavior and verification are documented in [WebMCP](webmcp.md).

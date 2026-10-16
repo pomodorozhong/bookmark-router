@@ -416,11 +416,17 @@ th { background: #f4f7f5; color: var(--muted); }
 .triage-panel { border-left: 1px solid var(--line); background: white; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .triage-detail { flex: 1; overflow: auto; padding: 18px 20px 12px; }
 .triage-top { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; }
-.triage-close { flex-shrink: 0; margin: -6px -8px 0 -6px; }
-.triage-top h2 { font-size: 18px; line-height: 1.3; margin: 0 0 6px; overflow-wrap: anywhere; }
-.triage-links { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; }
-.triage-links a { color: var(--teal); display: inline-flex; gap: 4px; align-items: center; }
-.triage-links .text-button { display: inline-flex; gap: 4px; align-items: center; font-size: 13px; }
+.triage-top h2 { flex: 1; min-width: 0; font-size: 18px; line-height: 1.3; margin: 0 0 6px; overflow-wrap: anywhere; }
+.detail-bar { flex-shrink: 0; display: flex; gap: 12px; align-items: center; padding: 8px 12px 8px 20px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.detail-bar-link { flex: 1; min-width: 0; display: flex; }
+.detail-bar-link > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail-bar-link a { color: var(--teal); display: inline-flex; gap: 4px; align-items: center; }
+.detail-bar-link a > span { overflow: hidden; text-overflow: ellipsis; }
+.detail-bar-link a > svg { flex-shrink: 0; }
+.detail-bar-warning { color: #805008; }
+.detail-bar-actions { flex-shrink: 0; display: flex; gap: 12px; align-items: center; }
+.detail-bar-actions .text-button { display: inline-flex; gap: 4px; align-items: center; font-size: 13px; }
+.detail-bar-close { width: 30px; height: 30px; min-height: 0; margin-left: -4px; }
 .triage-cover { width: 88px; height: 88px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); flex-shrink: 0; }
 .letter-tile { display: grid; place-items: center; background: #467768; color: white; font-weight: 600; font-size: 34px; }
 .queue-thumb .letter-tile { width: 100%; height: 100%; border-radius: 8px; font-size: 20px; }
@@ -656,11 +662,10 @@ th { background: #f4f7f5; color: var(--muted); }
 .triage-editor label.appearance-type-default { display: flex; margin: 14px 0 0; }
 
 /* Issue view: a tag to read in the triage detail panel. */
-.tag-view h2 { font-size: 18px; line-height: 1.3; margin: 8px 0 6px; overflow-wrap: anywhere; }
+.tag-view h2 { font-size: 18px; line-height: 1.3; margin: 8px 0 12px; overflow-wrap: anywhere; }
 .tag-view-meta { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
 .tag-type-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; background: #f0f4f2; color: var(--ink); font-size: 12px; }
 .tag-view-count { margin-left: auto; }
-.tag-view-close { width: 30px; height: 30px; min-height: 0; }
 .tag-view-all { margin-left: 8px; font-weight: 400; text-transform: none; letter-spacing: 0; }
 .tag-view-list { display: grid; }
 .tag-view-item { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 10px; align-items: start; width: 100%; text-align: left; border: 0; border-top: 1px solid #edf2ef; border-radius: 0; padding: 8px 4px; background: transparent; }
