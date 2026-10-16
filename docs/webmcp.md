@@ -14,7 +14,7 @@ For the user's existing Chrome profile:
 
 1. Enable WebMCP in Chrome (`chrome://flags`, search WebMCP) and relaunch Chrome if requested. The disposable check used the equivalent `--enable-features=WebMCP` launch flag.
 2. Open `chrome://inspect/#remote-debugging`, enable remote debugging, and keep Chrome running. Allow the MCP connection through Chrome's own permission dialog when ready. This connects to the existing profile; the default MCP launch would create a different profile without the user's collection.
-3. Configure one or both clients below and restart their MCP connection. The examples below are installed on this Mac using `/opt/homebrew/bin/npx` and a Homebrew-inclusive PATH, preserving unrelated settings and private backup copies. Refresh the clients to load the new entry.
+3. Configure the client and restart its MCP connection: Claude in [Claude setup](claude-setup.md#chrome-bridge-in-claude-desktop), Codex [below](#codex-desktop). The examples are installed on this Mac using `/opt/homebrew/bin/npx` and a Homebrew-inclusive PATH, preserving unrelated settings and private backup copies. Refresh the clients to load the new entry.
 4. Ask the agent to list pages, select the Bookmark & Tag page by its exact URL, and discover its WebMCP tools. `pageId` is required on this bridge version's page tools; do not assume a fixed ID.
 
 The connection settings follow [Chrome's configuration guide](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/configuration.md) and [existing-profile connection guide](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/advanced-usage.md). The task connection disables clicking and JavaScript evaluation: human approval stays in the app. It also disables unrelated inspection categories and bridge usage telemetry. External research belongs to the agent's separate browsing tools.
@@ -25,44 +25,7 @@ The app also supports an opt-in local connection for browsers without native Web
 
 When the switch is off (the default), the app does not load the polyfill or open a loopback WebSocket. Native WebMCP detection and the ordinary app continue to work. When it is enabled, the app dynamically loads the pinned `@mcp-b/webmcp-polyfill` **2.2.0** only when a context is missing, registers the same six tools, and opens the relay protocol directly from the page. The page-owned connection keeps static deployments and embedded browsers working without a hidden cross-document bridge; the pinned `@mcp-b/webmcp-local-relay` **6.0.2** package supplies the matching local relay server.
 
-#### Add the relay to the MCP client
-
-The relay is a stdio MCP server: the MCP client must start it. Running the command in a terminal lets the page connect, but no agent can reach the tools. Add it to the client on the same machine as the browser, with `--widget-origin` set to the page's exact origin: scheme and host, no path. Separate several origins with commas.
-
-| Page | `--widget-origin` |
-|---|---|
-| GitHub Pages | `https://pomodorozhong.github.io` |
-| Local dev server | `http://127.0.0.1:5199` |
-| Both | `https://pomodorozhong.github.io,http://127.0.0.1:5199` |
-
-Claude Code:
-
-```bash
-claude mcp add bookmark-tag-relay -- npx -y @mcp-b/webmcp-local-relay@6.0.2 --widget-origin https://pomodorozhong.github.io
-```
-
-Claude Desktop, merged into `mcpServers` beside the [bridge entry](#claude-desktop) (adjust `npx` and `PATH` the same way):
-
-```json
-"bookmark-tag-relay": {
-  "command": "/opt/homebrew/bin/npx",
-  "args": ["-y", "@mcp-b/webmcp-local-relay@6.0.2", "--widget-origin", "https://pomodorozhong.github.io"],
-  "env": { "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
-}
-```
-
-Codex, in `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.bookmark-tag-relay]
-command = "/opt/homebrew/bin/npx"
-args = ["-y", "@mcp-b/webmcp-local-relay@6.0.2", "--widget-origin", "https://pomodorozhong.github.io"]
-env = { PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
-```
-
-These three entries follow the relay's CLI and the bridge entries below; they have not been tested in each client. The [live-site check](#local-relay-on-the-live-github-pages-site) started the same package and arguments from a minimal stdio client.
-
-#### Connect the page
+#### Start the relay
 
 Start the relay on the same machine as the browser and MCP client:
 
@@ -70,13 +33,23 @@ Start the relay on the same machine as the browser and MCP client:
 npx @mcp-b/webmcp-local-relay@6.0.2 --widget-origin http://127.0.0.1:5199
 ```
 
-Run this way, it lets you check that the page connects; for an agent to use the tools, start it from the MCP client as above.
+Run this way, it lets you check that the page connects. The relay is a stdio MCP server, so for an agent to use the tools, the MCP client must start it with the same arguments; for Claude, see [Claude setup](claude-setup.md#local-relay).
+
+`--widget-origin` is the page's exact origin: scheme and host, no path. Separate several origins with commas.
+
+| Page | `--widget-origin` |
+|---|---|
+| GitHub Pages | `https://pomodorozhong.github.io` |
+| Local dev server | `http://127.0.0.1:5199` |
+| Both | `https://pomodorozhong.github.io,http://127.0.0.1:5199` |
+
+#### Connect the page
 
 Open the page, then turn on **Connect to a local agent** in the Agent connection menu.
 
 For a deployed page, replace the origin with its exact `https://…` origin. The relay listens on loopback port `9333` by default. The browser may ask for local-network access the first time; allow it only for the intended page and relay. The menu reports **Searching** until the relay accepts the page, then **Connected**. The page closes its tool WebSocket when the setting is turned off or the page unloads.
 
-The ask comes from Chrome and Arc. The Claude desktop in-app browser doesn't ask: it blocks the connection from the Pages site, so open that URL in Chrome or Arc instead (see [Claude Desktop](#claude-desktop)).
+The ask comes from Chrome and Arc. Some browsers block a deployed page without asking; for the Claude desktop in-app browser, see [Claude setup](claude-setup.md#in-app-browser).
 
 Collections are stored per origin: the Pages site starts empty until a backup is restored there, and it never touches the local dev server's collection.
 
@@ -86,41 +59,13 @@ Collections are stored per origin: the Pages site starts empty until a backup is
 |---|---|
 | Console shows `WebSocket connection to 'ws://127.0.0.1:9333/' failed` and the relay logs no connection | The browser blocked local network access. Allow it in the site's settings, or use Chrome or Arc. |
 | The relay's stderr never shows `listening on ws://127.0.0.1:9333` | The MCP client hasn't started the relay. Check its server list and restart the client. |
-| The relay is running but the client's `webmcp_list_sources` returns 0 sources | Most likely `--widget-origin` doesn't match the page's origin exactly; check the scheme, the host, and that no path was included. This case was not reproduced in the live-site check. |
+| The relay is running but the client's `webmcp_list_sources` returns 0 sources | Most likely `--widget-origin` doesn't match the page's origin exactly; check the scheme, the host, and that no path was included. |
 
 The relay's MCP client exposes `webmcp_list_sources`, `webmcp_list_tools`, and the six app tools. The same human-only Agent review and Apply/Set aside/Undo rules still apply; the relay does not add an approval or direct-save tool.
 
-### Claude Desktop
+### Claude
 
-Merge this entry into `mcpServers` in the existing macOS configuration at `~/Library/Application Support/Claude/claude_desktop_config.json`; retain any other server entries. The example below uses the absolute executable and PATH installed on this Mac. On another machine, substitute its `npx` location and Node.js PATH. Restart Claude Desktop after configuring.
-
-```json
-{
-  "mcpServers": {
-    "bookmark-tag-chrome": {
-      "command": "/opt/homebrew/bin/npx",
-      "args": [
-        "-y", "chrome-devtools-mcp@1.10.1",
-        "--autoConnect", "--categoryExperimentalWebmcp",
-        "--no-category-input", "--no-category-emulation",
-        "--no-category-performance", "--no-category-network",
-        "--no-category-debugging", "--no-category-memory",
-        "--no-javascript-evaluation",
-        "--no-usage-statistics", "--no-performance-crux"
-      ],
-      "env": {
-        "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-      }
-    }
-  }
-}
-```
-
-Claude Desktop rewrote this file on October 13, 2026 and dropped the entry; re-add it (or use **Settings → Developer**) if `bookmark-tag-chrome` stops appearing. Code sessions in the desktop app also load this entry and receive the bridge tools.
-
-The in-app browser still has no native `document.modelContext`; enable the app's local-agent switch and run the local relay when using that pane or a static deployment. The Pages URL is the same in every browser; the difference is the browser. The pane reports local network access as `denied` and never asks, so it blocks a public page, such as the Pages site, from reaching the relay on `127.0.0.1`, and the menu stays on **Searching**. A page served from `127.0.0.1` isn't affected and connects in the pane. Open the Pages URL in Chrome or Arc, which ask for local network access and then connect ([results](#local-relay-on-the-live-github-pages-site)). The limitation is tracked in [#27](https://github.com/pomodorozhong/bookmark-router/issues/27). Calling app code through a pane's JavaScript tool bypasses WebMCP and does not count as a relay test. Normal Chrome can continue to use the native `bookmark-tag-chrome` connection.
-
-Claude Desktop supports local MCP servers through its Developer configuration and desktop extensions. Packaging an extension is outside this small round. See [Claude Desktop's local MCP documentation](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
+Claude Desktop's bridge entry, the relay entries for Claude Code and Claude Desktop, and the in-app browser are covered in [Claude setup](claude-setup.md).
 
 ### Codex desktop
 
@@ -297,7 +242,7 @@ The following results were observed October 13, 2026. App and bridge verificatio
 | `--autoConnect` against the user's normal profile | Passed after user enabled WebMCP and remote debugging |
 | Exact installed npx command and PATH | Passed handshake, discovery, context (148), #141 (7), and warning filter (15); an earlier first browser call timed out, a retry passed |
 | Local Codex configuration recognition | Passed `codex mcp get bookmark-tag-chrome`; enabled with four allowed tools |
-| Claude Desktop 2.31226.1 | Done: a Claude Code session in the desktop app listed pages, discovered six tools, read the collection (148 bookmarks, revision 0), and read #141 (seven bookmarks) through the bridge; the user marked Claude testing done. In-app browser lacks WebMCP (see [limitation](#claude-desktop)). |
+| Claude Desktop 2.31226.1 | Done: a Claude Code session in the desktop app listed pages, discovered six tools, read the collection (148 bookmarks, revision 0), and read #141 (seven bookmarks) through the bridge; the user marked Claude testing done. In-app browser lacks WebMCP (see [Claude setup](claude-setup.md#in-app-browser)). |
 | Codex desktop 26.1007.30912 | Live discovery and collection/group reads passed in this conversation; batch workflow accepted October 14, 2026 |
 
 The user enabled Chrome's WebMCP and remote-debugging settings. The bridge attached to the normal profile, discovered all five tools, and read the active collection. The profile initially contained an empty collection; a separate copy of the 148-bookmark backup was restored through the real app UI. Existing collections in the in-app browser were not changed. Native UI control recovered for Chrome and Claude after an initial macOS capture error; it explicitly disallows operating Codex itself.
@@ -314,16 +259,9 @@ Observed October 17, 2026 against `https://pomodorozhong.github.io/bookmark-rout
 | Read and proposal flow | Passed: `get_collection_context` read the collection (116 bookmarks, revision 0); `propose_changes` staged one create as `pending_review`; the user set it aside in Agent review; `get_proposal_status` returned `set_aside` and the collection stayed at 116 bookmarks, revision 0 | Not reached |
 | Switch off closes the connection | Passed: relay lists 0 sources and only its own three tools | Passed: failed retries stop |
 
-Limitations: the Arc check used the user's restored collection instead of a disposable one, with the user's approval; only one set-aside proposal was staged and nothing was applied. Arc's version was not recorded. The relay accepts the WebSocket handshake from any origin (`101` for an unlisted origin), so `--widget-origin` is enforced after the handshake; the control check below shows the relay rejecting a page from an unlisted origin. Use a browser that shows the Local Network Access prompt, such as Chrome or Arc; the Claude desktop in-app browser can't reach the relay from the deployed site ([#27](https://github.com/pomodorozhong/bookmark-router/issues/27)).
+Limitations: the Arc check used the user's restored collection instead of a disposable one, with the user's approval; only one set-aside proposal was staged and nothing was applied. Arc's version was not recorded. The relay accepts the WebSocket handshake from any origin (`101` for an unlisted origin), so `--widget-origin` is enforced after the handshake; the [control check](claude-setup.md#control-check) shows the relay rejecting a page from an unlisted origin. Use a browser that shows the Local Network Access prompt, such as Chrome or Arc; the Claude desktop in-app browser can't reach the relay from the deployed site ([#27](https://github.com/pomodorozhong/bookmark-router/issues/27)).
 
-Control check, same day, in the in-app browser (Claude 2.42304.0, Chrome 152.0.7977.149) with the same relay version. Only the page's origin changed:
-
-| Page origin | Relay `--widget-origin` | Result |
-|---|---|---|
-| `http://127.0.0.1:5299` (this branch's build on a throwaway port) | `http://127.0.0.1:5299` | **Connected**; the relay received the page's tools |
-| `https://pomodorozhong.github.io/bookmark-router/` | `https://pomodorozhong.github.io` | **Searching**; the console shows `WebSocket connection to 'ws://127.0.0.1:9333/' failed` and the relay logs nothing from the page |
-
-The pane reported `local-network-access` as `denied` on both origins. The block applies only to a public page reaching loopback, so the cause is the pane's local network access handling, not the app or the relay. When the relay was restarted for the Pages origin, it rejected the still-open `127.0.0.1:5299` page with `rejecting source … with disallowed host origin`, so an unlisted origin is refused after the handshake.
+A [control check](claude-setup.md#control-check) in the in-app browser connected from a `127.0.0.1` page but not from the Pages site.
 
 ### Finish the Codex connection
 
