@@ -63,7 +63,7 @@ Merge this entry into `mcpServers` in the existing macOS configuration at `~/Lib
 
 Claude Desktop rewrote this file on October 13, 2026 and dropped the entry; re-add it (or use **Settings → Developer**) if `bookmark-tag-chrome` stops appearing. Code sessions in the desktop app also load this entry and receive the bridge tools.
 
-The in-app browser still has no native `document.modelContext`; enable the app's local-agent switch and run the local relay when using that pane or a static deployment. Calling app code through a pane's JavaScript tool bypasses WebMCP and does not count as a relay test. Normal Chrome can continue to use the native `bookmark-tag-chrome` connection.
+The in-app browser still has no native `document.modelContext`; enable the app's local-agent switch and run the local relay when using that pane or a static deployment. From the deployed GitHub Pages site the pane denies local network access without a prompt, so use Chrome or Arc there ([results](#local-relay-on-the-live-github-pages-site)). Calling app code through a pane's JavaScript tool bypasses WebMCP and does not count as a relay test. Normal Chrome can continue to use the native `bookmark-tag-chrome` connection.
 
 Claude Desktop supports local MCP servers through its Developer configuration and desktop extensions. Packaging an extension is outside this small round. See [Claude Desktop's local MCP documentation](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
 
@@ -246,6 +246,20 @@ The following results were observed October 13, 2026. App and bridge verificatio
 | Codex desktop 26.1007.30912 | Live discovery and collection/group reads passed in this conversation; batch workflow accepted October 14, 2026 |
 
 The user enabled Chrome's WebMCP and remote-debugging settings. The bridge attached to the normal profile, discovered all five tools, and read the active collection. The profile initially contained an empty collection; a separate copy of the 148-bookmark backup was restored through the real app UI. Existing collections in the in-app browser were not changed. Native UI control recovered for Chrome and Claude after an initial macOS capture error; it explicitly disallows operating Codex itself.
+
+### Local relay on the live GitHub Pages site
+
+Observed October 17, 2026 against `https://pomodorozhong.github.io/bookmark-router/` ([#18](https://github.com/pomodorozhong/bookmark-router/issues/18)), with `@mcp-b/webmcp-local-relay` 6.0.2 started as `--widget-origin https://pomodorozhong.github.io` and a minimal stdio MCP client (protocol `2025-06-18`).
+
+| Check | Arc | Claude desktop in-app browser (Chrome 152) |
+|---|---|---|
+| Switch off: no polyfill or loopback WebSocket; relay lists 0 sources | Passed | Passed |
+| Switch on reaches **Connected** | Passed after the user allowed local network access for the site | Failed: the pane reports `local-network-access` as `denied` and shows no prompt, so every `ws://127.0.0.1:9333` attempt fails before reaching the relay. The menu stays on **Searching**. |
+| Client discovers the six app tools | Passed: one source, `toolCount` 6, all six tools listed beside the relay's three | Not reached |
+| Read and proposal flow | Passed: `get_collection_context` read the collection (116 bookmarks, revision 0); `propose_changes` staged one create as `pending_review`; the user set it aside in Agent review; `get_proposal_status` returned `set_aside` and the collection stayed at 116 bookmarks, revision 0 | Not reached |
+| Switch off closes the connection | Passed: relay lists 0 sources and only its own three tools | Passed: failed retries stop |
+
+Limitations: the Arc check used the user's restored collection instead of a disposable one, with the user's approval; only one set-aside proposal was staged and nothing was applied. Arc's version was not recorded. The relay accepts the WebSocket handshake from any origin (`101` for an unlisted origin), so `--widget-origin` is enforced after the handshake; a page from an unlisted origin connecting end to end was not tested. Use a browser that shows the Local Network Access prompt, such as Chrome or Arc; the Claude desktop in-app browser can't reach the relay from the deployed site.
 
 ### Finish the Codex connection
 
