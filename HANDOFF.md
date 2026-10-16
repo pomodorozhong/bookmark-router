@@ -5,7 +5,7 @@
 ### docs/handoff-md
 
 - Task: #19 Move the agent handoff into HANDOFF.md
-- PR: none yet; branch is local only
+- PR: #20, awaiting review
 - Code checkpoint: 8e0f042 feat(agent): add a local relay for browser agents (#15)
 - State: `HANDOFF.md` replaces `.agents/next-steps.md`; AGENTS.md carries the `handoff` template from pomodorozhong/skills#11 (`feat/handoff-skill`, awaiting review). `.gitignore` now ignores `.claude/` and `bookmarks-*.json`.
 - Verification: docs-only change; app build and tests not run because no app code changed
