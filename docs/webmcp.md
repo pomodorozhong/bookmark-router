@@ -68,7 +68,7 @@ Open the page, then turn on **Connect to a local agent** in the Agent connection
 
 For a deployed page, replace the origin with its exact `https://…` origin. The relay listens on loopback port `9333` by default. The browser may ask for local-network access the first time; allow it only for the intended page and relay. The menu reports **Searching** until the relay accepts the page, then **Connected**. The page closes its tool WebSocket when the setting is turned off or the page unloads.
 
-The ask comes from Chrome and Arc. The Claude desktop in-app browser doesn't ask: it blocks the connection from the Pages site, so open that URL in Chrome or Arc instead.
+The ask comes from Chrome and Arc. The Claude desktop in-app browser doesn't ask: it blocks the connection from the Pages site, so open that URL in Chrome or Arc instead (see [Claude Desktop](#claude-desktop)).
 
 Collections are stored per origin: the Pages site starts empty until a backup is restored there, and it never touches the local dev server's collection.
 
@@ -110,7 +110,7 @@ Merge this entry into `mcpServers` in the existing macOS configuration at `~/Lib
 
 Claude Desktop rewrote this file on October 13, 2026 and dropped the entry; re-add it (or use **Settings → Developer**) if `bookmark-tag-chrome` stops appearing. Code sessions in the desktop app also load this entry and receive the bridge tools.
 
-The in-app browser still has no native `document.modelContext`; enable the app's local-agent switch and run the local relay when using that pane or a static deployment. The Pages URL is the same in every browser; the difference is the browser. With the Pages site open in this pane, the pane blocks the page's connection to the relay on `127.0.0.1` without asking, so it stays on **Searching**. Open the same URL in Chrome or Arc, which ask for local network access and then connect ([results](#local-relay-on-the-live-github-pages-site)). Calling app code through a pane's JavaScript tool bypasses WebMCP and does not count as a relay test. Normal Chrome can continue to use the native `bookmark-tag-chrome` connection.
+The in-app browser still has no native `document.modelContext`; enable the app's local-agent switch and run the local relay when using that pane or a static deployment. The Pages URL is the same in every browser; the difference is the browser. The pane reports local network access as `denied` and never asks, so it blocks a public page, such as the Pages site, from reaching the relay on `127.0.0.1`, and the menu stays on **Searching**. A page served from `127.0.0.1` isn't affected and connects in the pane. Open the Pages URL in Chrome or Arc, which ask for local network access and then connect ([results](#local-relay-on-the-live-github-pages-site)). The limitation is tracked in [#27](https://github.com/pomodorozhong/bookmark-router/issues/27). Calling app code through a pane's JavaScript tool bypasses WebMCP and does not count as a relay test. Normal Chrome can continue to use the native `bookmark-tag-chrome` connection.
 
 Claude Desktop supports local MCP servers through its Developer configuration and desktop extensions. Packaging an extension is outside this small round. See [Claude Desktop's local MCP documentation](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop).
 
@@ -306,7 +306,16 @@ Observed October 17, 2026 against `https://pomodorozhong.github.io/bookmark-rout
 | Read and proposal flow | Passed: `get_collection_context` read the collection (116 bookmarks, revision 0); `propose_changes` staged one create as `pending_review`; the user set it aside in Agent review; `get_proposal_status` returned `set_aside` and the collection stayed at 116 bookmarks, revision 0 | Not reached |
 | Switch off closes the connection | Passed: relay lists 0 sources and only its own three tools | Passed: failed retries stop |
 
-Limitations: the Arc check used the user's restored collection instead of a disposable one, with the user's approval; only one set-aside proposal was staged and nothing was applied. Arc's version was not recorded. The relay accepts the WebSocket handshake from any origin (`101` for an unlisted origin), so `--widget-origin` is enforced after the handshake; a page from an unlisted origin connecting end to end was not tested. Use a browser that shows the Local Network Access prompt, such as Chrome or Arc; the Claude desktop in-app browser can't reach the relay from the deployed site.
+Limitations: the Arc check used the user's restored collection instead of a disposable one, with the user's approval; only one set-aside proposal was staged and nothing was applied. Arc's version was not recorded. The relay accepts the WebSocket handshake from any origin (`101` for an unlisted origin), so `--widget-origin` is enforced after the handshake; the control check below shows the relay rejecting a page from an unlisted origin. Use a browser that shows the Local Network Access prompt, such as Chrome or Arc; the Claude desktop in-app browser can't reach the relay from the deployed site ([#27](https://github.com/pomodorozhong/bookmark-router/issues/27)).
+
+Control check, same day, in the in-app browser (Claude 2.42304.0, Chrome 152.0.7977.149) with the same relay version. Only the page's origin changed:
+
+| Page origin | Relay `--widget-origin` | Result |
+|---|---|---|
+| `http://127.0.0.1:5299` (this branch's build on a throwaway port) | `http://127.0.0.1:5299` | **Connected**; the relay received the page's tools |
+| `https://pomodorozhong.github.io/bookmark-router/` | `https://pomodorozhong.github.io` | **Searching**; the console shows `WebSocket connection to 'ws://127.0.0.1:9333/' failed` and the relay logs nothing from the page |
+
+The pane reported `local-network-access` as `denied` on both origins. The block applies only to a public page reaching loopback, so the cause is the pane's local network access handling, not the app or the relay. When the relay was restarted for the Pages origin, it rejected the still-open `127.0.0.1:5299` page with `rejecting source … with disallowed host origin`, so an unlisted origin is refused after the handshake.
 
 ### Finish the Codex connection
 
