@@ -3,6 +3,7 @@ import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { CopyDialog, type CopyScope } from "./CopyDialog";
 import { RecordEditor } from "./RecordEditor";
 import { TagView } from "./TagView";
+import { DetailBar } from "./DetailBar";
 import { FilterBar } from "./FilterBar";
 import { Cover, type LoadMedia } from "./Cover";
 import { ThumbnailFinder } from "./ThumbnailFinder";
@@ -317,31 +318,29 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         </div>
         <aside className="triage-panel" aria-label="Current bookmark">
           {panelTag ? (
-            <div className="triage-detail">
-              {tagPanel!.editing
-                ? <RecordEditor key={panelTag.id} inline workspace={workspace} id={panelTag.id} onSave={(c) => save(c)} onNewType={onTagTypes}
+            tagPanel!.editing
+              ? <div className="triage-detail">
+                  <RecordEditor key={panelTag.id} inline workspace={workspace} id={panelTag.id} onSave={(c) => save(c)} onNewType={onTagTypes}
                     onClose={() => setTagPanel({ id: panelTag.id, editing: false })} />
-                : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
+                </div>
+              : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
                     onCopy={() => openCopy("selection")} onEdit={() => setTagPanel({ id: panelTag.id, editing: true })}
-                    pin={<PinButton pinned={pinnedIds.includes(panelTag.id)} onToggle={(on) => graphRef.current?.setPinned(panelTag.id, on)} />} onClose={() => setTagPanel(undefined)} />}
-            </div>
+                    pin={<PinButton pinned={pinnedIds.includes(panelTag.id)} onToggle={(on) => graphRef.current?.setPinned(panelTag.id, on)} />} onClose={() => setTagPanel(undefined)} />
           ) : current ? (
             <>
+              <DetailBar
+                link={current.url && isWebUrl(current.url)
+                  ? <a href={current.url} target="_blank" rel="noreferrer" title={current.url}><span>{domainOf(current.url)}</span> <Icon name="external" size={13} /></a>
+                  : current.url ? <span className="detail-bar-warning" title={current.url}><strong>Not a link</strong> {current.url}</span> : <span className="subtle">No URL</span>}
+                closeLabel="Clear current bookmark (Esc)" onClose={() => show(undefined, false)}>
+                <button className="text-button" onClick={() => openCopy("current")}><Icon name="copy" size={13} /> Copy</button>
+                <button className="text-button" onClick={() => onEdit(current.id)}><Icon name="edit" size={13} /> Edit</button>
+                <PinButton pinned={pinnedIds.includes(current.id)} onToggle={(on) => graphRef.current?.setPinned(current.id, on)} />
+              </DetailBar>
               <div className="triage-detail">
                 <div className="triage-top">
-                  <div>
-                    <h2>{current.title}</h2>
-                    <div className="triage-links">
-                      {current.url && isWebUrl(current.url)
-                        ? <a href={current.url} target="_blank" rel="noreferrer">{domainOf(current.url)} <Icon name="external" size={13} /></a>
-                        : current.url ? <span className="url-warning">{current.url}<span className="url-warning-label">Not a link</span></span> : <span className="subtle">No URL</span>}
-                      <button className="text-button" onClick={() => openCopy("current")}><Icon name="copy" size={13} /> Copy</button>
-                      <button className="text-button" onClick={() => onEdit(current.id)}><Icon name="edit" size={13} /> Edit</button>
-                      <PinButton pinned={pinnedIds.includes(current.id)} onToggle={(on) => graphRef.current?.setPinned(current.id, on)} />
-                    </div>
-                  </div>
+                  <h2>{current.title}</h2>
                   <Cover bookmark={current} load={loadMedia} letterTile />
-                  <IconButton className="triage-close" label="Clear current bookmark (Esc)" icon="close" size={15} onClick={() => show(undefined, false)} />
                 </div>
                 <ThumbnailFinder key={current.id} bookmark={current} onFind={onThumbnail} />
                 <p className="triage-desc">{current.description || <span className="subtle">No description.</span>}</p>
