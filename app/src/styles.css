@@ -506,12 +506,12 @@ th { background: #f4f7f5; color: var(--muted); }
 /* The minimized queue: one column of thumbnails under the list's count. Titles show on hover. */
 @media (min-width: 821px) {
   .triage.queue-minimized .triage-queue { overflow-x: hidden; scrollbar-width: none; }
-  .triage.queue-minimized .queue-bar, .triage.queue-minimized .queue-text, .triage.queue-minimized .queue-empty { display: none; }
-  .triage.queue-minimized .queue-rail-count { display: block; position: sticky; top: 0; z-index: 1; padding: 8px 0; background: #f4f7f5; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; }
-  .triage.queue-minimized .queue-rail-count.selection { background: #eff4ff; border-color: #c7d6fb; color: #1e3a8a; font-weight: 600; }
-  .triage.queue-minimized .queue-item { grid-template-columns: 44px; justify-content: center; padding: 6px 0; border-bottom: 0; }
-  .triage.queue-minimized .queue-thumb { width: 44px; height: 32px; }
-  .triage.queue-minimized .queue-thumb .letter-tile { font-size: 15px; }
+  .triage.queue-minimized .triage-queue :is(.queue-bar, .queue-text, .queue-empty) { display: none; }
+  .triage.queue-minimized .triage-queue .queue-rail-count { display: block; position: sticky; top: 0; z-index: 1; padding: 8px 0; background: #f4f7f5; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+  .triage.queue-minimized .triage-queue .queue-rail-count.selection { background: #eff4ff; border-color: #c7d6fb; color: #1e3a8a; font-weight: 600; }
+  .triage.queue-minimized .triage-queue .queue-item { grid-template-columns: 44px; justify-content: center; padding: 6px 0; border-bottom: 0; }
+  .triage.queue-minimized .triage-queue .queue-thumb { width: 44px; height: 32px; }
+  .triage.queue-minimized .triage-queue .queue-thumb .letter-tile { font-size: 15px; }
 }
 /* Up to 1280 px the expanded queue floats over the graph beside the rail's column. */
 @media (min-width: 821px) and (max-width: 1280px) {
