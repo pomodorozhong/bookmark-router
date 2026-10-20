@@ -29,6 +29,22 @@ import {
 } from "../domain/triage";
 
 const relatedListLimit = 12;
+// At this width and below the queue and the panel share the area under the graph, as two tabs.
+const sharedPanelQuery = "(max-width: 820px)";
+// Up to this width an expanded queue floats over the graph as a drawer; above it, the queue is a column.
+const queueDrawerQuery = "(max-width: 1280px)";
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => matchMedia(query).matches);
+  useEffect(() => {
+    const list = matchMedia(query);
+    const update = () => setMatches(list.matches);
+    update();
+    list.addEventListener("change", update);
+    return () => list.removeEventListener("change", update);
+  }, [query]);
+  return matches;
+}
 
 /** The main collection screen: triage bookmarks into groups beside the force-directed graph. */
 export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onTagTypes, onError, headerStart, headerEnd, onCopyContext, onThumbnail }: {
@@ -62,7 +78,12 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [tagPanel, setTagPanel] = useState<{ id: string; editing: boolean }>();
   const [currentId, setCurrentId] = useState<string>();
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
-  const [queueOpen, setQueueOpen] = useState(() => window.innerWidth > 1000);
+  // Above 820 px: the full queue list, or only its thumbnails when false.
+  const [queueOpen, setQueueOpen] = useState(() => !matchMedia(queueDrawerQuery).matches);
+  // At 820 px and below: which tab the area under the graph shows.
+  const [panelTab, setPanelTab] = useState<"queue" | "detail">("detail");
+  const shared = useMediaQuery(sharedPanelQuery);
+  const drawer = useMediaQuery(queueDrawerQuery) && !shared && queueOpen;
   const [groupQuery, setGroupQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   // The filter bar's More menu, holding Empty groups and Ungrouped bookmarks.
@@ -119,6 +140,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   function show(id: string | undefined, frame = true) {
     setCurrentId(id);
     setTagPanel(undefined);
+    setPanelTab(id ? "detail" : "queue");
     setGroupQuery("");
     setMenuOpen(false);
     if (frame) setFrameRequest(++frameToken.current);
@@ -196,6 +218,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   }
   // Runs after the graph has applied the new tab's visibility (child effects run first).
   useEffect(() => { if (resetRequest) graphRef.current?.resetPositions(); }, [resetRequest]);
+  function toggleQueue() {
+    if (shared) setPanelTab((t) => (t === "queue" ? "detail" : "queue"));
+    else setQueueOpen((v) => !v);
+  }
   function openCopy(scope?: CopyScope) {
     setCopyScope(scope ?? (selection ? "selection" : "list"));
   }
@@ -210,8 +236,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       else if (key === "f") { e.preventDefault(); filterInput.current?.focus(); }
       else if (e.key === "ArrowDown" || key === "j") { e.preventDefault(); move(1); }
       else if (e.key === "ArrowUp" || key === "k") { e.preventDefault(); move(-1); }
-      else if (key === "q") setQueueOpen((v) => !v);
+      else if (key === "q") toggleQueue();
       else if (key === "c") openCopy();
+      else if (e.key === "Escape" && drawer) setQueueOpen(false);
       else if (e.key === "Escape" && tagPanel) setTagPanel(tagPanel.editing ? { ...tagPanel, editing: false } : undefined);
       else if (e.key === "Escape" && selection) setSelection(undefined);
       else if (e.key === "Escape" && current) show(undefined, false);
@@ -229,7 +256,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const total = workspace.bookmarks.length || 1;
   const progressText = `${counts.done} done · ${counts.dropped} dropped · ${counts.todo} to triage`;
   return (
-    <div className={`triage ${queueOpen ? "" : "queue-closed"}`}>
+    <div className={`triage ${queueOpen ? "queue-open" : "queue-minimized"} ${panelTab === "queue" ? "panel-queue" : ""}`}>
       <header className="triage-header">
         {headerStart}
         <div className="triage-progress" aria-label="Triage progress" title={progressText}>
@@ -249,25 +276,31 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       </header>
       <div className="triage-body">
         <nav className="triage-queue" aria-label="Bookmarks to triage">
+          {/* Shown instead of the bar when the queue is only thumbnails. */}
+          <div className={`queue-rail-count ${selection ? "selection" : ""}`} title={selection ? `${queue.length} in the selection` : `${queue.length} in this list`}>{queue.length}</div>
           {selection ? (
             <div className="queue-bar selection" role="status">
               <span className={`queue-bar-label ${selectionTag ? "full" : ""}`}><strong>{selection.length}</strong> {selectionTag ? <>in <span title={selectionTag.name}>{selectionTag.name}</span></> : "selected"}{queue.length !== selection.length ? ` · ${queue.length} here` : ""}</span>
               <span className="queue-bar-actions">
                 <button onClick={() => openCopy("selection")}><Icon name="copy" size={13} /> Copy…</button>
                 <button onClick={() => setSelection(undefined)} title="Clear selection (Esc)">Clear</button>
+                <IconButton className="queue-collapse" label="Show only thumbnails (Q)" icon="chevron-left" size={15} onClick={() => setQueueOpen(false)} />
               </span>
             </div>
           ) : (
             <div className="queue-bar">
               <span>{queue.length} in this list</span>
-              <button onClick={() => openCopy("list")} disabled={!queue.length}><Icon name="copy" size={13} /> Copy…</button>
+              <span className="queue-bar-actions">
+                <button onClick={() => openCopy("list")} disabled={!queue.length}><Icon name="copy" size={13} /> Copy…</button>
+                <IconButton className="queue-collapse" label="Show only thumbnails (Q)" icon="chevron-left" size={15} onClick={() => setQueueOpen(false)} />
+              </span>
             </div>
           )}
           {queue.map((b) => {
             const warn = b.notes?.some((n) => /^(Link check|Possible duplicate)/.test(n.label));
             const decided = outcomeOf(b, workspace) !== "active";
             return (
-              <button key={b.id} className={`queue-item ${b.id === current?.id ? "current" : ""}`} aria-current={b.id === current?.id} onClick={() => show(b.id)}>
+              <button key={b.id} className={`queue-item ${b.id === current?.id ? "current" : ""}`} aria-current={b.id === current?.id} title={!shared && !queueOpen ? b.title : undefined} onClick={() => show(b.id)}>
                 {/* The slot is kept without an image so titles line up. */}
                 <span className="queue-thumb"><Cover bookmark={b} load={loadMedia} className="" letterTile /></span>
                 <span className="queue-text">
@@ -286,7 +319,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         </nav>
         <div className="triage-stage">
           <div className="triage-tools">
-            <button onClick={() => setQueueOpen((v) => !v)} aria-pressed={queueOpen} title="Show or hide the queue (Q)"><Icon name="list" size={17} strokeWidth={2} /> <span className="queue-label">Queue</span></button>
+            <button className="queue-toggle" onClick={toggleQueue} aria-pressed={queueOpen} title={queueOpen ? "Show only thumbnails (Q)" : "Show the full queue (Q)"}><Icon name="list" size={17} strokeWidth={2} /> <span className="queue-label">Queue</span></button>
             <FilterBar workspace={workspace} filter={filter} tab={tab} searchRef={filterInput} onChange={changeFilter} save={(c, label) => save(c, label)} />
           </div>
           {toast}
@@ -295,11 +328,14 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             workspace={workspace}
             selected={current?.id}
             onSelect={(id) => {
+              // Tapping the graph puts a queue drawer away; tapping empty space does nothing else.
+              if (drawer) { setQueueOpen(false); if (!id) return; }
               if (!id) show(undefined, false);
               else if (workspace.bookmarks.some((b) => b.id === id)) show(id);
               else {
                 boxSelect(workspace.memberships.filter((m) => m.tagId === id).map((m) => m.bookmarkId), false, id);
                 setTagPanel({ id, editing: false });
+                setPanelTab("detail");
               }
             }}
             query=""
@@ -318,6 +354,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             loadMedia={loadMedia}
           />
         </div>
+        <div className="triage-panel-tabs" role="tablist" aria-label="Queue or details">
+          <button role="tab" aria-selected={panelTab === "queue"} onClick={() => setPanelTab("queue")}>Queue · {queue.length}</button>
+          <button role="tab" aria-selected={panelTab === "detail"} onClick={() => setPanelTab("detail")}>{panelTag ? "Tag" : "Bookmark"}</button>
+        </div>
         <aside className="triage-panel" aria-label="Current bookmark">
           {panelTag ? (
             tagPanel!.editing
@@ -335,6 +375,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   ? <a href={current.url} target="_blank" rel="noreferrer" title={current.url}><span>{domainOf(current.url)}</span> <Icon name="external" size={13} /></a>
                   : current.url ? <span className="detail-bar-warning" title={current.url}><strong>Not a link</strong> {current.url}</span> : <span className="subtle">No URL</span>}
                 closeLabel="Clear current bookmark (Esc)" onClose={() => show(undefined, false)}>
+                <span className="detail-step">
+                  <IconButton label="Previous in the queue (K)" icon="chevron-left" size={15} onClick={() => move(-1)} />
+                  <IconButton label="Next in the queue (J)" icon="chevron-right" size={15} onClick={() => move(1)} />
+                </span>
                 <button className="text-button" onClick={() => openCopy("current")}><Icon name="copy" size={13} /> Copy</button>
                 <button className="text-button" onClick={() => onEdit(current.id)}><Icon name="edit" size={13} /> Edit</button>
                 <PinButton pinned={pinnedIds.includes(current.id)} onToggle={(on) => graphRef.current?.setPinned(current.id, on)} />

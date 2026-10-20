@@ -28,7 +28,7 @@ The collection screen is triage: a queue on the left, the force-directed graph i
 - **Hidden groups:** groups of a hidden type linked to the current bookmark peek with faded fills and dashed outlines/links, alongside their matching bookmarks. Their saved positions stay fixed.
 - **Pin/Unpin:** beside Copy and Edit for bookmarks and tags. Pins survive tab changes and reloads. Switching tabs re-lays out shown nodes and hides empty groups; **Layout → Reset positions** clears pins.
 - **Header:** the collection menu (logo and name) switches, creates, or deletes collections; **⋯** holds Add bookmark (Import), Add tag, Tag types, Import history, Download backup, Restore backup, and Delete this collection. Deletion offers a backup and requires confirmation. There is no sidebar; Import has a Back link.
-- **Graph toolbar:** Queue (`Q`) toggles the queue beside the filter bar. The bottom toolbar floats over the graph with Layout, Center (current bookmark), Whole collection, and zoom controls. No bookmark is current until one is picked.
+- **Graph toolbar:** Queue (`Q`) switches the queue between thumbnails and the full list (a drawer up to 1280 px, a column above). At 820 px and below, the queue is a tab under the graph instead. The bottom toolbar floats over the graph with Layout, Center (current bookmark), Whole collection, and zoom controls. No bookmark is current until one is picked.
 
 Every decision and group change is a revision-checked command with a labeled entry in the per-collection **Undo** (up to 50 actions, kept across reloads). Undo is in the header and saved-change toasts. Selection, active filters, and graph positions are not undoable; saved-filter changes are. Node positions, pins, and the viewport are stored separately from content.
 
