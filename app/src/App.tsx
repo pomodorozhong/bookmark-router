@@ -619,9 +619,9 @@ export default function App() {
   const shown: ToastMessage | undefined = screen === "workspace" && error ? { id: -1, text: error, error: true } : toast;
   const toastElement = shown && <Toast key={shown.id} toast={shown} onClose={() => (shown.error ? setError("") : setToast(undefined))} />;
   const undoButton = (
-    <button className="header-undo" disabled={!undoAvailable || busy} onClick={() => void undoLastAction()}
+    <button className="header-undo" aria-label="Undo" disabled={!undoAvailable || busy} onClick={() => void undoLastAction()}
       title={undoAvailable ? `Undo: ${nextUndo!.label} (⌘Z)` : "Nothing to undo"}>
-      <Icon name="undo" size={15} /><span>Undo</span>
+      <Icon name="undo" size={15} /><span className="header-undo-label">Undo</span>
     </button>
   );
   const agentProposal = agentSession.current;

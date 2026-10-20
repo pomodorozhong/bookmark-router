@@ -115,7 +115,7 @@ export function AgentMenu({ pending, busy, onReview, localAgentEnabled, localAge
   return (
     <div className="agent-control">
       <button className="agent-review-entry" disabled={busy} onClick={onReview} aria-label={`Agent review${pending ? ", 1 batch awaiting review" : ""}`}>
-        <Icon name="check" size={15} /><span>Agent review</span>{pending && <span className="agent-review-count" aria-hidden="true">1</span>}
+        <Icon name="bot" size={16} /><span className="agent-review-label">Agent<span className="agent-review-rest"> review</span></span>{pending && <span className="agent-review-count" aria-hidden="true">1</span>}
       </button>
       <MenuButton label="Agent connection" align="end" className="agent-menu-root" button={<Icon name="chevron-down" size={15} />}>
         {() => (
