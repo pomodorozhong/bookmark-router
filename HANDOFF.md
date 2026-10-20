@@ -2,20 +2,19 @@
 
 ## In progress
 
-### fix/detail-panel-bar
+### docs/agents-handoff-sync
 
-- **Task:** #13 Keep the detail panel's Copy and Edit buttons in one place. Branch linked to the issue; mockup approval recorded on the issue.
+- **Task:** #29 Sync AGENTS.md's handoff block with the handoff skill. Branch linked to the issue.
 - **PR:** not opened yet.
-- **Code checkpoint:** `7f662ae fix(triage): keep the detail panel's actions in a fixed top bar`.
-- **State:** bookmark and tag panels share a new `DetailBar` (link left, Copy/Edit/Pin/close right), pinned above the scrolling content. Docs updated in `docs/product.md`.
-- **Verification:** `npm ci`, `npm run build`, `npm test` (113 pass) in a clean worktree. Headless Chrome on a converted copy of the collection (port 5311): button positions identical for 1-, 2- and 10-line titles and after scrolling, at 1440 and 390 px; no horizontal overflow; an injected long domain truncates with an ellipsis on one line; the tag panel bar matches.
-- **Not run:** the user's "You try" review in their own browser.
-- **Pending P-01:** push `fix/detail-panel-bar` and open a PR that closes #13. Needs the user's publish approval. Blocks the PR and review.
-- **Next action:** after approval, push and open the PR; then give the user the "You try" tasks and record acceptance on #13.
+- **Code checkpoint:** none; docs only.
+- **State:** the block between the `handoff` markers in `AGENTS.md` matches the skill's current template exactly, and nothing outside the markers changed. The stale `fix/detail-panel-bar` subsection (#28 merged) is removed.
+- **Verification:** the marked block diffs clean against the template; the rest of `AGENTS.md` diffs clean against `main`. Build and tests not run, since only Markdown changed.
+- **Pending P-05:** push `docs/agents-handoff-sync` and open its PR (closes #29). Needs push approval. Blocks review.
+- **Next action:** after P-05, the user reviews and merges; the next session removes this subsection.
 
 ## Ranked work
 
-1. #13 Keep the detail panel's Copy and Edit buttons in one place (in progress on `fix/detail-panel-bar`)
+1. #29 Sync AGENTS.md's handoff block with the handoff skill (awaiting review)
 2. #16 Keep the triage header usable at narrow window widths (also: the filter bar wraps below about 1150 px with the queue open, and tapping a tag at phone width is unverified)
 3. #25 Links between nodes disappear when zoomed out
 4. #21 Hidden nodes overlap shown nodes after Reset positions
