@@ -38,4 +38,7 @@ Local data to keep in mind:
 - Create `node_modules/.tmp-verify` before converting; the script does not create it.
 - Let the graph finish placing at desktop width before emulating a narrow one. Resizing while it shows "Placing your collection…" left it stuck in headless runs (on `main` too; not seen in a real browser). Use the **Whole collection** button to fit it to the new width.
 - If a run fails, kill its Chrome (`pkill -f remote-debugging-port=<port>`) before the next one, or the next run attaches to the old page.
+- After a restore, placing can take 20 seconds or more headless. Wait until "Placing your collection…" is gone before measuring or taking screenshots; otherwise the graph looks empty.
+- Before concluding something is shown or hidden, read the computed `display` and `visibility` (and its size). A check of `display` alone once read a queue hidden with `visibility` as open, and the script's own Queue click produced a bug report (#32).
+- Check what a panel shows, not only that it opened. The tag panel's list reuses the queue's classes (`queue-text`, `queue-thumb`), so a queue rule scoped to `.triage` instead of `.triage-queue` hid its titles (#32).
 - Use the toolbar's zoom buttons, not wheel events (those pan the saved view away). localStorage does not survive between headless runs, so pick the restored collection from the Collections menu each run, or check reloads within one run.
