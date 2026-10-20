@@ -558,6 +558,37 @@ th { background: #f4f7f5; color: var(--muted); }
 .agent-menu-root .menu-trigger:hover, .agent-menu-root .menu-trigger[aria-expanded=true] { background: #f0f5f2; }
 .agent-menu-root .app-menu { width: min(326px, calc(100vw - 32px)); min-width: 0; padding: 10px; }
 .agent-review-count { display: inline-grid; place-items: center; min-width: 19px; height: 19px; border-radius: 50%; background: var(--teal); color: white; font-size: 11px; }
+.triage-percent { display: none; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+/* Below 1320px the header stays one row: progress becomes a bar and a percentage, Undo and Agent review get shorter. */
+@media (max-width: 1319px) {
+  .triage-header { gap: 12px; }
+  .triage-header .collection-menu-root { min-width: 0; }
+  .triage-header .collection-menu-root .menu-trigger { max-width: 240px; }
+  .triage-progress { flex: 1 0 auto; }
+  .triage-bar { min-width: 64px; }
+  .triage-progress-text, .header-undo-label, .agent-review-rest { display: none; }
+  .triage-percent { display: inline; }
+  .header-undo { width: 36px; padding: 0; justify-content: center; }
+  .triage-header .segmented button { white-space: nowrap; }
+}
+@media (max-width: 900px) {
+  .agent-review-label { display: none; }
+  .agent-review-entry { padding: 0 9px; }
+}
+/* At phone widths: menus and icon buttons on the first row, queue tabs on the second, progress along the bottom edge. */
+@media (max-width: 820px) {
+  .triage-header { position: relative; gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+  .triage-header .collection-menu-root { flex: 1; }
+  .triage-header .collection-menu-root .menu-trigger { max-width: 100%; }
+  .triage-progress { position: absolute; left: 0; right: 0; bottom: -1px; }
+  .triage-bar { min-width: 0; max-width: none; height: 3px; border-radius: 0; }
+  .triage-percent { display: none; }
+  .triage-header .segmented { order: 1; flex-basis: 100%; }
+  .triage-header .segmented button { flex: 1 1 auto; padding-left: 6px; padding-right: 6px; }
+}
+@media (max-width: 600px) {
+  .header-undo, .triage-header .more-menu-root .menu-trigger { width: 44px; }
+}
 .connection-menu-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 2px 2px 10px; }
 .connection-menu-heading .menu-heading { padding: 0; }
 .connection-menu-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
@@ -750,6 +781,9 @@ details.appearance-editor > summary .subtle { margin-left: auto; font-size: 12px
 @container (max-width: 600px) {
   .queue-label { display: none; }
   .filter-search input { width: 100px; }
+}
+@container (max-width: 520px) {
+  .filter-search input { width: 64px; }
 }
 .filter-joined .filter-anchor { border-left: 1px solid var(--line); }
 .filter-button, .filter-saved { display: inline-flex; align-items: center; gap: 6px; height: 100%; min-height: 0; padding: 0 10px; border: 0; border-radius: 0; background: transparent; color: var(--ink); font-size: 13px; font-weight: 400; white-space: nowrap; cursor: pointer; }

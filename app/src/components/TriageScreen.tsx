@@ -227,16 +227,18 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   });
 
   const total = workspace.bookmarks.length || 1;
+  const progressText = `${counts.done} done · ${counts.dropped} dropped · ${counts.todo} to triage`;
   return (
     <div className={`triage ${queueOpen ? "" : "queue-closed"}`}>
       <header className="triage-header">
         {headerStart}
-        <div className="triage-progress" aria-label="Triage progress">
+        <div className="triage-progress" aria-label="Triage progress" title={progressText}>
           <div className="triage-bar" aria-hidden="true">
             <span style={{ width: `${(counts.done / total) * 100}%`, background: "var(--teal)" }} />
             <span style={{ width: `${(counts.dropped / total) * 100}%`, background: "#9fb1a9" }} />
           </div>
-          <span>{counts.done} done · {counts.dropped} dropped · {counts.todo} to triage</span>
+          <span className="triage-progress-text">{progressText}</span>
+          <span className="triage-percent">{Math.round(((counts.done + counts.dropped) / total) * 100)}%</span>
         </div>
         <div className="segmented" role="tablist" aria-label="Queue">
           {([["todo", `To triage ${counts.todo}`], ["done", `Done ${counts.done}`], ["dropped", `Dropped ${counts.dropped}`], ["all", "All"]] as const).map(([key, label]) => (

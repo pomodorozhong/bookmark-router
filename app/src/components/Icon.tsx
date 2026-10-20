@@ -5,6 +5,7 @@ export type IconName =
   | "arrow-left"
   | "arrow-right"
   | "bookmark"
+  | "bot"
   | "check"
   | "chevron-down"
   | "chevron-left"
@@ -45,6 +46,7 @@ const paths: Record<IconName, ReactNode> = {
   "arrow-left": <path d="m10 6-6 6 6 6M4 12h16" />,
   "arrow-right": <path d="m14 6 6 6-6 6M4 12h16" />,
   bookmark: <path d="M6 4.5h12v16l-6-3.6-6 3.6v-16Z" />,
+  bot: <path d="M6.5 8.5h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2ZM12 8.5V5.5M12 3.8h.01M9.5 13.2v1.6M14.5 13.2v1.6M2.5 12.5v3M21.5 12.5v3" />,
   check: <path d="m5 12 4.2 4.2L19 6.5" />,
   "chevron-down": <path d="m6 9 6 6 6-6" />,
   "chevron-left": <path d="m14.5 5.5-6.5 6.5 6.5 6.5" />,
