@@ -34,4 +34,4 @@
 
 ## Pending
 
-- **P-12:** open a PR from `docs/push-without-approval` (pushed, `3119f87`): AGENTS.md says work branches may be pushed without asking, including lease-guarded force-pushes of rebuilt PR branches; never `main`. Needs approval to open a PR. Until it merges, the rule lives only on that branch and in local memory.
+None.
