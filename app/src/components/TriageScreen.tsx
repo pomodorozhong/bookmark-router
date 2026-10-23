@@ -264,7 +264,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const total = workspace.bookmarks.length || 1;
   const progressText = `${counts.done} done · ${counts.dropped} dropped · ${counts.todo} to triage`;
   return (
-    <div className={`triage ${queueOpen ? "queue-open" : "queue-minimized"} ${panelTab === "queue" ? "panel-queue" : ""}`}>
+    <div className={`triage ${queueOpen ? "queue-open" : "queue-minimized"} ${panelTab === "queue" ? "panel-queue" : ""} ${current || panelTag ? "has-current" : ""}`}>
       <header className="triage-header">
         {headerStart}
         <div className="triage-progress" aria-label="Triage progress" title={progressText}>
@@ -397,9 +397,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                     </div>
                     <h2>{current.title}</h2>
                   </div>
-                  <Cover bookmark={current} load={loadMedia} letterTile />
                 </div>
-                <ThumbnailFinder key={current.id} bookmark={current} onFind={onThumbnail} />
+                <ThumbnailFinder key={current.id} bookmark={current} cover={<Cover bookmark={current} load={loadMedia} letterTile />} onFind={onThumbnail} />
                 <p className="triage-desc">{current.description || <span className="subtle">No description.</span>}</p>
                 {current.source?.fields.tags && (
                   <div className="triage-raindrop">Raindrop {current.source.fields.tags.split(",").map((t) => t.trim()).filter((t) => t && t !== "indie-dev").map((t) => <span key={t} className="chip">{t}</span>)}</div>

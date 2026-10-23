@@ -79,7 +79,7 @@ All of these sent `Access-Control-Allow-Origin: *` when probed, except Google an
 Steps 2–4, 6 and 7 send the bookmark's URL, its domain, or its image URL to an outside service: YouTube, FxTwitter, GitHub, Microlink, Raindrop, Google, DuckDuckGo and wsrv.nl. Nothing is sent unless the user asks.
 
 - **Find thumbnails online** is a setting, **off by default everywhere**, on the dev server and on a static build. It lists the services by name. Turning it on fills in thumbnails for every bookmark without one, throttled as above. While it is off, only stored thumbnails, imported covers and letter tiles show.
-- **The bookmark detail view has a Find thumbnail online button** that runs the resolver for that one bookmark, whatever the setting says. Before it runs, a warning names the services this bookmark's URL would be sent to; an X bookmark, for example, goes to FxTwitter and wsrv.nl, then Microlink and Raindrop if needed. A counter beside it shows Microlink lookups left today (out of 25). When a thumbnail or a failure is stored, the button becomes **Retry thumbnail**, which is the only way a stored thumbnail is replaced.
+- **The bookmark detail view shows the cover at 16:9 with a Find online button beside it** that runs the resolver for that one bookmark, whatever the setting says. Before it runs, a warning names the services this bookmark's URL would be sent to; an X bookmark, for example, goes to FxTwitter and wsrv.nl, then Microlink and Raindrop if needed. Above the button a line says where the image comes from; below it, a counter shows Microlink lookups left today (out of 25). When a thumbnail or a failure is stored, the button becomes **Retry**, which is the only way a stored thumbnail is replaced.
 
 ## Considered and not built
 
@@ -107,7 +107,7 @@ Recorded October 14, 2026, after reviewing this draft:
 
 ## Implementation and verification
 
-Implemented for #7; the fixed Copy/Edit/Pin bar landed with #13. The detail button and counter keep their position, with the warning, step list, result, and **Hide details** underneath. Opening the warning leaves focus on **Find thumbnail online** or **Retry thumbnail**, preserving the detail panel's scroll position; Tab moves to **Send and find**. A failed retry retains a previously stored image. Attached images take precedence, then stored thumbnails, imported covers, and letter tiles, in the detail panel, queue, group view, and graph. Stored favicons are inset rather than stretched.
+Implemented for #7; the fixed Copy/Edit/Pin bar landed with #13. The detail button and counter keep their position, with the warning, step list, result, and **Hide details** underneath. Opening the warning leaves focus on **Find online** or **Retry**, preserving the detail panel's scroll position; Tab moves to **Send and find**. A failed retry retains a previously stored image. Attached images take precedence, then stored thumbnails, imported covers, and letter tiles, in the detail panel, queue, group view, and graph. Stored favicons are inset rather than stretched.
 
 Captures and media replacements are atomic IndexedDB transactions. They preserve bookmark and collection revisions and the existing Undo action. A changed URL or imported asset during a lookup rejects the capture. Undo, including import-merge Undo, retains current thumbnails. Restore remaps thumbnail media IDs and rejects missing bytes; retry does not delete media still referenced by another bookmark or import snapshot.
 
