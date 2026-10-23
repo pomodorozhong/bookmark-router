@@ -35,6 +35,10 @@ export interface GraphCanvasHandle {
 }
 // Titles show for related or box-selected bookmarks only while there are few enough to read.
 const emphasisLabelLimit = 30;
+/** A theme color role from styles.css, so the graph follows the theme for letter tiles, the current bookmark and a box selection. */
+function role(name: string, fallback: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
 // About a bookmark at maximum zoom on a 2x display.
 const thumbnailSize = 256;
 function roundThumbnail(img: HTMLImageElement, key: string, icon = false): HTMLCanvasElement {
@@ -177,9 +181,10 @@ export function GraphCanvas({
     if (known && typeof known !== "string") return known;
     const canvas = document.createElement("canvas"), context = canvas.getContext("2d")!;
     canvas.width = canvas.height = thumbnailSize;
-    context.fillStyle = "#467768";
-    context.beginPath(); context.arc(thumbnailSize / 2, thumbnailSize / 2, thumbnailSize / 2, 0, Math.PI * 2); context.fill();
-    context.fillStyle = "#ffffff"; context.font = "600 130px sans-serif"; context.textAlign = "center"; context.textBaseline = "middle";
+    context.fillStyle = role("--color-tile", "#e8f3f2");
+    context.beginPath(); context.arc(thumbnailSize / 2, thumbnailSize / 2, thumbnailSize / 2 - 4, 0, Math.PI * 2); context.fill();
+    context.lineWidth = 8; context.strokeStyle = role("--color-tile-line", "#a5ccc9"); context.stroke();
+    context.fillStyle = role("--color-on-tile", "#115e59"); context.font = "600 130px sans-serif"; context.textAlign = "center"; context.textBaseline = "middle";
     context.fillText(letter, thumbnailSize / 2, thumbnailSize / 2 + 5);
     const tile = Object.assign(canvas, { src: key, complete: true });
     images.current.set(key, tile);
@@ -486,7 +491,8 @@ export function GraphCanvas({
         }
       }
     });
-    const boxStyle = { fill: "#2563eb", fillOpacity: 0.06, stroke: "#2563eb", lineWidth: 1, lineDash: [4, 3] };
+    const selectionColor = role("--color-selection", "#183e3b");
+    const boxStyle = { fill: selectionColor, fillOpacity: 0.06, stroke: selectionColor, lineWidth: 1, lineDash: [4, 3] };
     const boxed = (states: Record<string, string | string[]>, adding: boolean) => {
       const ids = Object.entries(states)
         .filter(([id, state]) => bookmarksRef.current.has(id) && [state].flat().includes("boxed"))
@@ -973,6 +979,7 @@ export function GraphCanvas({
     const focusing = Boolean(selected && workspace.bookmarks.some((b) => b.id === selected));
     const decided = new Set(workspace.statuses.filter((s) => s.outcome !== "active").map((s) => s.id));
     const peeking = new Set(peekTagIds);
+    const accent = role("--color-accent", "#0f766e"), selection = role("--color-selection", "#183e3b");
     g.updateNodeData([
       ...workspace.tags.map((tag) => ({
         id: tag.id,
@@ -991,11 +998,11 @@ export function GraphCanvas({
           id: b.id,
           style: {
             opacity: !focusing || current || related.has(b.id) || inBox ? 1 : 0.18,
-            stroke: current ? "#0f766e" : inBox ? "#2563eb" : done ? "#cbd5d1" : "#94a3b8",
+            stroke: current ? accent : inBox ? selection : done ? "#cbd5d1" : "#94a3b8",
             lineWidth: current ? 4 : inBox ? 3 : 2,
             fill: done ? "#eef2f0" : "#fff",
             halo: current || inBox,
-            haloStroke: current ? "#0f766e" : "#2563eb",
+            haloStroke: current ? accent : selection,
             haloLineWidth: current ? 14 : 8,
             haloStrokeOpacity: current ? 0.25 : 0.16,
           },
