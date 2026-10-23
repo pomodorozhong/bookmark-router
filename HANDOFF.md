@@ -16,7 +16,6 @@
 - **PRs:** #65 `fix/touch-screens` (ready for review; closes #40, #41, #42, #45, #60), #66 `fix/dialog-layout` (ready for review; closes #44, #51). Their Stack sections mark #62, #63 and #64 merged.
 - **Code checkpoint:** rebuilt on `origin/main` `cb04ac9` and force-pushed on 2026-10-23: #65 `0520f70`, #66 `eedd5e3`, each with only its own commit; files are identical to the tips before the rebuild.
 - **Verification:** one clean worktree from `cb04ac9`, fresh `npm ci`, then per branch `npm run build` and `npm test`: all pass, 114/114 each. No browser re-check after the rebuild (no conflicts, same files).
-- **Pending P-08:** delete the local `stack/ui-foundations` branch and its worktree `../bookmark-router-ui-foundations` (which still holds a converted copy of the collection under `app/node_modules/.tmp-verify/`), the merged local branches `refactor/remove-unused-css`, `fix/one-name-per-concept` and `refactor/shared-style-values`, and the scratch branches `rb64`, `rb65`, `rb66`, `r2-65`, `r2-66`. Approved on 2026-10-23, but the agent's permission check blocked the deletion; the user runs it or allows it. Blocks nothing.
 - **Next action:** review and merge #65 and #66 in either order; after both merge, remove this subsection.
 
 ## Ranked work
