@@ -125,28 +125,37 @@ export function Icon({
   );
 }
 
+/** A keyboard shortcut shown as a key cap on the control it triggers; hidden on touch screens without a keyboard. */
+export function Kbd({ children }: { children: ReactNode }) {
+  return <kbd className="key-badge" aria-hidden="true">{children}</kbd>;
+}
+
 export function IconButton({
   label,
   icon,
   size = 18,
   className = "",
+  shortcut,
   ...props
 }: {
   label: string;
   icon: IconName;
   size?: number;
   className?: string;
+  /** The key that triggers it, shown beside the icon. */
+  shortcut?: string;
 } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
-      className={`icon-button ${className}`}
+      className={`icon-button ${shortcut ? "has-key" : ""} ${className}`}
       aria-label={label}
       title={label}
       data-tooltip={label}
       {...props}
     >
       <Icon name={icon} size={size} />
+      {shortcut && <Kbd>{shortcut}</Kbd>}
     </button>
   );
 }
