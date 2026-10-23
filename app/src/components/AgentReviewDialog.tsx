@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { hasGroup, reviewAgentProposal, type AgentProposal, type ProposalField, type ProposalOverwrite } from "../domain/agent-review";
 import { isWebUrl, statusLabel, type Asset, type Bookmark, type Workspace } from "../domain/model";
 import type { LoadMedia } from "./Cover";
-import { Dialog } from "./Dialog";
-import { IconButton } from "./Icon";
+import { Dialog, DialogHeader } from "./Dialog";
 
 const stateLabels = { pending_review: "Pending review", applied: "Applied", set_aside: "Set aside", stale: "Stale" };
 const fieldLabels = { title: "Title", url: "URL", description: "Description", statusId: "Status" };
@@ -107,13 +106,7 @@ export function AgentReviewDialog({ proposal, proposals, workspace, availability
   const updates = (proposal?.input.changes.length ?? 0) - additions;
   return (
     <Dialog labelledBy="agent-review-title" className="agent-review-modal" onClose={() => { if (!busy) onClose(); }}>
-      <div className="modal-heading">
-        <div>
-          <h2 id="agent-review-title">Agent review</h2>
-          <p className="subtle">{proposal?.input.summary ?? "Batch review before saving"}</p>
-        </div>
-        <IconButton label="Close agent review" icon="close" disabled={busy} onClick={onClose} />
-      </div>
+      <DialogHeader id="agent-review-title" label="Agent" title="Agent review" description={proposal?.input.summary ?? "Batch review before saving"} closeLabel="Close agent review" disabled={busy} onClose={onClose} />
       {proposal && proposals.length > 1 && <label className="agent-review-picker">Batch
         <select aria-label="Choose batch" value={proposal.id} disabled={busy} onChange={(event) => { setConfirmation(undefined); onSelect(event.target.value); }}>
           {proposals.map((batch) => <option key={batch.id} value={batch.id}>{batch.input.summary} · {stateLabels[batch.state]}</option>)}
@@ -161,7 +154,8 @@ export function AgentReviewDialog({ proposal, proposals, workspace, availability
           })}
         </>
       )}
-      <footer className="agent-review-save">
+      <p className="agent-review-note subtle">The whole batch saves together as one Undo action. Set-aside batches stay available in this tab; reloading or switching collections discards proposals. Claude, Codex, and Chrome may also ask for connection or tool permission.</p>
+      {reviewable && <footer className="agent-review-save">
         {stale && review?.values && <div className="agent-review-warning" id="agent-apply-warning">
           <strong>{overwrites.length ? `Apply anyway will overwrite ${overwrites.length} newer ${overwrites.length === 1 ? "edit" : "edits"}:` : "No newer edits will be overwritten."}</strong>
           {overwrites.length > 0 && <ul>{overwrites.map((overwrite) => {
@@ -172,14 +166,13 @@ export function AgentReviewDialog({ proposal, proposals, workspace, availability
         </div>}
         {error && <p className="agent-review-save-error" role="status">Not saved: {error}</p>}
         <div className="agent-review-actions">
-          {reviewable ? <>{proposal?.state !== "set_aside" && <button disabled={busy} onClick={onSetAside}>Set aside</button>}{stale ? <button className={`agent-review-apply-anyway${confirming ? " is-confirming" : ""}`} aria-describedby={confirming ? "agent-apply-warning agent-confirm-reminder" : "agent-apply-warning"} disabled={busy || !review?.values} onClick={() => {
+          {proposal?.state !== "set_aside" && <button disabled={busy} onClick={onSetAside}>Set aside</button>}{stale ? <button className={`agent-review-apply-anyway${confirming ? " is-confirming" : ""}`} aria-describedby={confirming ? "agent-apply-warning agent-confirm-reminder" : "agent-apply-warning"} disabled={busy || !review?.values} onClick={() => {
             if (confirming) onApplyAnyway(confirmation!.revision);
             else setConfirmation({ proposalId: proposal!.id, revision: workspace.revision });
-          }}>{busy ? "Saving batch…" : confirming ? overwrites.length ? "Confirm overwrite" : "Confirm apply" : "Apply anyway"}</button> : <button className="primary" disabled={busy || !review?.values} onClick={onApply}>{busy ? "Saving batch…" : "Apply batch"}</button>}</> : <button onClick={onClose}>Close</button>}
+          }}>{busy ? "Saving batch…" : confirming ? overwrites.length ? "Confirm overwrite" : "Confirm apply" : "Apply anyway"}</button> : <button className="primary" disabled={busy || !review?.values} onClick={onApply}>{busy ? "Saving batch…" : "Apply batch"}</button>}
         </div>
         {confirming && <p className="agent-review-confirm-reminder" id="agent-confirm-reminder" role="status">{overwrites.length ? `Nothing saved yet. Confirming will overwrite ${overwrites.length} newer ${overwrites.length === 1 ? "edit" : "edits"} listed above.` : "Nothing saved yet. Confirming will save the whole batch; no newer edits will be overwritten."}</p>}
-      </footer>
-      <p className="agent-review-note subtle">The whole batch saves together as one Undo action. Set-aside batches stay available in this tab; reloading or switching collections discards proposals. Claude, Codex, and Chrome may also ask for connection or tool permission.</p>
+      </footer>}
     </Dialog>
   );
 }

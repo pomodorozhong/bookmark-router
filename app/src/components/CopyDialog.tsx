@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Dialog } from "./Dialog";
-import { IconButton } from "./Icon";
+import { Dialog, DialogHeader } from "./Dialog";
 import type { Bookmark, Workspace } from "../domain/model";
 import { copyFields, copyPresets, formatCopy } from "../domain/triage";
 import { readCopyFormat, rememberCopyFormat, type CopyScope } from "../copy-settings";
@@ -36,10 +35,7 @@ export function CopyDialog({ workspace, scopes, initialScope, onClose, onCopied 
   }
   return (
     <Dialog labelledBy="copy-title" onClose={onClose} className="copy-modal">
-      <div className="modal-heading">
-        <h2 id="copy-title">Copy {items.length} bookmark{items.length === 1 ? "" : "s"}</h2>
-        <IconButton label="Close" icon="close" onClick={onClose} />
-      </div>
+      <DialogHeader id="copy-title" label="Copy" title={`Copy ${items.length} bookmark${items.length === 1 ? "" : "s"}`} onClose={onClose} />
       <div className="copy-presets" role="group" aria-label="Presets">
         {copyPresets.map((preset) => (
           <button key={preset.name} aria-pressed={preset.template === template && preset.separator === separator}
@@ -68,10 +64,11 @@ export function CopyDialog({ workspace, scopes, initialScope, onClose, onCopied 
         {formatCopy(items.slice(0, previewLimit), workspace, template, separator)}{items.length > previewLimit ? "\n…" : ""}
       </pre>
       {failure && <p className="url-warning" role="alert">{failure}</p>}
-      <div className="copy-footer">
-        <span className="subtle">{scope === "current" ? "" : "Same order as the queue"}</span>
+      <footer>
+        {scope !== "current" && <span className="subtle modal-footer-note">Same order as the queue</span>}
+        <button onClick={onClose}>Cancel</button>
         <button className="primary" disabled={!items.length} onClick={() => void copy()}>Copy text</button>
-      </div>
+      </footer>
     </Dialog>
   );
 }

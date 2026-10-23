@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog } from "./Dialog";
+import { Dialog, DialogHeader } from "./Dialog";
 import { Icon } from "./Icon";
 import { NodePreview } from "./NodePreview";
 import { ColorPicker, PointsPicker, StylePicker } from "./AppearancePickers";
@@ -44,10 +44,7 @@ export function TagTypesDialog({ workspace, save, onClose }: {
   }
   return (
     <Dialog labelledBy="types-title" className="types-modal" onClose={() => { if (!busy) onClose(); }}>
-      <div className="modal-heading">
-        <h2 id="types-title">Tag types</h2>
-        <button className="icon-button" aria-label="Close" onClick={onClose}><Icon name="close" size={17} /></button>
-      </div>
+      <DialogHeader id="types-title" title="Tag types" onClose={onClose} />
       <div className="type-list">
         {workspace.tagTypes.map((t) => (
           <div key={t.id} className={`type-row ${editing?.id === t.id ? "editing" : ""}`}>
