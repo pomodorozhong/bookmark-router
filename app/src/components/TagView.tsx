@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
 import { Cover, type LoadMedia } from "./Cover";
 import { DetailBar } from "./DetailBar";
-import { Icon } from "./Icon";
+import { Icon, IconButton } from "./Icon";
 import { Markdown } from "./Markdown";
 import { appearanceFor, isWebUrl, statusLabel, type Tag, type Workspace } from "../domain/model";
 import { domainOf, reasonFor } from "../domain/triage";
 
 /** A tag (an issue, proposal, or topic) to read on its own: what it is and which bookmarks belong to it. */
-export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEdit, pin, onClose }: {
+export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEdit, start, pin, onClose }: {
   tag: Tag;
   /** Bookmark IDs in display order, such as the clockwise selection; others follow. */
   order?: string[];
@@ -16,6 +16,8 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
   onOpen: (bookmarkId: string) => void;
   onCopy: () => void;
   onEdit: () => void;
+  /** The start of the panel's bar, such as the phone layout's Queue button. */
+  start?: ReactNode;
   /** The Pin button, which the graph owns. */
   pin?: ReactNode;
   onClose: () => void;
@@ -29,13 +31,9 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
   const statuses = [...new Set(bookmarks.map((b) => status(b.statusId)))];
   return (
     <>
-      <DetailBar
-        link={tag.url && (isWebUrl(tag.url)
-          ? <a href={tag.url} target="_blank" rel="noreferrer" title={tag.url}><span>{shortUrl(tag.url)}</span> <Icon name="external" size={13} /></a>
-          : <span className="subtle" title={tag.url}>{tag.url}</span>)}
-        closeLabel="Close (Esc)" onClose={onClose}>
-        <button className="text-button" disabled={!bookmarks.length} onClick={onCopy}><Icon name="copy" size={13} /> Copy…</button>
-        <button className="text-button" onClick={onEdit}><Icon name="edit" size={13} /> Edit</button>
+      <DetailBar start={start} closeLabel="Close (Esc)" onClose={onClose}>
+        <IconButton label="Copy…" icon="copy" size={16} disabled={!bookmarks.length} onClick={onCopy} />
+        <IconButton label="Edit" icon="edit" size={16} onClick={onEdit} />
         {pin}
       </DetailBar>
       <div className="triage-detail tag-view">
@@ -44,6 +42,9 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
           <span className="queue-status">{status(tag.statusId)}</span>
           <span className="tag-view-count">{bookmarks.length} bookmark{bookmarks.length === 1 ? "" : "s"}</span>
         </div>
+        {tag.url && <div className="detail-link">{isWebUrl(tag.url)
+          ? <a href={tag.url} target="_blank" rel="noreferrer" title={tag.url}><span>{shortUrl(tag.url)}</span> <Icon name="external" size={13} /></a>
+          : <span className="subtle" title={tag.url}>{tag.url}</span>}</div>}
         <h2>{tag.name}</h2>
         {tag.description?.trim() ? <Markdown text={tag.description} /> : <p className="subtle">No description.</p>}
         <section className="triage-section">

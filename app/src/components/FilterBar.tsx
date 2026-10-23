@@ -116,7 +116,7 @@ export function FilterBar({ workspace, filter, tab, searchRef, onChange, save }:
       <div className={`filter-joined ${filter.text.trim() ? "searching" : ""}`}>
         <label className="filter-search">
           <Icon name="filter" size={15} />
-          <input ref={searchRef} type="search" aria-label="Filter bookmarks and groups" placeholder="Filter… (F)" value={filter.text}
+          <input ref={searchRef} type="search" aria-label="Search bookmarks and tags" placeholder="Search…" title="Search (F)" value={filter.text}
             onChange={(e) => onChange({ ...filter, text: e.target.value })}
             onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filter, text: "" }); e.currentTarget.blur(); } }} />
         </label>
