@@ -98,10 +98,13 @@ export function GraphCanvas({
   loadMedia,
   boxSelection,
   onBoxSelect,
-  tools,
+  onCenter,
+  compact = false,
 }: {
-  /** Extra buttons placed before the fit button in the bottom bar. */
-  tools?: ReactNode;
+  /** Frames the current bookmark; the Center button is disabled without it. */
+  onCenter?: () => void;
+  /** The phone layout: the bottom tools fold into one View menu in the top corner. */
+  compact?: boolean;
   /** Bookmarks in the current box selection. */
   boxSelection?: ReadonlySet<string>;
   /** Called when a box is drawn on empty canvas; `adding` when Shift was held. */
@@ -1048,6 +1051,17 @@ export function GraphCanvas({
       setError(String(e));
     }
   }
+  const zoomOut = () => void action((g) => g.zoomBy(0.8, false));
+  const zoomIn = () => void action((g) => g.zoomBy(1.25, false));
+  // The layout actions, in the Layout menu or at the end of the phone layout's View menu.
+  const layoutItems = <>
+    <button onClick={() => { setLayoutOpen(false); simulation.current?.alpha(1).restart(); }}>
+      <Icon name="refresh" size={15} /> Re-layout
+    </button>
+    <button onClick={() => { setLayoutOpen(false); setConfirmReset(true); }}>
+      <Icon name="refresh" size={15} /> Reset positions…
+    </button>
+  </>;
   return (
     <div className="canvas-shell">
 
@@ -1079,53 +1093,68 @@ export function GraphCanvas({
         <div className="canvas-status">
           {!ready && <span className="subtle" role="status">{status}</span>}
         </div>
-        <div className="canvas-tools">
-          <div className="layout-menu">
-            <button
-              className="tool-button"
-              aria-expanded={layoutOpen}
-              disabled={!ready}
-              onClick={() => setLayoutOpen((v) => !v)}
-            >
-              <Icon name="layout" size={15} /> <span>Layout</span><Icon name="chevron-down" size={13} />
-            </button>
-            {layoutOpen && (
-              <div className="layout-menu-popover">
-                <button onClick={() => { setLayoutOpen(false); simulation.current?.alpha(1).restart(); }}>
-                  <Icon name="refresh" size={15} /> Re-layout
-                </button>
-                <button onClick={() => { setLayoutOpen(false); setConfirmReset(true); }}>
-                  <Icon name="refresh" size={15} /> Reset positions…
-                </button>
-              </div>
-            )}
-            {confirmReset && (
-              <Dialog labelledBy="reset-title" className="prompt-modal" onClose={() => setConfirmReset(false)}>
-                <DialogHeader id="reset-title" label="Graph" title="Reset positions?" onClose={() => setConfirmReset(false)} />
-                <p>Every bookmark and tag goes back to an automatic place, and all pins are cleared.</p>
-                <footer>
-                  <button onClick={() => setConfirmReset(false)}>Cancel</button>
-                  <button className="danger" onClick={() => { setConfirmReset(false); resetPositions({ clearPins: true }); }}>Reset positions</button>
-                </footer>
-              </Dialog>
-            )}
+        {!compact && (
+          <div className="canvas-tools">
+            <div className="layout-menu">
+              <button
+                className="tool-button"
+                aria-expanded={layoutOpen}
+                disabled={!ready}
+                onClick={() => setLayoutOpen((v) => !v)}
+              >
+                <Icon name="layout" size={15} /> <span>Layout</span><Icon name="chevron-down" size={13} />
+              </button>
+              {layoutOpen && <div className="layout-menu-popover">{layoutItems}</div>}
+            </div>
+            <div className="tool-group">
+              <IconButton label="Center on the current bookmark" icon="scope" disabled={!onCenter} onClick={onCenter} />
+              <IconButton
+                label="Whole collection"
+                icon="fit"
+                disabled={!ready}
+                onClick={() => void action(fitWhole)}
+              />
+            </div>
+            <div className="tool-group">
+              <IconButton label="Zoom out" icon="zoom-out" disabled={!ready} onClick={zoomOut} />
+              <span className="zoom-value">{Math.round(zoom * 100)}%</span>
+              <IconButton label="Zoom in" icon="zoom-in" disabled={!ready} onClick={zoomIn} />
+            </div>
           </div>
-          <div className="tool-group">
-            {tools}
-            <IconButton
-              label="Whole collection"
-              icon="fit"
-              disabled={!ready}
-              onClick={() => void action(fitWhole)}
-            />
-          </div>
-          <div className="tool-group">
-            <IconButton label="Zoom out" icon="zoom-out" disabled={!ready} onClick={() => void action((g) => g.zoomBy(0.8, false))} />
-            <span className="zoom-value">{Math.round(zoom * 100)}%</span>
-            <IconButton label="Zoom in" icon="zoom-in" disabled={!ready} onClick={() => void action((g) => g.zoomBy(1.25, false))} />
-          </div>
-        </div>
+        )}
       </div>
+      {compact && (
+        <div className="canvas-view layout-menu">
+          <button className="tool-button view-button" aria-label="View" title="View" aria-haspopup="menu" aria-expanded={layoutOpen} disabled={!ready} onClick={() => setLayoutOpen((v) => !v)}>
+            <Icon name="layout" size={17} />
+          </button>
+          {layoutOpen && (
+            <div className="layout-menu-popover view-menu" role="menu" aria-label="View">
+              {/* One row of view tools keeps the menu short enough for a phone's graph strip. */}
+              <div className="view-zoom">
+                <IconButton label="Center on the current bookmark" icon="scope" disabled={!onCenter} onClick={() => { setLayoutOpen(false); onCenter?.(); }} />
+                <IconButton label="Whole collection" icon="fit" onClick={() => { setLayoutOpen(false); void action(fitWhole); }} />
+                <span className="view-zoom-gap" />
+                <IconButton label="Zoom out" icon="zoom-out" onClick={zoomOut} />
+                <span className="zoom-value">{Math.round(zoom * 100)}%</span>
+                <IconButton label="Zoom in" icon="zoom-in" onClick={zoomIn} />
+              </div>
+              <hr />
+              {layoutItems}
+            </div>
+          )}
+        </div>
+      )}
+      {confirmReset && (
+        <Dialog labelledBy="reset-title" className="prompt-modal" onClose={() => setConfirmReset(false)}>
+          <DialogHeader id="reset-title" label="Graph" title="Reset positions?" onClose={() => setConfirmReset(false)} />
+          <p>Every bookmark and tag goes back to an automatic place, and all pins are cleared.</p>
+          <footer>
+            <button onClick={() => setConfirmReset(false)}>Cancel</button>
+            <button className="danger" onClick={() => { setConfirmReset(false); resetPositions({ clearPins: true }); }}>Reset positions</button>
+          </footer>
+        </Dialog>
+      )}
     </div>
   );
 }
