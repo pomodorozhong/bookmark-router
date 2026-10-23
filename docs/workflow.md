@@ -4,7 +4,7 @@ How changes are made here, how the user likes to work, and how to verify against
 
 ## How each change works
 
-Each change is one GitHub issue and one PR that closes it. Group related issues under a milestone only when they ship together.
+Each change has a GitHub issue and a PR that closes it. One PR may close several issues when they touch the same area and share one mockup; its "You try" tasks then cover each of them. Group related issues under a milestone when they belong to one goal, such as the UI/UX revamp.
 
 1. **Mockup first** for anything visual: a working static artifact with the user's real use cases. Record the user's approval or changes as a comment on the issue before implementation.
 2. **Build** the accepted direction on a `<type>/<summary>` branch.
@@ -19,7 +19,7 @@ Keep changes small. There are no checkpoint tags, deferred-verification register
 - Explain the use case behind a proposal in terms of what the user does in the app; round 3 was unclear until it was put that way.
 - When the user proposes a solution, evaluate it and suggest better options before building; build their proposal only after they pick.
 - Keep the code simple: a one-off command beats permanent in-app machinery for something done a few times (the rename's in-app upgrade was replaced by `npm run upgrade-backup` for this reason).
-- Small changes, one issue each, ending with 2–4 short "You try" tasks whose result is recorded on the issue; verify on the user's real collection before reporting; conventional commits split by concern.
+- Small changes, each closing one issue or a few closely related ones, ending with 2–4 short "You try" tasks whose result is recorded on the issue; verify on the user's real collection before reporting; conventional commits split by concern.
 - The user runs the dev server themselves at `http://127.0.0.1:5199` (`.claude/launch.json` can start it too); their collections live in that origin's browser storage.
 
 ## Test data
