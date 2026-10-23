@@ -186,6 +186,13 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .modal textarea { min-height: 100px; }
 .modal footer { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 24px; }
 .modal-footer-note { margin-right: auto; }
+.add-bookmark-modal { width: min(520px, calc(100% - 32px)); }
+/* One row when it fits; otherwise the import link takes its own row above Cancel and Add bookmark, never a broken label. */
+.add-bookmark-modal footer { flex-wrap: wrap; }
+.add-bookmark-modal footer button { white-space: nowrap; }
+/* A status named in running text, drawn like its tab in the triage header. */
+.status-name { display: inline-block; padding: 0 6px; border: 1px solid var(--color-line); border-radius: var(--radius-chip); background: var(--color-surface); color: var(--color-ink); font-weight: 600; white-space: nowrap; }
+.add-bookmark-modal footer .text-button { gap: 6px; min-height: var(--control); }
 .appearance-editor { margin: 22px 0; padding-top: 20px; border-top: 1px solid var(--color-line); }
 .appearance-field { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(110px, 1fr) auto; align-items: center; gap: 10px; }
 .appearance-field-label { display: inline-flex; align-items: center; gap: 8px; }
@@ -224,6 +231,7 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
   .appearance-field input[type=range] { grid-column: 1 / -1; grid-row: 2; }
   .appearance-field output { grid-column: 2; grid-row: 1; }
   .modal footer { flex-wrap: wrap; }
+  .add-bookmark-modal footer .text-button { flex-basis: 100%; justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
