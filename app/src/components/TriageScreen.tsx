@@ -94,6 +94,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [frameRequest, setFrameRequest] = useState(0);
   const [resetRequest, setResetRequest] = useState(0);
   const filterInput = useRef<HTMLInputElement>(null);
+  const queueRef = useRef<HTMLElement>(null);
+  // The width of graph an open queue drawer covers (the graph's stage follows the queue), so picking a bookmark centres it beside the drawer.
+  const drawerCover = () => drawer ? (queueRef.current?.getBoundingClientRect().right ?? 0) - (queueRef.current?.nextElementSibling?.getBoundingClientRect().left ?? 0) : 0;
   const groupInput = useRef<HTMLInputElement>(null);
 
   const selectionTag = selection && workspace.tags.find((t) => t.id === selectionTagId);
@@ -282,7 +285,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         {headerEnd}
       </header>
       <div className="triage-body">
-        <nav className="triage-queue" aria-label="Bookmarks to triage">
+        <nav ref={queueRef} className="triage-queue" aria-label="Bookmarks to triage">
           {/* The Queue control heads the queue itself: the rail's top cell, or the start of the full list's bar. */}
           <div className={`queue-bar ${selection ? "selection" : ""}`} role={selection ? "status" : undefined}>
             <button className="queue-toggle" aria-label="Queue" aria-expanded={shared ? panelTab === "queue" : queueOpen} onClick={toggleQueue}
@@ -330,6 +333,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
           {toast}
           <GraphCanvas
             ref={graphRef}
+            coveredLeft={drawerCover}
             workspace={workspace}
             selected={current?.id}
             onSelect={(id) => {

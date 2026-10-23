@@ -83,6 +83,7 @@ const noTags: string[] = [];
 
 export function GraphCanvas({
   ref,
+  coveredLeft,
   onPinsChanged,
   workspace,
   selected,
@@ -111,6 +112,8 @@ export function GraphCanvas({
   onClearSearch: () => void;
   onShowList?: () => void;
   ref?: Ref<GraphCanvasHandle>;
+  /** How many pixels at the graph's left edge something covers, such as the queue drawer; framing centres in the rest. */
+  coveredLeft?: () => number;
   onPinsChanged: (ids: string[]) => void;
   workspace: Workspace;
   selected?: string;
@@ -132,6 +135,8 @@ export function GraphCanvas({
   onSelectRef.current = onSelect;
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  const coveredLeftRef = useRef(coveredLeft);
+  coveredLeftRef.current = coveredLeft;
   type ForceNode = SimulationNodeDatum & { id: string };
   const simulation = useRef<
       Simulation<ForceNode, SimulationLinkDatum<ForceNode>> | undefined
@@ -297,7 +302,10 @@ export function GraphCanvas({
       if (!points.length) return;
       autoFit.current = false;
       const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
-      const [width, height] = g.getSize();
+      const [fullWidth, height] = g.getSize();
+      // Frame in the part of the graph left uncovered, such as beside the queue drawer.
+      const covered = Math.min(Math.max(coveredLeftRef.current?.() ?? 0, 0), fullWidth / 2);
+      const width = fullWidth - covered;
       const padX = 130, padY = 80; // screen room for titles around the outer nodes
       const spanX = Math.max(Math.max(...xs) - Math.min(...xs), 1), spanY = Math.max(Math.max(...ys) - Math.min(...ys), 1);
       const zoom = Math.max(0.15, Math.min(1.2, (width - 2 * padX) / spanX, (height - 2 * padY) / spanY));
@@ -305,7 +313,7 @@ export function GraphCanvas({
       void g.zoomTo(zoom, false)
         .then(() => {
           const [x, y] = g.getViewportByCanvas(center);
-          return g.translateBy([width / 2 - x, height / 2 - y], { duration: 300 });
+          return g.translateBy([covered + width / 2 - x, height / 2 - y], { duration: 300 });
         })
         .catch((e) => setError(String(e)));
     },
