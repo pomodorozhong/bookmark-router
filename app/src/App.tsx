@@ -68,7 +68,7 @@ const fieldLabels: Record<Field, string> = {
   description: "Description",
   url: "URL",
   mediaUrl: "Media URL",
-  status: "Action status",
+  status: "Status",
   tags: "Tags",
   tagType: "Tag type",
 };
@@ -1319,7 +1319,7 @@ function PromptModal({
           />
         </label>
         <p className="subtle">
-          {kind === "collection" ? "A new collection starts empty and stays on this device." : "You can connect this tag to bookmarks from Details."}
+          {kind === "collection" ? "A new collection starts empty and stays on this device." : "Add it to bookmarks from the Tags section of the bookmark panel."}
         </p>
         <footer>
           <button type="button" disabled={submitting} onClick={onClose}>Cancel</button>

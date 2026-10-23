@@ -3,7 +3,7 @@ import { Cover, type LoadMedia } from "./Cover";
 import { DetailBar } from "./DetailBar";
 import { Icon } from "./Icon";
 import { Markdown } from "./Markdown";
-import { appearanceFor, isWebUrl, type Tag, type Workspace } from "../domain/model";
+import { appearanceFor, isWebUrl, statusLabel, type Tag, type Workspace } from "../domain/model";
 import { domainOf, reasonFor } from "../domain/triage";
 
 /** A tag (an issue, proposal, or topic) to read on its own: what it is and which bookmarks belong to it. */
@@ -21,7 +21,7 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
   onClose: () => void;
 }) {
   const type = workspace.tagTypes.find((t) => t.id === tag.typeId);
-  const status = (id: string) => workspace.statuses.find((s) => s.id === id)?.label ?? "";
+  const status = (id: string) => statusLabel(workspace, id);
   const ids = new Set(workspace.memberships.filter((m) => m.tagId === tag.id).map((m) => m.bookmarkId));
   const rank = new Map(order?.map((id, i) => [id, i]));
   const bookmarks = workspace.bookmarks.filter((b) => ids.has(b.id))
@@ -64,7 +64,7 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
                 </button>
               );
             })}
-            {!bookmarks.length && <p className="subtle">No bookmarks in this group yet.</p>}
+            {!bookmarks.length && <p className="subtle">No bookmarks have this tag yet.</p>}
           </div>
         </section>
       </div>

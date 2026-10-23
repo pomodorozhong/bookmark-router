@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import 'fake-indexeddb/auto';
 import { WorkspaceStore } from '../src/domain/storage';
 import { applyCommand, ConflictError } from '../src/domain/commands';
-import { validateWorkspace, appearanceFor } from '../src/domain/model';
+import { validateWorkspace, appearanceFor, statusLabel } from '../src/domain/model';
 import { demoWorkspace } from '../src/domain/samples';
 test('fixtures satisfy model and appearance inherits from type',()=>{ const w=demoWorkspace();validateWorkspace(w);assert.equal(appearanceFor(w.tags[0],w).shape,'circle'); });
 test('memberships reject dangling references and duplicate pairs',()=>{ const w=demoWorkspace();w.memberships.push({...w.memberships[0],id:'duplicate'});assert.throws(()=>validateWorkspace(w),/repeated membership/);w.memberships.pop();w.memberships[0].tagId='absent';assert.throws(()=>validateWorkspace(w),/dangling/); });
@@ -69,3 +69,4 @@ test('reviewed bulk status changes record an undo and reject later edits',()=>{
  record.revision++;
  assert.throws(()=>applyCommand(changedAgain,1,{type:'status.undo',changeId:changedAgain.settings.statusHistory![0].id,reviewedRecordRevisions:changedAgain.settings.statusHistory![0].afterRevisions}),ConflictError);
 });
+test('the pending status reads To triage, like the header tab; others keep their label',()=>{ const w=demoWorkspace();assert.equal(statusLabel(w,'pending'),'To triage');assert.equal(statusLabel(w,'done'),'Done');assert.equal(statusLabel(w,'absent'),'absent'); });
