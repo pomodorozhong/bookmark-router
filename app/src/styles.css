@@ -325,7 +325,10 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .triage-groups { display: flex; flex-direction: column; gap: 6px; }
 .triage-group { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 7px 6px 7px 10px; border: 1px solid var(--color-line); border-radius: var(--radius-control); }
 .triage-group .swatch { margin-top: 5px; }
-.group-name { font-weight: 600; font-size: var(--text-md); }
+/* A tag's name opens that tag's view. */
+.group-name { display: inline; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--color-accent-strong); font-weight: 600; font-size: var(--text-md); text-align: left; overflow-wrap: anywhere; }
+.group-name:hover { background: transparent; text-decoration: underline; }
+.tag-back { gap: 4px; margin-left: 4px; font-size: var(--text-md); white-space: nowrap; }
 .group-type { font-size: var(--text-xs); color: var(--color-ink-muted); margin-left: 6px; }
 /* A group of a hidden type, peeking because the current bookmark is in it (matches its graph node). */
 .triage-group.peek { border-style: dashed; }
@@ -339,7 +342,7 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .group-menu button { display: flex; gap: 8px; align-items: center; justify-content: flex-start; width: 100%; text-align: left; border: 0; border-radius: 0; padding: 6px 12px; min-height: 32px; }
 .group-menu button.highlighted { background: var(--color-accent-soft); }
 .triage-related { display: flex; flex-direction: column; }
-.triage-related button { display: flex; gap: 8px; align-items: baseline; text-align: left; border: 0; padding: 5px 6px; min-height: 30px; }
+.triage-related button { display: flex; justify-content: flex-start; gap: 8px; align-items: baseline; text-align: left; border: 0; padding: 5px 6px; min-height: 30px; }
 .related-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-md); }
 .related-via { color: var(--color-ink-muted); font-size: var(--text-sm); margin-left: auto; white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
 .triage-decisions { border-top: 1px solid var(--color-line); padding: 12px 16px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
@@ -348,6 +351,13 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .triage-decisions .primary small { color: var(--color-on-accent-muted); }
 .triage-decisions button:disabled { opacity: .45; cursor: default; }
 .triage-empty { padding: 32px 24px; }
+/* The bookmark panel in the phone layout. */
+@media (max-width: 820px) {
+  .group-name { padding: 6px 0; }
+  .tag-back { min-height: var(--control); flex-shrink: 0; }
+  .tag-back-rest { display: none; }
+  .sheet-queue { flex-shrink: 0; }
+}
 .copy-modal { width: min(640px, calc(100% - 32px)); }
 .copy-presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .copy-presets button { padding: 5px 10px; font-size: var(--text-md); min-height: 32px; }
