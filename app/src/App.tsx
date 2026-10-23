@@ -680,6 +680,13 @@ export default function App() {
             </div>
             <ol className="steps">
               {steps.map((label, i) => (
+                // A backup restore goes from Source straight to Confirm, so Map fields and Review show as skipped.
+                parsed?.restore && i > 0 && i < 3 ? (
+                  <li key={label} className="skipped">
+                    <span aria-hidden="true">–</span>
+                    <div>{label}<small>Skipped for a backup</small></div>
+                  </li>
+                ) : (
                 <li
                   key={label}
                   className={
@@ -689,6 +696,7 @@ export default function App() {
                   <span>{i < step ? <Icon name="check" size={14} /> : i + 1}</span>
                   {label}
                 </li>
+                )
               ))}
             </ol>
             {error && (

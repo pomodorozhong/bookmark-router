@@ -114,6 +114,9 @@ p { line-height: 1.6; }
 .steps li span { display: grid; place-items: center; border: 1px solid var(--color-line); border-radius: 50%; width: 26px; height: 26px; flex-shrink: 0; }
 .steps li.current { color: var(--color-accent); border-color: var(--color-accent); font-weight: 600; }
 .steps li.current span, .steps li.complete span { color: var(--color-on-accent); background: var(--color-accent); border-color: var(--color-accent); }
+.steps li.skipped { border-bottom-style: dashed; color: var(--color-ink-quiet); }
+.steps li.skipped span { border-style: dashed; border-color: var(--color-ink-faint); }
+.steps li.skipped small { display: block; font-size: var(--text-xs); }
 .source-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
 .source-card { align-items: flex-start; flex-direction: column; text-align: left; padding: 16px; min-height: 142px; gap: 6px; }
 .source-card.chosen { background: var(--color-accent-soft); border-color: var(--color-accent-line); }
