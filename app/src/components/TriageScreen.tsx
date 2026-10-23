@@ -480,7 +480,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
               <div className="triage-decisions">
                 <button className="primary" disabled={busy || !done} onClick={() => decide("done")}>Done<small aria-hidden="true">D</small></button>
                 <button disabled={busy || !dropped} onClick={() => decide("dropped")}>Drop<small aria-hidden="true">X</small></button>
-                <button disabled={!selection?.includes(current.id)} title={selection ? undefined : "Only for bookmarks in a box selection"} onClick={deselect}>Deselect<small aria-hidden="true">S</small></button>
+                {/* Deselect only applies inside a box selection, so it only shows then. */}
+                {selection && <button disabled={!selection.includes(current.id)} title="Take it out of the box selection" onClick={deselect}>Deselect<small aria-hidden="true">S</small></button>}
               </div>
             </>
           ) : (
