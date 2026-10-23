@@ -27,7 +27,7 @@ Use the `commit` skill for any commit outside a handoff.
 ## Branches and pull requests
 
 - Name branches `<type>/<summary>` with Conventional Commit types (`feat/thumbnail-store`, `fix/filter-wrap`).
-- One issue per change; its PR closes it. Each follows [How each change works](docs/workflow.md#how-each-change-works): mockup first for visual changes, then 2–4 "You try" tasks, with approval recorded on the issue. Ask before filing a new issue or pushing, unless the user already authorized that scope.
+- Every change has an issue, and its PR closes it. A PR may close several issues when they touch the same area and share one mockup; it lists each with `Closes #N`. Each follows [How each change works](docs/workflow.md#how-each-change-works): mockup first for visual changes, then 2–4 "You try" tasks, with approval recorded on the issue. Ask before filing a new issue or pushing, unless the user already authorized that scope.
 - Write PR titles in plain words about what that PR alone does, without planning jargon.
 - PRs are squash-merged. After a PR in a stack merges, rebase the next branch onto the new `main` (`git rebase --onto origin/main <old base commit> <branch>`) before filing it.
 
