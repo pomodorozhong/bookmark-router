@@ -253,6 +253,13 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  const position = current ? queue.findIndex((b) => b.id === current.id) : -1;
+  // In the phone layout the panel's bar starts with the Queue button, in place of tabs.
+  const sheetQueue = (
+    <button className="queue-toggle sheet-queue" aria-label="Queue" aria-expanded={false} title="Show the queue (Q)" onClick={toggleQueue}>
+      <Icon name="list" size={16} strokeWidth={2} /><span className="queue-count">{queue.length}</span>
+    </button>
+  );
   const total = workspace.bookmarks.length || 1;
   const progressText = `${counts.done} done · ${counts.dropped} dropped · ${counts.todo} to triage`;
   return (
@@ -276,26 +283,24 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       </header>
       <div className="triage-body">
         <nav className="triage-queue" aria-label="Bookmarks to triage">
-          {/* Shown instead of the bar when the queue is only thumbnails. */}
-          <div className={`queue-rail-count ${selection ? "selection" : ""}`} title={selection ? `${queue.length} in the selection` : `${queue.length} in this list`}>{queue.length}</div>
-          {selection ? (
-            <div className="queue-bar selection" role="status">
-              <span className={`queue-bar-label ${selectionTag ? "full" : ""}`}><strong>{selection.length}</strong> {selectionTag ? <>in <span title={selectionTag.name}>{selectionTag.name}</span></> : "selected"}{queue.length !== selection.length ? ` · ${queue.length} here` : ""}</span>
-              <span className="queue-bar-actions">
-                <button onClick={() => openCopy("selection")}><Icon name="copy" size={13} /> Copy…</button>
-                <button onClick={() => setSelection(undefined)} title="Clear selection (Esc)">Clear</button>
-                <IconButton className="queue-collapse" label="Show only thumbnails (Q)" icon="chevron-left" size={15} onClick={() => setQueueOpen(false)} />
+          {/* The Queue control heads the queue itself: the rail's top cell, or the start of the full list's bar. */}
+          <div className={`queue-bar ${selection ? "selection" : ""}`} role={selection ? "status" : undefined}>
+            <button className="queue-toggle" aria-label="Queue" aria-expanded={shared ? panelTab === "queue" : queueOpen} onClick={toggleQueue}
+              title={shared ? "Back to the bookmark" : queueOpen ? "Show only thumbnails (Q)" : "Show the full queue (Q)"}>
+              <Icon name="list" size={16} strokeWidth={2} />
+              <span className="queue-count">{selection ? selection.length : queue.length}</span>
+              <span className={`queue-bar-label ${selectionTag ? "full" : ""}`}>
+                {selection ? <>{selectionTag ? <>in <span title={selectionTag.name}>{selectionTag.name}</span></> : "selected"}{queue.length !== selection.length ? ` · ${queue.length} here` : ""}</> : "in this list"}
               </span>
-            </div>
-          ) : (
-            <div className="queue-bar">
-              <span>{queue.length} in this list</span>
-              <span className="queue-bar-actions">
-                <button onClick={() => openCopy("list")} disabled={!queue.length}><Icon name="copy" size={13} /> Copy…</button>
-                <IconButton className="queue-collapse" label="Show only thumbnails (Q)" icon="chevron-left" size={15} onClick={() => setQueueOpen(false)} />
-              </span>
-            </div>
-          )}
+              <Icon className="queue-chevron" name="chevron-left" size={14} />
+            </button>
+            <span className="queue-bar-actions">
+              {selection
+                ? <><button onClick={() => openCopy("selection")}><Icon name="copy" size={13} /> Copy…</button>
+                    <button onClick={() => setSelection(undefined)} title="Clear selection (Esc)">Clear</button></>
+                : <button onClick={() => openCopy("list")} disabled={!queue.length}><Icon name="copy" size={13} /> Copy…</button>}
+            </span>
+          </div>
           {queue.map((b) => {
             const warn = b.notes?.some((n) => /^(Link check|Possible duplicate)/.test(n.label));
             const decided = outcomeOf(b, workspace) !== "active";
@@ -320,7 +325,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         </nav>
         <div className="triage-stage">
           <div className="triage-tools">
-            <button className="queue-toggle" onClick={toggleQueue} aria-pressed={queueOpen} title={queueOpen ? "Show only thumbnails (Q)" : "Show the full queue (Q)"}><Icon name="list" size={17} strokeWidth={2} /> <span className="queue-label">Queue</span></button>
             <FilterBar workspace={workspace} filter={filter} tab={tab} searchRef={filterInput} onChange={changeFilter} save={(c, label) => save(c, label)} />
           </div>
           {toast}
@@ -355,10 +359,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             loadMedia={loadMedia}
           />
         </div>
-        <div className="triage-panel-tabs" role="tablist" aria-label="Queue or details">
-          <button role="tab" aria-selected={panelTab === "queue"} onClick={() => setPanelTab("queue")}>Queue · {queue.length}</button>
-          <button role="tab" aria-selected={panelTab === "detail"} onClick={() => setPanelTab("detail")}>{panelTag ? "Tag" : "Bookmark"}</button>
-        </div>
         <aside className="triage-panel" aria-label="Current bookmark">
           {panelTag ? (
             tagPanel!.editing
@@ -368,25 +368,32 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                 </div>
               : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
                     onCopy={() => openCopy("selection")} onEdit={() => setTagPanel({ id: panelTag.id, editing: true })}
+                    start={sheetQueue}
                     pin={<PinButton pinned={pinnedIds.includes(panelTag.id)} onToggle={(on) => graphRef.current?.setPinned(panelTag.id, on)} />} onClose={() => setTagPanel(undefined)} />
           ) : current ? (
             <>
               <DetailBar
-                link={current.url && isWebUrl(current.url)
-                  ? <a href={current.url} target="_blank" rel="noreferrer" title={current.url}><span>{domainOf(current.url)}</span> <Icon name="external" size={13} /></a>
-                  : current.url ? <span className="detail-bar-warning" title={current.url}><strong>Not a link</strong> {current.url}</span> : <span className="subtle">No URL</span>}
+                start={<>
+                  {sheetQueue}
+                  <IconButton label="Previous in the queue (K)" icon="chevron-left" size={16} onClick={() => move(-1)} />
+                  <IconButton label="Next in the queue (J)" icon="chevron-right" size={16} onClick={() => move(1)} />
+                  {position >= 0 && <span className="detail-position">{position + 1} of {queue.length}</span>}
+                </>}
                 closeLabel="Clear current bookmark (Esc)" onClose={() => show(undefined, false)}>
-                <span className="detail-step">
-                  <IconButton label="Previous in the queue (K)" icon="chevron-left" size={15} onClick={() => move(-1)} />
-                  <IconButton label="Next in the queue (J)" icon="chevron-right" size={15} onClick={() => move(1)} />
-                </span>
-                <button className="text-button" onClick={() => openCopy("current")}><Icon name="copy" size={13} /> Copy</button>
-                <button className="text-button" onClick={() => onEdit(current.id)}><Icon name="edit" size={13} /> Edit</button>
+                <IconButton label="Copy" icon="copy" size={16} onClick={() => openCopy("current")} />
+                <IconButton label="Edit" icon="edit" size={16} onClick={() => onEdit(current.id)} />
                 <PinButton pinned={pinnedIds.includes(current.id)} onToggle={(on) => graphRef.current?.setPinned(current.id, on)} />
               </DetailBar>
               <div className="triage-detail">
                 <div className="triage-top">
-                  <h2>{current.title}</h2>
+                  <div className="triage-heading">
+                    <div className="detail-link">
+                      {current.url && isWebUrl(current.url)
+                        ? <a href={current.url} target="_blank" rel="noreferrer" title={current.url}><span>{domainOf(current.url)}</span> <Icon name="external" size={13} /></a>
+                        : current.url ? <span className="detail-link-warning" title={current.url}><strong>Not a link</strong> {current.url}</span> : <span className="subtle">No URL</span>}
+                    </div>
+                    <h2>{current.title}</h2>
+                  </div>
                   <Cover bookmark={current} load={loadMedia} letterTile />
                 </div>
                 <ThumbnailFinder key={current.id} bookmark={current} onFind={onThumbnail} />
@@ -417,7 +424,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                     {!groups.length && <p className="subtle">No tags yet.</p>}
                   </div>
                   <div className="group-add">
-                    <input ref={groupInput} placeholder="Add to an issue or topic… (/)" value={groupQuery} aria-label="Add to a group"
+                    <input ref={groupInput} placeholder="Add a tag…" title="Add a tag (/)" value={groupQuery} aria-label="Add a tag"
                       aria-expanded={menuOpen} aria-controls="group-options" role="combobox" autoComplete="off"
                       onFocus={() => { setMenuOpen(true); setMenuIndex(0); }}
                       onBlur={() => setTimeout(() => setMenuOpen(false), 120)}
@@ -471,9 +478,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                 </section>
               </div>
               <div className="triage-decisions">
-                <button className="primary" disabled={busy || !done} onClick={() => decide("done")}>Done<small>D</small></button>
-                <button disabled={busy || !dropped} onClick={() => decide("dropped")}>Drop<small>X</small></button>
-                <button disabled={!selection?.includes(current.id)} title={selection ? undefined : "Only for bookmarks in a box selection"} onClick={deselect}>Deselect<small>S</small></button>
+                <button className="primary" disabled={busy || !done} onClick={() => decide("done")}>Done<small aria-hidden="true">D</small></button>
+                <button disabled={busy || !dropped} onClick={() => decide("dropped")}>Drop<small aria-hidden="true">X</small></button>
+                <button disabled={!selection?.includes(current.id)} title={selection ? undefined : "Only for bookmarks in a box selection"} onClick={deselect}>Deselect<small aria-hidden="true">S</small></button>
               </div>
             </>
           ) : (
@@ -504,9 +511,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
 
 /** Pins a node where it sits in the graph, so layouts leave it there. */
 function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: (pinned: boolean) => void }) {
-  return (
-    <button className="text-button" aria-pressed={pinned} title={pinned ? "Let the layout move it again" : "Keep it where it is in the graph"} onClick={() => onToggle(!pinned)}>
-      <Icon name="pin" size={13} /> {pinned ? "Unpin" : "Pin"}
-    </button>
-  );
+  return <IconButton label={pinned ? "Unpin" : "Pin"} icon="pin" size={16} aria-pressed={pinned}
+    title={pinned ? "Unpin: let the layout move it again" : "Pin: keep it where it is in the graph"} onClick={() => onToggle(!pinned)} />;
 }
