@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { hasGroup, reviewAgentProposal, type AgentProposal, type ProposalField, type ProposalOverwrite } from "../domain/agent-review";
-import { isWebUrl, type Asset, type Bookmark, type Workspace } from "../domain/model";
+import { isWebUrl, statusLabel, type Asset, type Bookmark, type Workspace } from "../domain/model";
 import type { LoadMedia } from "./Cover";
 import { Dialog } from "./Dialog";
 import { IconButton } from "./Icon";
@@ -8,7 +8,7 @@ import { IconButton } from "./Icon";
 const stateLabels = { pending_review: "Pending review", applied: "Applied", set_aside: "Set aside", stale: "Stale" };
 const fieldLabels = { title: "Title", url: "URL", description: "Description", statusId: "Status" };
 function fieldValue(bookmark: Bookmark, field: keyof typeof fieldLabels, workspace: Workspace) {
-  return field === "statusId" ? workspace.statuses.find((s) => s.id === bookmark.statusId)?.label ?? bookmark.statusId : bookmark[field] || "None";
+  return field === "statusId" ? statusLabel(workspace, bookmark.statusId) : bookmark[field] || "None";
 }
 function groupNames(workspace: Workspace, ids: string[]) {
   return ids.map((id) => workspace.tags.find((t) => t.id === id)?.name ?? id).join(" · ") || "None";
@@ -154,7 +154,7 @@ export function AgentReviewDialog({ proposal, proposals, workspace, availability
                     return <FieldDiff key={field} field={field} before={before ?? original!} after={after} original={original!} originalWorkspace={proposal.before} currentWorkspace={beforeWorkspace!} previewWorkspace={previewWorkspace!} overwritten={overridden(id, field)} live={reviewable} loadMedia={loadMedia} />;
                   })}
                   {[...(change.addTagIds ?? []), ...(change.removeTagIds ?? [])].map((tagId) => <MembershipDiff key={tagId} bookmarkId={id} tagId={tagId} before={beforeWorkspace!} after={previewWorkspace!} overwritten={overridden(id, "membership", tagId)} />)}
-                  <p className="subtle">Fields and group connections omitted from this proposal keep their current values.</p>
+                  <p className="subtle">Fields and tags omitted from this proposal keep their current values.</p>
                 </>
               )}
             </section>;
@@ -166,7 +166,7 @@ export function AgentReviewDialog({ proposal, proposals, workspace, availability
           <strong>{overwrites.length ? `Apply anyway will overwrite ${overwrites.length} newer ${overwrites.length === 1 ? "edit" : "edits"}:` : "No newer edits will be overwritten."}</strong>
           {overwrites.length > 0 && <ul>{overwrites.map((overwrite) => {
             const bookmark = beforeWorkspace!.bookmarks.find((b) => b.id === overwrite.bookmarkId)!;
-            return <li key={`${overwrite.bookmarkId}-${overwrite.field}-${overwrite.tagId ?? ""}`}><strong>{bookmark.title}</strong> · {overwrite.field === "membership" ? `Group: ${groupNames(beforeWorkspace!, [overwrite.tagId!])}` : overwrite.field === "asset" ? "Image" : fieldLabels[overwrite.field]}</li>;
+            return <li key={`${overwrite.bookmarkId}-${overwrite.field}-${overwrite.tagId ?? ""}`}><strong>{bookmark.title}</strong> · {overwrite.field === "membership" ? `Tag: ${groupNames(beforeWorkspace!, [overwrite.tagId!])}` : overwrite.field === "asset" ? "Image" : fieldLabels[overwrite.field]}</li>;
           })}</ul>}
           <p>The whole batch will be saved. Other fields keep their latest values. Undo restores the collection from immediately before saving.</p>
         </div>}

@@ -140,11 +140,11 @@ export function FilterBar({ workspace, filter, tab, searchRef, onChange, save }:
               <h4 className="chip-divided">Also show</h4>
               <label className="filter-check">
                 <input type="checkbox" checked={filter.showEmptyGroups} onChange={(e) => onChange({ ...filter, showEmptyGroups: e.target.checked })} />
-                <span>Empty groups</span><small>Groups no shown bookmark belongs to</small>
+                <span>Empty tags</span><small>Tags with no shown bookmark</small>
               </label>
               <label className="filter-check">
                 <input type="checkbox" checked={filter.showUngrouped} onChange={(e) => onChange({ ...filter, showUngrouped: e.target.checked })} />
-                <span>Ungrouped bookmarks</span><small>Bookmarks in no shown group</small>
+                <span>Untagged bookmarks</span><small>Bookmarks with no shown tag</small>
               </label>
             </div>
           )}

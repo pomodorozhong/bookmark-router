@@ -5,6 +5,7 @@ import { ColorPicker, PointsPicker, StylePicker } from "./AppearancePickers";
 import {
   appearanceFor,
   defaultAppearance,
+  statusLabel,
   type Appearance,
   type MediaKind,
   type Workspace,
@@ -177,11 +178,11 @@ export function RecordEditor({
           <input value={url} onChange={(e) => setUrl(e.target.value)} />
         </label>
         <label>
-          Action status
+          Status
           <select value={statusId} onChange={(e) => setStatus(e.target.value)}>
             {workspace.statuses.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.label}
+                {statusLabel(workspace, s.id)}
               </option>
             ))}
           </select>

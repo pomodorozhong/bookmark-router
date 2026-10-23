@@ -237,7 +237,7 @@ export const copyPresets: Array<{ name: string; template: string; separator: str
   { name: "Title + link", template: "{title}\n{url}", separator: "\n\n" },
   { name: "Links only", template: "{url}", separator: "\n" },
   { name: "Titles only", template: "{title}", separator: "\n" },
-  { name: "With groups", template: "- [{title}]({url}) — {groups}", separator: "\n" },
+  { name: "With tags", template: "- [{title}]({url}) — {groups}", separator: "\n" },
 ];
 export function domainOf(url?: string): string {
   try {

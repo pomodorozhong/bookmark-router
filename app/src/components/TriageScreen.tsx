@@ -11,7 +11,7 @@ import type { FindBookmarkThumbnail } from "../use-thumbnails";
 import { Icon, IconButton } from "./Icon";
 import type { Command } from "../domain/commands";
 import type { CopyContext } from "../copy-settings";
-import { isWebUrl, type Bookmark, type Geometry, type Workspace } from "../domain/model";
+import { isWebUrl, statusLabel, type Bookmark, type Geometry, type Workspace } from "../domain/model";
 import {
   decisionStatuses,
   domainOf,
@@ -184,7 +184,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     if (!current) return;
     const tag = workspace.tags.find((t) => t.id === tagId);
     void run(async () => {
-      await save({ type: "membership.set", bookmarkId: current.id, tagId, linked }, `${linked ? "Add to" : "Remove from"} ${tag?.name ?? "group"}`);
+      await save({ type: "membership.set", bookmarkId: current.id, tagId, linked }, `${linked ? "Add to" : "Remove from"} ${tag?.name ?? "tag"}`);
       setGroupQuery("");
       setFrameRequest(++frameToken.current);
     });
@@ -299,6 +299,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
           {queue.map((b) => {
             const warn = b.notes?.some((n) => /^(Link check|Possible duplicate)/.test(n.label));
             const decided = outcomeOf(b, workspace) !== "active";
+            const tagCount = workspace.memberships.filter((m) => m.bookmarkId === b.id).length;
             return (
               <button key={b.id} className={`queue-item ${b.id === current?.id ? "current" : ""}`} aria-current={b.id === current?.id} title={!shared && !queueOpen ? b.title : undefined} onClick={() => show(b.id)}>
                 {/* The slot is kept without an image so titles line up. */}
@@ -308,8 +309,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                 <span className="queue-meta">
                   {warn && <i className="warn-dot" title="Has a warning" />}
                   <span className="queue-domain">{domainOf(b.url) || "No URL"}</span>
-                  {decided && <span className="queue-status">{workspace.statuses.find((s) => s.id === b.statusId)?.label}</span>}
-                  <span className="queue-groups" title="Groups">{workspace.memberships.filter((m) => m.bookmarkId === b.id).length}</span>
+                  {decided && <span className="queue-status">{statusLabel(workspace, b.statusId)}</span>}
+                  <span className="queue-groups" title={`${tagCount} ${tagCount === 1 ? "tag" : "tags"}`}>{tagCount}</span>
                 </span>
                 </span>
               </button>
@@ -397,7 +398,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   <div key={i} className="triage-warning"><strong>{n.label}</strong>{n.text}</div>
                 ))}
                 <section className="triage-section">
-                  <h3>Groups ({groups.length})</h3>
+                  <h3>Tags ({groups.length})</h3>
                   <div className="triage-groups">
                     {groups.map((t) => {
                       const why = reasonFor(current, t, workspace);
@@ -409,11 +410,11 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                             <span className="group-name">{t.name}</span><span className="group-type" title={peek ? `${typeName(t.typeId)} is hidden in the filter` : undefined}>{typeName(t.typeId)}{peek && " · hidden"}</span>
                             {why && <p className="group-why">{why}</p>}
                           </div>
-                          <IconButton label={`Remove from ${t.name}`} icon="close" size={14} disabled={busy} onClick={() => link(t.id, false)} />
+                          <IconButton label={`Remove tag ${t.name}`} icon="close" size={14} disabled={busy} onClick={() => link(t.id, false)} />
                         </div>
                       );
                     })}
-                    {!groups.length && <p className="subtle">Not in any group yet.</p>}
+                    {!groups.length && <p className="subtle">No tags yet.</p>}
                   </div>
                   <div className="group-add">
                     <input ref={groupInput} placeholder="Add to an issue or topic… (/)" value={groupQuery} aria-label="Add to a group"
@@ -464,7 +465,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                         </button>
                       );
                     })}
-                    {!related.length && <p className="subtle">Shares no group with another bookmark.</p>}
+                    {!related.length && <p className="subtle">Shares no tag with another bookmark.</p>}
                     {related.length > relatedListLimit && <p className="subtle">and {related.length - relatedListLimit} more, highlighted in the graph</p>}
                   </div>
                 </section>

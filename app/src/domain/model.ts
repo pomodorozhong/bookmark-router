@@ -223,6 +223,11 @@ export function emptyWorkspace(name = "My collection"): Workspace {
     ],
   };
 }
+/** A status as the app shows it: the stored "Pending" reads "To triage", like the header's tab. */
+export function statusLabel(workspace: Workspace, id: string): string {
+  if (id === "pending") return "To triage";
+  return workspace.statuses.find((s) => s.id === id)?.label ?? id;
+}
 export function urlKey(value: string): string {
   const url = new URL(value);
   if (!["http:", "https:"].includes(url.protocol))
