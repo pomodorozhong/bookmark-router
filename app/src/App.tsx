@@ -23,8 +23,8 @@ import { ConflictError, type Command } from "./domain/commands";
 import { undoConflicts } from "./domain/import-commands";
 import { RecordEditor } from "./components/RecordEditor";
 import { TagTypesDialog } from "./components/TagTypesDialog";
-import { Dialog } from "./components/Dialog";
-import { Icon, IconButton, type IconName } from "./components/Icon";
+import { Dialog, DialogHeader } from "./components/Dialog";
+import { Icon, type IconName } from "./components/Icon";
 import { AgentReviewDialog } from "./components/AgentReviewDialog";
 import { AgentInputError, AgentReviewSession } from "./domain/agent-review";
 import { ensureDocumentWebMcpContext, registerAgentTools } from "./agent/webmcp";
@@ -1134,11 +1134,11 @@ export default function App() {
         )}
       </main>
       {confirmThumbnails && <Dialog labelledBy="thumbnails-title" className="prompt-modal" onClose={() => setConfirmThumbnails(false)}>
-        <h2 id="thumbnails-title">Find thumbnails online?</h2>
+        <DialogHeader id="thumbnails-title" label="Thumbnails" title="Find thumbnails online?" onClose={() => setConfirmThumbnails(false)} />
         <p>This fills in missing thumbnails for the active collection and continues when you open another collection. Stored thumbnails and attached images are skipped.</p>
         <p>Bookmark links, image links, or domains may be sent to YouTube, FxTwitter, GitHub, wsrv.nl, Microlink, Raindrop, Google, and DuckDuckGo. The search stops at the first image found.</p>
         <p>Images are stored on this device and included in backups. Microlink allows 25 lookups a day; remaining bookmarks wait for another day. You can turn this off from More actions.</p>
-        <footer className="modal-actions">
+        <footer>
           <button onClick={() => setConfirmThumbnails(false)}>Cancel</button>
           <button className="primary" onClick={() => { setConfirmThumbnails(false); setFindOnline(true); }}>Turn on and find</button>
         </footer>
@@ -1178,7 +1178,7 @@ export default function App() {
       )}
       {deleting && (
         <Dialog labelledBy="delete-title" className="delete-modal" onClose={() => { if (!busy) setDeleting(undefined); }}>
-          <h2 id="delete-title">Delete “{deleting.name}”?</h2>
+          <DialogHeader id="delete-title" label="Collection" title={<>Delete “{deleting.name}”?</>} disabled={busy} onClose={() => setDeleting(undefined)} />
           <p>This removes it from this device and can't be undone:</p>
           <ul>
             <li>{deleting.bookmarks.length} bookmarks and {deleting.tags.length} tags</li>
@@ -1199,7 +1199,7 @@ export default function App() {
       )}
       {history && !undoBatch && (
         <Dialog labelledBy="history-title" onClose={() => setHistory(false)}>
-            <h2 id="history-title">Import history</h2>
+            <DialogHeader id="history-title" label="Import" title="Import history" onClose={() => setHistory(false)} />
             <p>
               Undo an import to remove new bookmarks and restore merged bookmarks
               to their previous values. Bookmarks edited after import and imported
@@ -1216,9 +1216,6 @@ export default function App() {
                 <button onClick={() => setUndoBatch(b.id)}>Review import undo</button>
               </article>
             ))}
-            <footer>
-                <button onClick={() => setHistory(false)}><Icon name="close" size={15} /> Close</button>
-            </footer>
         </Dialog>
       )}
       {undoBatch &&
@@ -1228,7 +1225,7 @@ export default function App() {
           const changed = undoConflicts(workspace, b);
           return (
             <Dialog labelledBy="undo-title" onClose={() => { if (!busy) setUndoBatch(undefined); }}>
-                <h2 id="undo-title">Undo this import?</h2>
+                <DialogHeader id="undo-title" label="Import" title="Undo this import?" disabled={busy} onClose={() => setUndoBatch(undefined)} />
                 <p>
                   {b.bookmarkIds.length - changed.length} unchanged bookmarks will
                   be affected. New bookmarks will be removed; merged bookmarks will
@@ -1258,7 +1255,7 @@ export default function App() {
                     disabled={busy}
                     onClick={() => setUndoBatch(undefined)}
                   >
-                    <Icon name="close" size={15} /> Cancel
+                    Cancel
                   </button>
                   <button
                     className="primary"
@@ -1301,13 +1298,7 @@ function PromptModal({
   return (
     <Dialog className="prompt-modal" labelledBy="prompt-title" onClose={() => { if (!submitting) onClose(); }}>
       <form onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-        <div className="modal-heading">
-          <div>
-            <div className="eyebrow">NEW {kind === "collection" ? "COLLECTION" : "TAG"}</div>
-            <h2 id="prompt-title">Create a {kind}</h2>
-          </div>
-          <IconButton label="Close dialog" icon="close" size={17} disabled={submitting} onClick={onClose} />
-        </div>
+        <DialogHeader id="prompt-title" label={kind === "collection" ? "Collection" : "Tag"} title={`Create a ${kind}`} disabled={submitting} onClose={onClose} />
         {failure && <div className="alert" role="alert">{failure}</div>}
         <label>
           {kind === "collection" ? "Collection name" : "Tag name"}

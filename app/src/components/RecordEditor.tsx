@@ -1,4 +1,4 @@
-import { Dialog } from "./Dialog";
+import { Dialog, DialogHeader } from "./Dialog";
 import { useState } from "react";
 import { NodePreview } from "./NodePreview";
 import { ColorPicker, PointsPicker, StylePicker } from "./AppearancePickers";
@@ -11,7 +11,7 @@ import {
   type Workspace,
 } from "../domain/model";
 import type { Command } from "../domain/commands";
-import { Icon, IconButton } from "./Icon";
+import { Icon } from "./Icon";
 export function RecordEditor({
   workspace,
   id,
@@ -142,13 +142,7 @@ export function RecordEditor({
   const content = (
       <>
         {inline && <button className="text-button editor-back" disabled={busy} onClick={onClose}><Icon name="arrow-left" size={14} /> Back</button>}
-        <div className="modal-heading">
-          <div>
-            <div className="eyebrow">{bookmark ? "BOOKMARK" : "TAG"} DETAILS</div>
-            <h2 id="edit-title">Edit {bookmark ? "bookmark" : "tag"}</h2>
-          </div>
-          {!inline && <IconButton label="Close editor" icon="close" size={17} disabled={busy} onClick={onClose} />}
-        </div>
+        <DialogHeader id="edit-title" label={bookmark ? "Bookmark" : "Tag"} title={`Edit ${bookmark ? "bookmark" : "tag"}`} closeLabel="Close editor" disabled={busy} onClose={inline ? undefined : onClose} />
         {error && (
           <div role="alert" className="alert">
             {error}
@@ -315,7 +309,7 @@ export function RecordEditor({
         )}
         <footer>
           <button disabled={busy} onClick={onClose}>
-            <Icon name="close" size={15} /> Cancel
+            Cancel
           </button>
           <button
             className="primary"

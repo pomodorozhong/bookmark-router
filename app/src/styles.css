@@ -166,12 +166,20 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .modal { position: fixed; inset: 0; margin: auto; width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 28px; border: 1px solid var(--color-line); border-radius: var(--radius-panel); background: var(--color-surface); color: var(--color-ink); box-shadow: var(--shadow-dialog); overflow: auto; }
 .modal::backdrop { background: var(--color-scrim); }
 .prompt-modal { width: min(420px, calc(100% - 32px)); }
+/* Every dialog: an optional small label over the title, a borderless close button in the corner, and Cancel before the main action in the footer. */
 .modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
-.modal h2 { margin: 6px 0; }
+.modal-title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.modal-title h2 { margin: 0; font-size: var(--text-xl); overflow-wrap: anywhere; }
+.modal-title p { margin: 2px 0 0; }
+.modal-close { margin: -6px -8px 0 0; border-color: transparent; background: transparent; color: var(--color-ink-muted); }
+.modal-close:hover { border-color: transparent; background: var(--color-hover); color: var(--color-ink); }
+/* A dialog opened from the graph toolbar keeps its tooltips below, inside the dialog. */
+.modal .icon-button[data-tooltip]::after { top: calc(100% + 7px); bottom: auto; }
 .modal label { display: block; margin: 16px 0; }
 .modal input:not([type=checkbox]), .modal textarea, .modal select { display: block; width: 100%; margin-top: 8px; }
 .modal textarea { min-height: 100px; }
 .modal footer { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 24px; }
+.modal-footer-note { margin-right: auto; }
 .appearance-editor { margin: 22px 0; padding-top: 20px; border-top: 1px solid var(--color-line); }
 .appearance-field { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(110px, 1fr) auto; align-items: center; gap: 10px; }
 .appearance-field-label { display: inline-flex; align-items: center; gap: 8px; }
@@ -339,7 +347,6 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .triage-decisions button:disabled { opacity: .45; cursor: default; }
 .triage-empty { padding: 32px 24px; }
 .copy-modal { width: min(640px, calc(100% - 32px)); }
-.copy-modal .modal-heading h2 { font-size: var(--text-xl); margin: 0; }
 .copy-presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .copy-presets button { padding: 5px 10px; font-size: var(--text-md); min-height: 32px; }
 .copy-presets button[aria-pressed=true] { background: var(--color-accent-soft); border-color: var(--color-accent-line); color: var(--color-accent-strong); }
@@ -350,7 +357,6 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .copy-fields code { background: var(--color-surface-muted); border-radius: var(--radius-chip); padding: 1px 4px; }
 .copy-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .copy-preview { margin: 14px 0 0; max-height: 260px; overflow: auto; background: var(--color-surface-sunken); border: 1px solid var(--color-line); border-radius: var(--radius-control); padding: 10px 12px; font: var(--text-md)/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
-.copy-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
 /* The minimized queue: one column of thumbnails under the list's count. Titles show on hover. */
 @media (min-width: 821px) {
   .triage.queue-minimized .triage-queue { overflow-x: hidden; scrollbar-width: none; }
@@ -493,7 +499,6 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .connection-status small { margin-top: 3px; color: var(--color-ink-muted); font-size: var(--text-sm); line-height: 1.45; }
 .connection-menu-note { margin: 10px 2px 2px; color: var(--color-ink-muted); font-size: var(--text-sm); line-height: 1.5; }
 .agent-review-modal { width: min(760px, calc(100% - 32px)); }
-.agent-review-modal .modal-heading p { margin: 8px 0 0; }
 .agent-review-picker { display: grid; gap: 6px; margin: 16px 0; min-width: 0; }
 .agent-review-picker select { width: 100%; min-width: 0; }
 .agent-review-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
@@ -550,12 +555,10 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .delete-modal { width: min(460px, calc(100% - 32px)); }
 .delete-modal ul { margin: 0 0 14px; padding-left: 20px; list-style: disc; line-height: 1.7; }
 .delete-backup { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 16px; border-radius: var(--radius-control); background: var(--color-accent-soft); font-size: var(--text-md); }
-.delete-modal footer { display: flex; justify-content: flex-end; gap: 8px; }
 @media (hover: none) { .app-menu .menu-row-delete { opacity: 1; } }
 
 /* The tag editor inside the triage detail panel reuses the dialog's form layout. */
 .triage-editor .modal-heading { margin-bottom: 8px; }
-.triage-editor h2 { margin: 6px 0; }
 .triage-editor label { display: block; margin: 14px 0; }
 .triage-editor input:not([type=checkbox]), .triage-editor textarea, .triage-editor select { display: block; width: 100%; margin-top: 6px; }
 .triage-editor textarea { min-height: 90px; }

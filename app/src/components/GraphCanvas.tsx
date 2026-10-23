@@ -23,6 +23,7 @@ import {
 } from "d3-force";
 import { appearanceFor, type Appearance, type Bookmark, type Geometry, type Workspace } from "../domain/model";
 import { Icon, IconButton } from "./Icon";
+import { Dialog, DialogHeader } from "./Dialog";
 import { displayImage } from "../domain/thumbnails";
 export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
@@ -385,7 +386,8 @@ export function GraphCanvas({
     [status, setStatus] = useState("Placing your collection…"),
     [retry, setRetry] = useState(0),
     [zoom, setZoom] = useState(1),
-    [layoutOpen, setLayoutOpen] = useState(false);
+    [layoutOpen, setLayoutOpen] = useState(false),
+    [confirmReset, setConfirmReset] = useState(false);
   useEffect(() => {
     const closeMenus = (event: KeyboardEvent | PointerEvent) => {
       const shell = container.current?.parentElement;
@@ -1092,15 +1094,20 @@ export function GraphCanvas({
                 <button onClick={() => { setLayoutOpen(false); simulation.current?.alpha(1).restart(); }}>
                   <Icon name="refresh" size={15} /> Re-layout
                 </button>
-                <button onClick={() => {
-                  setLayoutOpen(false);
-                  if (window.confirm("Reset positions and clear all pins?")) {
-                    resetPositions({ clearPins: true });
-                  }
-                }}>
-                  <Icon name="refresh" size={15} /> Reset positions
+                <button onClick={() => { setLayoutOpen(false); setConfirmReset(true); }}>
+                  <Icon name="refresh" size={15} /> Reset positions…
                 </button>
               </div>
+            )}
+            {confirmReset && (
+              <Dialog labelledBy="reset-title" className="prompt-modal" onClose={() => setConfirmReset(false)}>
+                <DialogHeader id="reset-title" label="Graph" title="Reset positions?" onClose={() => setConfirmReset(false)} />
+                <p>Every bookmark and tag goes back to an automatic place, and all pins are cleared.</p>
+                <footer>
+                  <button onClick={() => setConfirmReset(false)}>Cancel</button>
+                  <button className="danger" onClick={() => { setConfirmReset(false); resetPositions({ clearPins: true }); }}>Reset positions</button>
+                </footer>
+              </Dialog>
             )}
           </div>
           <div className="tool-group">
