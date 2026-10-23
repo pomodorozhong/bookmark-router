@@ -261,8 +261,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         {headerStart}
         <div className="triage-progress" aria-label="Triage progress" title={progressText}>
           <div className="triage-bar" aria-hidden="true">
-            <span style={{ width: `${(counts.done / total) * 100}%`, background: "var(--teal)" }} />
-            <span style={{ width: `${(counts.dropped / total) * 100}%`, background: "#9fb1a9" }} />
+            <span style={{ width: `${(counts.done / total) * 100}%`, background: "var(--color-accent)" }} />
+            <span style={{ width: `${(counts.dropped / total) * 100}%`, background: "var(--color-ink-faint)" }} />
           </div>
           <span className="triage-progress-text">{progressText}</span>
           <span className="triage-percent">{Math.round(((counts.done + counts.dropped) / total) * 100)}%</span>

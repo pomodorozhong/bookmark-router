@@ -10,7 +10,7 @@ export function Logo({ size = 22 }: { size?: number }) {
       <circle cx="5" cy="6" r="2.6" fill="var(--logo-bookmark)" stroke="var(--logo-line)" strokeWidth="1.6" />
       <circle cx="19" cy="7" r="2.6" fill="var(--logo-bookmark)" stroke="var(--logo-line)" strokeWidth="1.6" />
       <circle cx="12" cy="20" r="2.6" fill="var(--logo-bookmark)" stroke="var(--logo-line)" strokeWidth="1.6" />
-      <circle cx="12" cy="12" r="4.4" fill="var(--teal)" />
+      <circle cx="12" cy="12" r="4.4" fill="var(--color-accent)" />
     </svg>
   );
 }
