@@ -546,17 +546,23 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
   .triage-percent { display: none; }
   .triage-header .segmented { order: 1; flex-basis: 100%; }
   .triage-header .segmented button { flex: 1 1 auto; padding-left: 6px; padding-right: 6px; }
-  /* Room for the collection name: no logo, tighter gaps, and Agent as one button whose menu also opens the review. */
-  .triage-header { gap: 6px; }
+  /* Room for the collection name: no logo, tighter gaps, and Agent as one button whose menu also opens the review.
+     The import screen's header shares this layout. */
+  :is(.triage-header, .topbar) { gap: 6px; }
   .triage-header .menu-root:last-child { margin-left: 0; }
-  .triage-header .collection-menu-root .logo { display: none; }
-  .triage-header .agent-review-entry, .triage-header .agent-chevron { display: none; }
-  .triage-header .agent-bot, .triage-header .agent-menu-review { display: flex; }
-  .triage-header .agent-menu-root .menu-trigger { position: relative; width: calc(var(--control) - 2px); height: calc(var(--control) - 2px); border-left: 0; border-radius: calc(var(--radius-control) - 1px); }
-  .triage-header .agent-control, .triage-header .agent-menu-root.menu-root { position: static; }
+  :is(.triage-header, .topbar) .collection-menu-root .logo { display: none; }
+  :is(.triage-header, .topbar) .agent-review-entry, :is(.triage-header, .topbar) .agent-chevron { display: none; }
+  :is(.triage-header, .topbar) .agent-bot, :is(.triage-header, .topbar) .agent-menu-review { display: flex; }
+  :is(.triage-header, .topbar) .agent-menu-root .menu-trigger { position: relative; width: calc(var(--control) - 2px); height: calc(var(--control) - 2px); border-left: 0; border-radius: calc(var(--radius-control) - 1px); }
+  :is(.triage-header, .topbar) .agent-control, :is(.triage-header, .topbar) .agent-menu-root.menu-root { position: static; }
   .triage-header .agent-menu-root .app-menu { top: calc(var(--control) + 12px); right: 8px; }
-  .triage-header .collection-menu-root .menu-trigger { gap: 4px; padding: 6px 4px; }
-  .triage-header .agent-dot { display: block; }
+  :is(.triage-header, .topbar) .collection-menu-root .menu-trigger { gap: 4px; padding: 6px 4px; }
+  :is(.triage-header, .topbar) .agent-dot { display: block; }
+  .topbar { position: relative; padding: 0 12px; }
+  .topbar .collection-menu-root { flex: 1; min-width: 0; }
+  .topbar .collection-menu-root .menu-trigger { max-width: 100%; }
+  .topbar .topbar-end { gap: 6px; }
+  .topbar .agent-menu-root .app-menu { top: calc(100% - 4px); right: 8px; }
 }
 .agent-bot, .agent-menu-review, .agent-dot { display: none; }
 .agent-dot { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--color-accent); }
