@@ -26,6 +26,7 @@ import { TagTypesDialog } from "./components/TagTypesDialog";
 import { Dialog, DialogHeader } from "./components/Dialog";
 import { Icon, type IconName } from "./components/Icon";
 import { AgentReviewDialog } from "./components/AgentReviewDialog";
+import { AddBookmarkDialog } from "./components/AddBookmarkDialog";
 import { AgentInputError, AgentReviewSession } from "./domain/agent-review";
 import { ensureDocumentWebMcpContext, registerAgentTools } from "./agent/webmcp";
 import { connectLocalRelay, installLocalAgentRuntime } from "./agent/local-relay";
@@ -117,7 +118,8 @@ export default function App() {
     [deleting, setDeleting] = useState<Workspace>(),
     [tagTypesOpen, setTagTypesOpen] = useState(false),
     [promptKind, setPromptKind] = useState<"collection" | "tag">(),
-    [promptValue, setPromptValue] = useState("");
+    [promptValue, setPromptValue] = useState(""),
+    [adding, setAdding] = useState(false);
   const [nextUndo, setNextUndo] = useState<Awaited<ReturnType<WorkspaceStore["nextUndo"]>>>();
   const [, renderAgentReview] = useState(0);
   const [agentSession] = useState(() => new AgentReviewSession(() => renderAgentReview((v) => v + 1)));
@@ -628,20 +630,27 @@ export default function App() {
   const agentPending = Boolean(agentSession.pending);
   const agentMenu = <AgentMenu pending={agentPending} busy={busy} onReview={() => void openAgentReview()} localAgentEnabled={localAgentEnabled} localAgentStatus={localAgentStatus}
     onLocalAgentChange={(enabled) => { rememberLocalAgent(enabled); setLocalAgentEnabled(enabled); setLocalAgentStatus(enabled ? "starting" : "off"); }} />;
-  function restoreBackup() {
+  // The import wizard always starts empty, so a new import never begins from the last one's source.
+  function openImport(start: Format = "auto") {
+    request.current++;
+    setBusy(false);
     setScreen("import");
-    setFormat("json");
+    setFormat(start);
     setStep(0);
     setText("");
     setFilename("");
+    setParsed(undefined);
+    setMapping(undefined);
+    setError("");
   }
+  const restoreBackup = () => openImport("json");
   const collectionMenu = (
     <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w).catch((e) => setError(String(e)))} onDelete={setDeleting}
       onNew={() => { setPromptKind("collection"); setPromptValue(""); }} />
   );
   const moreMenu = (
     <MoreMenu
-      onAddBookmark={() => setScreen("import")}
+      onAddBookmark={() => setAdding(true)}
       onAddTag={() => { setPromptKind("tag"); setPromptValue(""); }}
       onTagTypes={() => setTagTypesOpen(true)}
       onHistory={() => setHistory(true)}
@@ -680,6 +689,13 @@ export default function App() {
             </div>
             <ol className="steps">
               {steps.map((label, i) => (
+                // A backup restore goes from Source straight to Confirm, so Map fields and Review show as skipped.
+                parsed?.restore && i > 0 && i < 3 ? (
+                  <li key={label} className="skipped">
+                    <span aria-hidden="true">–</span>
+                    <div>{label}<small>Skipped for a backup</small></div>
+                  </li>
+                ) : (
                 <li
                   key={label}
                   className={
@@ -689,6 +705,7 @@ export default function App() {
                   <span>{i < step ? <Icon name="check" size={14} /> : i + 1}</span>
                   {label}
                 </li>
+                )
               ))}
             </ol>
             {error && (
@@ -1125,7 +1142,7 @@ export default function App() {
             toast={toastElement}
             notify={notify}
             onEdit={setEditing}
-            onImport={() => setScreen("import")}
+            onImport={() => openImport()}
             onTagTypes={() => setTagTypesOpen(true)}
             onError={setError}
             headerStart={collectionMenu}
@@ -1160,6 +1177,14 @@ export default function App() {
         />
       )}
       {tagTypesOpen && <TagTypesDialog workspace={workspace} save={save} onClose={() => setTagTypesOpen(false)} />}
+      {adding && (
+        <AddBookmarkDialog
+          workspace={workspace}
+          onAdd={async (url, title) => { await save({ type: "bookmark.create", url, title }, `Add bookmark: ${title}`); setAdding(false); }}
+          onImport={() => { setAdding(false); openImport(); }}
+          onClose={() => setAdding(false)}
+        />
+      )}
       {promptKind && (
         <PromptModal
           kind={promptKind}

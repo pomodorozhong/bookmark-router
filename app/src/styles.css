@@ -114,6 +114,9 @@ p { line-height: 1.6; }
 .steps li span { display: grid; place-items: center; border: 1px solid var(--color-line); border-radius: 50%; width: 26px; height: 26px; flex-shrink: 0; }
 .steps li.current { color: var(--color-accent); border-color: var(--color-accent); font-weight: 600; }
 .steps li.current span, .steps li.complete span { color: var(--color-on-accent); background: var(--color-accent); border-color: var(--color-accent); }
+.steps li.skipped { border-bottom-style: dashed; color: var(--color-ink-quiet); }
+.steps li.skipped span { border-style: dashed; border-color: var(--color-ink-faint); }
+.steps li.skipped small { display: block; font-size: var(--text-xs); }
 .source-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
 .source-card { align-items: flex-start; flex-direction: column; text-align: left; padding: 16px; min-height: 142px; gap: 6px; }
 .source-card.chosen { background: var(--color-accent-soft); border-color: var(--color-accent-line); }
@@ -133,6 +136,8 @@ p { line-height: 1.6; }
 .text-button:hover { text-decoration: underline; background: transparent; }
 .wizard-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 32px calc(16px + env(safe-area-inset-bottom)); border-top: 1px solid var(--color-line); background: var(--color-surface); }
 .wizard-footer-start { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* The message line sits above the wizard's fixed footer instead of over it. */
+.import-mode .app-toast { bottom: calc(88px + env(safe-area-inset-bottom)); }
 .mapping-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .mapping-grid label, .import-options label { display: flex; flex-direction: column; gap: 8px; }
 .import-options { display: grid; grid-template-columns: 120px 1fr 1fr; gap: 18px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-line); }
@@ -181,6 +186,13 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .modal textarea { min-height: 100px; }
 .modal footer { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 24px; }
 .modal-footer-note { margin-right: auto; }
+.add-bookmark-modal { width: min(520px, calc(100% - 32px)); }
+/* One row when it fits; otherwise the import link takes its own row above Cancel and Add bookmark, never a broken label. */
+.add-bookmark-modal footer { flex-wrap: wrap; }
+.add-bookmark-modal footer button { white-space: nowrap; }
+/* A status named in running text, drawn like its tab in the triage header. */
+.status-name { display: inline-block; padding: 0 6px; border: 1px solid var(--color-line); border-radius: var(--radius-chip); background: var(--color-surface); color: var(--color-ink); font-weight: 600; white-space: nowrap; }
+.add-bookmark-modal footer .text-button { gap: 6px; min-height: var(--control); }
 .appearance-editor { margin: 22px 0; padding-top: 20px; border-top: 1px solid var(--color-line); }
 .appearance-field { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(110px, 1fr) auto; align-items: center; gap: 10px; }
 .appearance-field-label { display: inline-flex; align-items: center; gap: 8px; }
@@ -216,6 +228,7 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
   .appearance-field input[type=range] { grid-column: 1 / -1; grid-row: 2; }
   .appearance-field output { grid-column: 2; grid-row: 1; }
   .modal footer { flex-wrap: wrap; }
+  .add-bookmark-modal footer .text-button { flex-basis: 100%; justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 
