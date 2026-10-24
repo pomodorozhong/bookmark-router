@@ -262,7 +262,9 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .warn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-warning-ink); display: inline-block; flex-shrink: 0; }
 .triage-stage { position: relative; min-width: 0; min-height: 0; container-type: inline-size; }
 .triage-stage .canvas-shell { position: absolute; inset: 0; }
-.triage-tools { position: absolute; left: 12px; top: 12px; right: 12px; z-index: 5; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; pointer-events: none; }
+/* The filter bar sits against the graph's right edge, beside the panel; when it wraps, each row ends there too. */
+.triage-tools { position: absolute; left: 12px; top: 12px; right: 12px; z-index: 5; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; pointer-events: none; }
+.triage-tools .filter-bar:not(.compact) { justify-content: flex-end; }
 .triage-tools > * { pointer-events: auto; }
 .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
 .filter-check { display: grid; grid-template-columns: 16px 1fr; gap: 2px 8px; align-items: start; padding: 7px 8px; border-radius: var(--radius-control); cursor: pointer; font-size: var(--text-md); color: var(--color-ink); }
@@ -399,6 +401,12 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 @media (min-width: 821px) and (max-width: 1280px) {
   .triage.queue-open .triage-body { grid-template-columns: 64px minmax(0, 1fr) 400px; }
   .triage.queue-open .triage-queue { position: absolute; z-index: 20; top: 0; bottom: 0; left: 0; width: 320px; box-shadow: var(--shadow-popover); }
+  /* The graph's tools move into the space beside the open drawer instead of under it. */
+  .triage.queue-open { --drawer-cover: 256px; }
+  .triage.queue-open .triage-tools, .triage.queue-open .canvas-bottom { left: calc(12px + var(--drawer-cover)); }
+}
+@media (min-width: 821px) and (max-width: 1200px) {
+  .triage.queue-open { --drawer-cover: 226px; }
 }
 @media (max-width: 1200px) {
   .triage-body, .triage.queue-open .triage-body { grid-template-columns: 64px minmax(0, 1fr) 340px; }
@@ -710,7 +718,8 @@ details.appearance-editor > summary .subtle { margin-left: auto; font-size: var(
 .appearance-field.wide > label.appearance-field-label { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
 
 /* Filter bar: search, Show, and Filters joined in one group, then Saved filters; every control is 34px like Queue. */
-.filter-bar { display: flex; gap: 6px; align-items: center; min-width: 0; }
+/* Wraps onto a second row when the graph is narrow, such as beside the queue drawer, instead of running under the panel. */
+.filter-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
 .filter-anchor { position: relative; display: inline-flex; }
 .filter-joined { display: inline-flex; align-items: stretch; height: var(--control); border: 1px solid var(--color-line); border-radius: var(--radius-control); background: var(--color-surface); }
 .filter-joined.searching { border-color: var(--color-accent-line); }
