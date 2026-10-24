@@ -95,12 +95,13 @@ export function CollectionMenu({ workspace, collections, onOpen, onNew, onDelete
 
 export type LocalAgentStatus = "off" | "starting" | "searching" | "connected" | "failed";
 
-const localAgentCopy: Record<LocalAgentStatus, { pill: string; title: string; detail: string }> = {
-  off: { pill: "Off", title: "Local connection is off", detail: "Native WebMCP clients can still use the app when supported." },
-  starting: { pill: "Starting", title: "Preparing the local connection", detail: "Loading the browser bridge…" },
-  searching: { pill: "Searching", title: "Looking for the local relay", detail: "Run npx @mcp-b/webmcp-local-relay to connect." },
-  connected: { pill: "Connected", title: "Local relay connected", detail: "Agent tools are available on this device." },
-  failed: { pill: "Needs attention", title: "Couldn’t start the local connection", detail: "Check the relay and browser permission, then try again." },
+// The state shows once, beside the switch; a card adds detail only when there is something to do or know.
+const localAgentCopy: Record<LocalAgentStatus, { state: string; card?: { title: string; detail: string } }> = {
+  off: { state: "Off" },
+  starting: { state: "Starting…" },
+  searching: { state: "Searching…", card: { title: "Looking for the local relay", detail: "Run npx @mcp-b/webmcp-local-relay to connect." } },
+  connected: { state: "Connected", card: { title: "Local relay connected", detail: "Agent tools are available on this device." } },
+  failed: { state: "Needs attention", card: { title: "Couldn’t start the local connection", detail: "Check the relay and browser permission, then try again." } },
 };
 
 export function AgentMenu({ pending, busy, onReview, localAgentEnabled, localAgentStatus, onLocalAgentChange }: {
@@ -128,26 +129,26 @@ export function AgentMenu({ pending, busy, onReview, localAgentEnabled, localAge
               {pending && <span className="menu-meta">1 batch waiting</span>}
             </button>
             <div className="connection-menu-heading">
-              <div>
-                <div className="menu-heading">Agent connection</div>
-                <p>Expose this collection to a local MCP agent.</p>
-              </div>
-              <span className={`connection-status-pill status-${localAgentStatus}`}>{status.pill}</span>
+              <div className="menu-heading">Agent connection</div>
+              <p>Expose this collection to a local MCP agent.</p>
             </div>
             <label className="connection-toggle">
-              <span>
+              <span className="connection-toggle-text">
                 <strong>Connect to a local agent</strong>
                 <small>Uses a loopback relay on this device.</small>
               </span>
+              <span className={`connection-state status-${localAgentStatus}`} role="status" aria-live="polite">{status.state}</span>
               <span className={`connection-switch ${localAgentEnabled ? "is-on" : ""}`}>
                 <input type="checkbox" checked={localAgentEnabled} onChange={(event) => onLocalAgentChange(event.target.checked)} aria-label="Connect to a local agent" />
                 <span aria-hidden="true" />
               </span>
             </label>
-            <div className={`connection-status status-${localAgentStatus}`} role="status" aria-live="polite">
-              <span className="connection-status-dot" aria-hidden="true" />
-              <span><strong>{status.title}</strong><small>{status.detail}</small></span>
-            </div>
+            {status.card && (
+              <div className={`connection-status status-${localAgentStatus}`}>
+                <span className="connection-status-dot" aria-hidden="true" />
+                <span><strong>{status.card.title}</strong><small>{status.card.detail}</small></span>
+              </div>
+            )}
             <p className="connection-menu-note">The relay stays on 127.0.0.1. Nothing is sent until an agent calls one of the app’s tools.</p>
           </>
         )}
@@ -179,7 +180,7 @@ export function MoreMenu({ onAddBookmark, onAddTag, onTagTypes, onHistory, onDow
           <button type="button" role="menuitemcheckbox" aria-checked={thumbnailsOnline} onClick={() => { close(); onThumbnails(); }}>
             <span className="menu-icon"><Icon name="search" size={15} /></span>
             <span className="menu-label">Find thumbnails online</span>
-            <span className="menu-meta">{thumbnailsOnline ? "On" : "Off"}</span>
+            <span className={`menu-switch ${thumbnailsOnline ? "is-on" : ""}`} aria-hidden="true" />
           </button>
           {thumbnailsOnline && thumbnailStatus && <p className="menu-note" role="status">{thumbnailStatus}</p>}
           <hr />
