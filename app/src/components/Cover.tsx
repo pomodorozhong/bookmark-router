@@ -7,7 +7,8 @@ export type LoadMedia = (id: string) => Promise<{ blob: Blob } | undefined>;
 /**
  * A bookmark's image: an attached one, then a stored thumbnail, then the
  * imported image loaded live. With `letterTile`, a bookmark with no image that
- * loads shows its first letter instead of nothing.
+ * loads shows its first letter instead of nothing. An image taller than 4:3,
+ * such as a full-page screenshot, is fitted whole instead of cropped.
  */
 export function Cover({ bookmark, load, className = "triage-cover", letterTile = false }: {
   bookmark: Bookmark; load: LoadMedia; className?: string; letterTile?: boolean;
@@ -33,6 +34,7 @@ export function Cover({ bookmark, load, className = "triage-cover", letterTile =
   // Track which source finished loading: a cached image can fire load before an
   // effect would reset a plain flag, leaving it hidden.
   const [loadedSrc, setLoadedSrc] = useState<string>();
+  const [tall, setTall] = useState(false);
   const [failedSrc, setFailedSrc] = useState<string>();
   const [failedKey, setFailedKey] = useState<string>();
   const loaded = Boolean(src) && loadedSrc === src;
@@ -43,6 +45,7 @@ export function Cover({ bookmark, load, className = "triage-cover", letterTile =
   }
   // Hidden until loaded, so a slow or blocked cover never leaves an empty frame.
   return src && !failed
-    ? <img className={`${className}${icon ? " is-icon" : ""}`} src={src} alt="" hidden={!loaded} onLoad={() => setLoadedSrc(src)} onError={() => setFailedSrc(src)} />
+    ? <img className={`${className}${icon ? " is-icon" : tall ? " is-tall" : ""}`} src={src} alt="" hidden={!loaded}
+      onLoad={(e) => { const { naturalWidth: w, naturalHeight: h } = e.currentTarget; setTall(h > w * 0.75); setLoadedSrc(src); }} onError={() => setFailedSrc(src)} />
     : null;
 }

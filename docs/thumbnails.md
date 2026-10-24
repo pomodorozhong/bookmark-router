@@ -13,6 +13,8 @@ The resolver therefore runs **once per bookmark**. It fetches a 256 px WebP (abo
 
 Display order: a local `asset` the user attached, then the stored `thumbnail`, then a remote `asset` loaded live as today, then the letter tile. Capturing a thumbnail is not a user edit: it doesn't change the bookmark's revision or add an Undo entry. Backups export the thumbnail's Blob with the rest of the `media` store; restore must remap `thumbnail.blobId` the same way it remaps a local asset's.
 
+In the panel, queue, tag view and Related lists, an image taller than 4:3 (a full-page screenshot, say) is fitted whole on a pale backdrop instead of cropped; wider images fill their frame. Every cover there, image or letter tile, has a thin teal outline; the letter tile is pale grey with a faint letter inside it, so any real thumbnail outweighs it. The graph keeps its own light-teal round tile.
+
 **A stored thumbnail is never refreshed automatically**, even when the source changes (a new X avatar, say). It changes only when the user retries that bookmark. Every remote service becomes a one-time capture channel rather than a display dependency, and a later outage affects only bookmarks not yet captured.
 
 Size is not a concern. Even at 10 KB each, 5,000 thumbnails take 50 MB, against browser quotas of up to 60% of disk.
