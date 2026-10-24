@@ -74,8 +74,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [selection, setSelection] = useState<string[]>();
   // The tag whose bookmarks make up the selection, when it came from clicking a tag.
   const [selectionTagId, setSelectionTagId] = useState<string>();
-  // The tag shown in the detail panel after a tag is clicked in the graph, read or edited.
-  const [tagPanel, setTagPanel] = useState<{ id: string; editing: boolean }>();
+  // The tag shown in the detail panel after a tag is clicked in the graph or the panel, read or edited;
+  // `back` when it was opened from the current bookmark's Tags list, which it then offers to return to.
+  const [tagPanel, setTagPanel] = useState<{ id: string; editing: boolean; back?: boolean }>();
   const [currentId, setCurrentId] = useState<string>();
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   // Above 820 px: the full queue list, or only its thumbnails when false.
@@ -263,7 +264,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const total = workspace.bookmarks.length || 1;
   const progressText = `${counts.done} done · ${counts.dropped} dropped · ${counts.todo} to triage`;
   return (
-    <div className={`triage ${queueOpen ? "queue-open" : "queue-minimized"} ${panelTab === "queue" ? "panel-queue" : ""}`}>
+    <div className={`triage ${queueOpen ? "queue-open" : "queue-minimized"} ${panelTab === "queue" ? "panel-queue" : ""} ${current || panelTag ? "has-current" : ""}`}>
       <header className="triage-header">
         {headerStart}
         <div className="triage-progress" aria-label="Triage progress" title={progressText}>
@@ -365,11 +366,13 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             tagPanel!.editing
               ? <div className="triage-detail">
                   <RecordEditor key={panelTag.id} inline workspace={workspace} id={panelTag.id} onSave={(c) => save(c)} onNewType={onTagTypes}
-                    onClose={() => setTagPanel({ id: panelTag.id, editing: false })} />
+                    onClose={() => setTagPanel({ ...tagPanel!, editing: false })} />
                 </div>
               : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
-                    onCopy={() => openCopy("selection")} onEdit={() => setTagPanel({ id: panelTag.id, editing: true })}
-                    start={sheetQueue}
+                    onCopy={() => openCopy("selection")} onEdit={() => setTagPanel({ ...tagPanel!, editing: true })}
+                    start={<>{sheetQueue}{tagPanel!.back && current && (
+                      <button className="text-button tag-back" onClick={() => setTagPanel(undefined)}><Icon name="chevron-left" size={14} /> Back<span className="tag-back-rest"> to the bookmark</span></button>
+                    )}</>}
                     pin={<PinButton pinned={pinnedIds.includes(panelTag.id)} onToggle={(on) => graphRef.current?.setPinned(panelTag.id, on)} />} onClose={() => setTagPanel(undefined)} />
           ) : current ? (
             <>
@@ -395,9 +398,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                     </div>
                     <h2>{current.title}</h2>
                   </div>
-                  <Cover bookmark={current} load={loadMedia} letterTile />
                 </div>
-                <ThumbnailFinder key={current.id} bookmark={current} onFind={onThumbnail} />
+                <ThumbnailFinder key={current.id} bookmark={current} cover={<Cover bookmark={current} load={loadMedia} letterTile />} onFind={onThumbnail} />
                 <p className="triage-desc">{current.description || <span className="subtle">No description.</span>}</p>
                 {current.source?.fields.tags && (
                   <div className="triage-raindrop">Raindrop {current.source.fields.tags.split(",").map((t) => t.trim()).filter((t) => t && t !== "indie-dev").map((t) => <span key={t} className="chip">{t}</span>)}</div>
@@ -415,7 +417,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                         <div key={t.id} className={`triage-group ${peek ? "peek" : ""}`}>
                           <i className="swatch" style={{ background: typeColor(t.typeId) }} />
                           <div>
-                            <span className="group-name">{t.name}</span><span className="group-type" title={peek ? `${typeName(t.typeId)} is hidden in the filter` : undefined}>{typeName(t.typeId)}{peek && " · hidden"}</span>
+                            <button className="group-name" title={`Open ${t.name}`} onClick={() => { setTagPanel({ id: t.id, editing: false, back: true }); setPanelTab("detail"); }}>{t.name}</button><span className="group-type" title={peek ? `${typeName(t.typeId)} is hidden in the filter` : undefined}>{typeName(t.typeId)}{peek && " · hidden"}</span>
                             {why && <p className="group-why">{why}</p>}
                           </div>
                           <IconButton label={`Remove tag ${t.name}`} icon="close" size={14} disabled={busy} onClick={() => link(t.id, false)} />
@@ -469,7 +471,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                       return (
                         <button key={id} onClick={() => show(id)}>
                           <span className="related-title">{b.title}</span>
-                          <span className="related-via">via {viaTag?.name}{via.length > 1 ? ` +${via.length - 1}` : ""}</span>
+                          {/* With one tag every related bookmark comes through it, so naming it adds nothing. */}
+                          {groups.length > 1 && <span className="related-via">via {viaTag?.name}{via.length > 1 ? ` +${via.length - 1}` : ""}</span>}
                         </button>
                       );
                     })}
@@ -481,7 +484,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
               <div className="triage-decisions">
                 <button className="primary" disabled={busy || !done} onClick={() => decide("done")}>Done<small aria-hidden="true">D</small></button>
                 <button disabled={busy || !dropped} onClick={() => decide("dropped")}>Drop<small aria-hidden="true">X</small></button>
-                <button disabled={!selection?.includes(current.id)} title={selection ? undefined : "Only for bookmarks in a box selection"} onClick={deselect}>Deselect<small aria-hidden="true">S</small></button>
+                {/* Deselect only applies inside a box selection, so it only shows then. */}
+                {selection && <button disabled={!selection.includes(current.id)} title="Take it out of the box selection" onClick={deselect}>Deselect<small aria-hidden="true">S</small></button>}
               </div>
             </>
           ) : (

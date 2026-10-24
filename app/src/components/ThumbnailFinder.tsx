@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Bookmark, ThumbnailSource } from "../domain/model";
 import { microlinkDailyLimit, thumbnailPlan, thumbnailServices, type StepOutcome } from "../domain/thumbnails";
 import { useMicrolinkLeft } from "../thumbnail-settings";
 import type { FindBookmarkThumbnail } from "../use-thumbnails";
+import { domainOf } from "../domain/triage";
 import { Icon } from "./Icon";
 
 const sourceNames: Record<ThumbnailSource, string> = {
@@ -12,12 +13,14 @@ const sourceNames: Record<ThumbnailSource, string> = {
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
 /**
- * The detail panel's thumbnail row: a button that finds this bookmark's
- * thumbnail online after a warning naming the services involved, the Microlink
- * counter, and the steps of the last run. The button stays first so it never moves.
+ * The detail panel's thumbnail block: the cover, where it comes from, a button
+ * that finds this bookmark's thumbnail online after a warning naming the
+ * services involved, the Microlink counter, and the steps of the last run.
  */
-export function ThumbnailFinder({ bookmark, onFind }: {
+export function ThumbnailFinder({ bookmark, cover, onFind }: {
   bookmark: Bookmark;
+  /** The bookmark's image, shown at the start of the block. */
+  cover: ReactNode;
   /** Stores what the lookup found, or that it failed. */
   onFind: FindBookmarkThumbnail;
 }) {
@@ -30,7 +33,7 @@ export function ThumbnailFinder({ bookmark, onFind }: {
   const attached = bookmark.asset?.kind === "image" && bookmark.asset.source === "local";
   const canSearch = thumbnailPlan(bookmark).length > 0;
   const thumbnail = bookmark.thumbnail;
-  if (attached) return null;
+  if (attached) return <div className="thumb-row"><div className="thumb-main">{cover}<p className="thumb-status">Attached image</p></div></div>;
 
   async function run() {
     if (controller.current && !controller.current.signal.aborted) return;
@@ -50,24 +53,29 @@ export function ThumbnailFinder({ bookmark, onFind }: {
     if (!current.signal.aborted) { controller.current = undefined; setPhase("done"); }
   }
 
-  const status = phase === "running" ? "Searching…"
-    : !canSearch ? "Needs a web link to find a thumbnail."
-    : thumbnail && "blobId" in thumbnail ? <><strong>Stored thumbnail</strong> · found by {sourceNames[thumbnail.source]} · {day(thumbnail.capturedAt)}</>
-    : thumbnail ? <>No thumbnail found online · {day(thumbnail.failedAt)}</>
-    : bookmark.asset?.source === "remote" ? "No stored thumbnail. The imported image loads from its site each time."
-    : "No image yet.";
+  // Short enough for one line beside the cover; the longer explanation is the tooltip.
+  const site = domainOf(bookmark.url) || "its site";
+  const [status, statusTitle] = phase === "running" ? ["Searching…", undefined]
+    : !canSearch ? ["Needs a web link", "A thumbnail can only be found for a web link."]
+    : thumbnail && "blobId" in thumbnail ? [<><strong>Stored</strong> · {sourceNames[thumbnail.source]} · {day(thumbnail.capturedAt)}</>, `Stored thumbnail, found by ${sourceNames[thumbnail.source]}`]
+    : thumbnail ? [<>Not found · {day(thumbnail.failedAt)}</>, "No thumbnail was found online."]
+    : bookmark.asset?.source === "remote" ? [<>From {site}</>, `Imported image, not stored: it loads from ${site} each time.`]
+    : ["No image yet", undefined];
   return (
     <div className="thumb-row">
-      <div className="thumb-actions">
-        <button aria-expanded={phase === "confirm"} disabled={!canSearch || phase === "running"}
-          onClick={() => setPhase(phase === "confirm" ? "idle" : "confirm")}>
-          <Icon name="search" size={14} /> {thumbnail ? "Retry thumbnail" : "Find thumbnail online"}
-        </button>
-        <span className={`thumb-counter ${left ? "" : "empty"}`} title={`Microlink allows ${microlinkDailyLimit} lookups a day without a key`}>
-          Microlink: {left} of {microlinkDailyLimit} left today
-        </span>
+      <div className="thumb-main">
+        {cover}
+        <div className="thumb-actions">
+          <p className="thumb-status" title={statusTitle}>{status}</p>
+          <button aria-expanded={phase === "confirm"} disabled={!canSearch || phase === "running"}
+            onClick={() => setPhase(phase === "confirm" ? "idle" : "confirm")}>
+            <Icon name="search" size={14} /> {thumbnail ? "Retry" : "Find online"}
+          </button>
+          <span className={`thumb-counter ${left ? "" : "empty"}`} title={`Microlink allows ${microlinkDailyLimit} lookups a day without a key`}>
+            Microlink: {left} of {microlinkDailyLimit} left today
+          </span>
+        </div>
       </div>
-      <p className="thumb-status">{status}</p>
       {phase === "confirm" && (
         <div className="thumb-confirm" role="group" aria-label="Confirm sending">
           <strong>Send this bookmark's link to outside services?</strong>
