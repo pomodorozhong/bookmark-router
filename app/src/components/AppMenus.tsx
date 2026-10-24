@@ -117,9 +117,16 @@ export function AgentMenu({ pending, busy, onReview, localAgentEnabled, localAge
       <button className="agent-review-entry" disabled={busy} onClick={onReview} aria-label={`Agent review${pending ? ", 1 batch awaiting review" : ""}`}>
         <Icon name="bot" size={16} /><span className="agent-review-label">Agent<span className="agent-review-rest"> review</span></span>{pending && <span className="agent-review-count" aria-hidden="true">1</span>}
       </button>
-      <MenuButton label="Agent connection" align="end" className="agent-menu-root" button={<Icon name="chevron-down" size={15} />}>
-        {() => (
+      <MenuButton label="Agent connection" align="end" className="agent-menu-root"
+        button={<><Icon className="agent-chevron" name="chevron-down" size={15} /><Icon className="agent-bot" name="bot" size={17} />{pending && <span className="agent-dot" aria-hidden="true" />}</>}>
+        {(close) => (
           <>
+            {/* In the phone layout this menu is the only Agent button, so it opens the review too. */}
+            <button type="button" role="menuitem" className="agent-menu-review" disabled={busy} onClick={() => { close(); onReview(); }}>
+              <span className="menu-icon"><Icon name="bot" size={15} /></span>
+              <span className="menu-label">Agent review</span>
+              {pending && <span className="menu-meta">1 batch waiting</span>}
+            </button>
             <div className="connection-menu-heading">
               <div>
                 <div className="menu-heading">Agent connection</div>

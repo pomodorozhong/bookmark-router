@@ -325,7 +325,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         </nav>
         <div className="triage-stage">
           <div className="triage-tools">
-            <FilterBar workspace={workspace} filter={filter} tab={tab} searchRef={filterInput} onChange={changeFilter} save={(c, label) => save(c, label)} />
+            <FilterBar workspace={workspace} filter={filter} tab={tab} searchRef={filterInput} compact={shared} onChange={changeFilter} save={(c, label) => save(c, label)} />
           </div>
           {toast}
           <GraphCanvas
@@ -349,7 +349,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             hiddenTagIds={visibility.hiddenTagIds}
             peekTagIds={visibility.peekTagIds}
             boxSelection={selectionSet}
-            tools={<IconButton label="Center on the current bookmark" icon="scope" disabled={!current} onClick={() => current && graphRef.current?.frame([current.id, ...groups.map((g) => g.id)])} />}
+            onCenter={current ? () => graphRef.current?.frame([current.id, ...groups.map((g) => g.id)]) : undefined}
+            compact={shared}
             onBoxSelect={boxSelect}
             geometry={geometry}
             onGeometry={onGeometry}

@@ -4,17 +4,19 @@ import type { Command } from "../domain/commands";
 import type { SavedView, Workspace } from "../domain/model";
 import { compileRules, readRules, ruleKinds, ruleOptions, ruleValueCounts, type Rule, type TriageFilter, type TriageTab } from "../domain/triage";
 
-type Open = { what: "show" | "filters" | "saved" } | { what: "edit"; index: number } | undefined;
+type Open = { what: "show" | "filters" | "saved" | "sheet" } | { what: "edit"; index: number } | undefined;
 
 /**
  * The graph's filter controls: search, Show, and Filters joined in one group, then Saved filters.
  * Filters holds the chips: its menu lists the ones that are on and adds new ones; a chip opens its values.
+ * In the phone layout (compact) Show, Filters and Saved filters share one sheet behind a single Filters button.
  */
-export function FilterBar({ workspace, filter, tab, searchRef, onChange, save }: {
+export function FilterBar({ workspace, filter, tab, searchRef, compact = false, onChange, save }: {
   workspace: Workspace;
   filter: TriageFilter;
   tab: TriageTab;
   searchRef: RefObject<HTMLInputElement | null>;
+  compact?: boolean;
   onChange: (next: TriageFilter) => void;
   save: (command: Command, label?: string) => Promise<void>;
 }) {
@@ -30,8 +32,8 @@ export function FilterBar({ workspace, filter, tab, searchRef, onChange, save }:
     setQuery("");
     dropEmpty();
   }
-  function toggle(what: "show" | "filters" | "saved") {
-    if (open?.what === what || (what === "filters" && open?.what === "edit")) close();
+  function toggle(what: "show" | "filters" | "saved" | "sheet") {
+    if (open?.what === what || ((what === "filters" || what === "sheet") && open?.what === "edit")) close();
     else { dropEmpty(); setQuery(""); setOpen({ what }); }
   }
   useEffect(() => {
@@ -83,8 +85,8 @@ export function FilterBar({ workspace, filter, tab, searchRef, onChange, save }:
     const q = query.trim().toLowerCase();
     const shown = options.filter((o) => !q || o.label.toLowerCase().includes(q));
     return (
-      <div className="chip-popover" role="dialog" aria-label={`${label(rule.kind)} filter`}>
-        <button className="chip-back" onClick={() => { dropEmpty(); setQuery(""); setOpen({ what: "filters" }); }}>
+      <div className={`chip-popover ${compact ? "filter-sheet" : ""}`} role="dialog" aria-label={`${label(rule.kind)} filter`}>
+        <button className="chip-back" onClick={() => { dropEmpty(); setQuery(""); setOpen({ what: compact ? "sheet" : "filters" }); }}>
           <Icon name="chevron-left" size={14} /> {label(rule.kind)}
         </button>
         {options.length > 8 && (
@@ -111,6 +113,90 @@ export function FilterBar({ workspace, filter, tab, searchRef, onChange, save }:
     );
   }
 
+  // Each menu's contents, shown in its own popover or, in the phone layout, all in one sheet.
+  const showPanel = <>
+    <h4>Tag types</h4>
+    {workspace.tagTypes.map((type) => (
+      <label key={type.id} className="chip-option">
+        <input type="checkbox" checked={!filter.hiddenTypeIds.includes(type.id)}
+          onChange={(e) => onChange({ ...filter, hiddenTypeIds: e.target.checked ? filter.hiddenTypeIds.filter((id) => id !== type.id) : [...filter.hiddenTypeIds, type.id] })} />
+        <i className="swatch" style={{ background: type.appearance.color }} /><span>{type.name}</span>
+      </label>
+    ))}
+    <h4 className="chip-divided">Also show</h4>
+    <label className="filter-check">
+      <input type="checkbox" checked={filter.showEmptyGroups} onChange={(e) => onChange({ ...filter, showEmptyGroups: e.target.checked })} />
+      <span>Empty tags</span><small>Tags with no shown bookmark</small>
+    </label>
+    <label className="filter-check">
+      <input type="checkbox" checked={filter.showUngrouped} onChange={(e) => onChange({ ...filter, showUngrouped: e.target.checked })} />
+      <span>Untagged bookmarks</span><small>Bookmarks with no shown tag</small>
+    </label>
+  </>;
+  const filtersPanel = <>
+    {filter.rules.length > 0 && <>
+      <h4>On now</h4>
+      <div className="chip-list">{filter.rules.map(chip)}</div>
+      <button className="chip-menu-item chip-clear" onClick={() => setRules([])}>Clear all</button>
+    </>}
+    <h4 className={filter.rules.length ? "chip-divided" : ""}>Add a filter</h4>
+    {ruleKinds.map((k) => (
+      <button key={k.kind} className="chip-menu-item" onClick={() => {
+        setRules([...filter.rules, { kind: k.kind, values: [], not: false }]);
+        setQuery("");
+        setOpen({ what: "edit", index: filter.rules.length });
+      }}>
+        {k.label}<small>{ruleOptions(workspace, k.kind).length}</small>
+      </button>
+    ))}
+  </>;
+  const savedPanel = <>
+    <h4>Saved filters</h4>
+    {workspace.views.map((v) => {
+      const read = readRules(v.filter);
+      return (
+        <div key={v.id} className="view-row">
+          <button className="chip-menu-item" disabled={!read} title={read ? "Use these filters" : "Made with the old filter screen; it cannot be shown here"}
+            onClick={() => { if (!read) return; onChange({ ...filter, rules: read.rules, text: read.text }); setOpen(undefined); }}>
+            {v.name}
+          </button>
+          <button className="view-delete" aria-label={`Delete saved filter ${v.name}`} onClick={() => void save({ type: "view.remove", id: v.id }, `Delete saved filter: ${v.name}`)}>
+            <Icon name="close" size={12} />
+          </button>
+        </div>
+      );
+    })}
+    {!workspace.views.length && <p className="subtle chip-empty">No saved filters yet.</p>}
+    <form className="view-save" onSubmit={(e) => { e.preventDefault(); void saveFilter(); }}>
+      <input aria-label="Saved filter name" placeholder={canSave ? "Save current filters as…" : "Add a filter first"} disabled={!canSave} value={name} onChange={(e) => setName(e.target.value)} />
+      <button type="submit" disabled={!canSave || !name.trim()}>Save</button>
+    </form>
+  </>;
+
+  if (compact) return (
+    <div className="filter-bar compact" ref={root}>
+      <label className={`filter-search filter-box ${filter.text.trim() ? "searching" : ""}`}>
+        <Icon name="search" size={15} />
+        <input ref={searchRef} type="search" aria-label="Search bookmarks and tags" placeholder="Search…" title="Search (F)" value={filter.text}
+          onChange={(e) => onChange({ ...filter, text: e.target.value })}
+          onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filter, text: "" }); e.currentTarget.blur(); } }} />
+      </label>
+      <button className={`filter-saved filter-sheet-button ${on || hidden ? "on" : ""}`} aria-expanded={open?.what === "sheet" || editing !== undefined} aria-haspopup="dialog" onClick={() => toggle("sheet")}>
+        <Icon name="filter" size={15} />Filters{on + hidden ? <span className="filter-count">{on + hidden}</span> : null}
+      </button>
+      {open?.what === "sheet" && (
+        <div className="chip-popover filter-sheet" role="dialog" aria-label="Filters">
+          {showPanel}
+          <div className="chip-divided" />
+          {filtersPanel}
+          <div className="chip-divided" />
+          {savedPanel}
+        </div>
+      )}
+      {editing !== undefined && filter.rules[editing] && editor(editing)}
+    </div>
+  );
+
   return (
     <div className="filter-bar" ref={root}>
       <div className={`filter-joined ${filter.text.trim() ? "searching" : ""}`}>
@@ -129,23 +215,7 @@ export function FilterBar({ workspace, filter, tab, searchRef, onChange, save }:
           </button>
           {open?.what === "show" && (
             <div className="chip-popover" role="dialog" aria-label="Show">
-              <h4>Tag types</h4>
-              {workspace.tagTypes.map((type) => (
-                <label key={type.id} className="chip-option">
-                  <input type="checkbox" checked={!filter.hiddenTypeIds.includes(type.id)}
-                    onChange={(e) => onChange({ ...filter, hiddenTypeIds: e.target.checked ? filter.hiddenTypeIds.filter((id) => id !== type.id) : [...filter.hiddenTypeIds, type.id] })} />
-                  <i className="swatch" style={{ background: type.appearance.color }} /><span>{type.name}</span>
-                </label>
-              ))}
-              <h4 className="chip-divided">Also show</h4>
-              <label className="filter-check">
-                <input type="checkbox" checked={filter.showEmptyGroups} onChange={(e) => onChange({ ...filter, showEmptyGroups: e.target.checked })} />
-                <span>Empty tags</span><small>Tags with no shown bookmark</small>
-              </label>
-              <label className="filter-check">
-                <input type="checkbox" checked={filter.showUngrouped} onChange={(e) => onChange({ ...filter, showUngrouped: e.target.checked })} />
-                <span>Untagged bookmarks</span><small>Bookmarks with no shown tag</small>
-              </label>
+              {showPanel}
             </div>
           )}
         </span>
@@ -155,21 +225,7 @@ export function FilterBar({ workspace, filter, tab, searchRef, onChange, save }:
           </button>
           {open?.what === "filters" && (
             <div className="chip-popover" role="dialog" aria-label="Filters">
-              {filter.rules.length > 0 && <>
-                <h4>On now</h4>
-                <div className="chip-list">{filter.rules.map(chip)}</div>
-                <button className="chip-menu-item chip-clear" onClick={() => setRules([])}>Clear all</button>
-              </>}
-              <h4 className={filter.rules.length ? "chip-divided" : ""}>Add a filter</h4>
-              {ruleKinds.map((k) => (
-                <button key={k.kind} className="chip-menu-item" onClick={() => {
-                  setRules([...filter.rules, { kind: k.kind, values: [], not: false }]);
-                  setQuery("");
-                  setOpen({ what: "edit", index: filter.rules.length });
-                }}>
-                  {k.label}<small>{ruleOptions(workspace, k.kind).length}</small>
-                </button>
-              ))}
+              {filtersPanel}
             </div>
           )}
           {editing !== undefined && filter.rules[editing] && editor(editing)}
@@ -181,26 +237,7 @@ export function FilterBar({ workspace, filter, tab, searchRef, onChange, save }:
         </button>
         {open?.what === "saved" && (
           <div className="chip-popover" role="dialog" aria-label="Saved filters">
-            <h4>Saved filters</h4>
-            {workspace.views.map((v) => {
-              const read = readRules(v.filter);
-              return (
-                <div key={v.id} className="view-row">
-                  <button className="chip-menu-item" disabled={!read} title={read ? "Use these filters" : "Made with the old filter screen; it cannot be shown here"}
-                    onClick={() => { if (!read) return; onChange({ ...filter, rules: read.rules, text: read.text }); setOpen(undefined); }}>
-                    {v.name}
-                  </button>
-                  <button className="view-delete" aria-label={`Delete saved filter ${v.name}`} onClick={() => void save({ type: "view.remove", id: v.id }, `Delete saved filter: ${v.name}`)}>
-                    <Icon name="close" size={12} />
-                  </button>
-                </div>
-              );
-            })}
-            {!workspace.views.length && <p className="subtle chip-empty">No saved filters yet.</p>}
-            <form className="view-save" onSubmit={(e) => { e.preventDefault(); void saveFilter(); }}>
-              <input aria-label="Saved filter name" placeholder={canSave ? "Save current filters as…" : "Add a filter first"} disabled={!canSave} value={name} onChange={(e) => setName(e.target.value)} />
-              <button type="submit" disabled={!canSave || !name.trim()}>Save</button>
-            </form>
+            {savedPanel}
           </div>
         )}
       </span>
