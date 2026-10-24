@@ -31,7 +31,7 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
   const statuses = [...new Set(bookmarks.map((b) => status(b.statusId)))];
   return (
     <>
-      <DetailBar start={start} closeLabel="Close (Esc)" onClose={onClose}>
+      <DetailBar start={start} closeLabel="Close (Esc)" closeShortcut="Esc" onClose={onClose}>
         <IconButton label="Copy…" icon="copy" size={16} disabled={!bookmarks.length} onClick={onCopy} />
         <IconButton label="Edit" icon="edit" size={16} onClick={onEdit} />
         {pin}

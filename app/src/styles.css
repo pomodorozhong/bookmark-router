@@ -52,6 +52,10 @@ p { line-height: 1.6; }
 .primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
 .primary:hover { background: var(--color-accent-strong); color: var(--color-on-accent); }
 .icon-button { width: var(--control); height: var(--control); padding: 0; flex-shrink: 0; }
+/* Keyboard shortcuts: one key cap style beside the label or icon of the control they trigger. */
+.key-badge { display: inline-grid; place-items: center; flex-shrink: 0; min-width: 20px; height: 20px; padding: 0 5px; border: 1px solid var(--color-line-strong); border-bottom-width: 2px; border-radius: 5px; background: var(--color-surface); color: var(--color-ink-muted); font: 500 var(--text-xs)/1 var(--font-mono); }
+.primary .key-badge { border-color: var(--color-on-accent-muted); background: transparent; color: var(--color-on-accent); }
+.icon-button.has-key { width: auto; gap: 5px; padding: 0 6px; }
 .icon-button[aria-pressed=true] { color: var(--color-accent-strong); border-color: var(--color-accent-line); background: var(--color-accent-soft); }
 .icon-button[data-tooltip] { position: relative; }
 .icon-button[data-tooltip]::after { content: attr(data-tooltip); position: absolute; top: calc(100% + 7px); right: 0; padding: 6px 9px; border-radius: var(--radius-chip); background: var(--color-selection); color: var(--color-on-selection); font-size: var(--text-sm); white-space: nowrap; pointer-events: none; opacity: 0; z-index: 90; }
@@ -295,10 +299,10 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .detail-bar .icon-button[aria-pressed=true] { border-color: transparent; background: var(--color-accent-soft); color: var(--color-accent-strong); }
 .detail-position { padding-left: 6px; color: var(--color-ink-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* The record's link sits above its title, inside the panel. */
-.detail-link { min-width: 0; margin-bottom: 4px; font-size: var(--text-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.detail-link a { display: inline-flex; gap: 4px; align-items: center; max-width: 100%; color: var(--color-accent); }
+.detail-link { display: flex; align-items: center; gap: 6px; min-width: 0; margin-bottom: 4px; font-size: var(--text-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail-link a { display: inline-flex; min-width: 0; gap: 4px; align-items: center; max-width: 100%; color: var(--color-accent); }
 .detail-link a > span { overflow: hidden; text-overflow: ellipsis; }
-.detail-link-warning { color: var(--color-warning-ink); }
+.detail-link-warning { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--color-warning-ink); }
 .triage-cover { width: 88px; height: 88px; object-fit: cover; border-radius: var(--radius-panel); border: 1px solid var(--color-line); flex-shrink: 0; }
 .letter-tile { display: grid; place-items: center; background: var(--color-tile); color: var(--color-on-tile); box-shadow: inset 0 0 0 1px var(--color-tile-line); font-weight: 600; font-size: 34px; }
 .queue-thumb .letter-tile { width: 100%; height: 100%; border-radius: var(--radius-control); font-size: var(--text-2xl); }
@@ -353,6 +357,7 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .triage-group.peek .group-name { color: var(--color-ink-muted); }
 .group-why { color: var(--color-ink-muted); font-size: var(--text-sm); margin: 3px 0 0; line-height: 1.45; }
 .group-add { position: relative; margin-top: 8px; }
+.group-add > .key-badge { position: absolute; right: 8px; top: 8px; pointer-events: none; }
 .group-add input { width: 100%; padding: 8px 11px; border: 1px dashed var(--color-line-strong); border-radius: var(--radius-control); background: var(--color-surface-sunken); font: inherit; }
 .group-menu { position: absolute; z-index: 10; left: 0; right: 0; top: 100%; margin-top: 4px; max-height: 280px; overflow: auto; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-control); box-shadow: var(--shadow-popover); }
 .group-menu-label { padding: 8px 12px 4px; }
@@ -363,9 +368,7 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .related-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-md); }
 .related-via { color: var(--color-ink-muted); font-size: var(--text-sm); margin-left: auto; white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
 .triage-decisions { border-top: 1px solid var(--color-line); padding: 12px 16px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
-.triage-decisions button { display: flex; flex-direction: column; align-items: center; padding: 7px 4px; }
-.triage-decisions small { color: var(--color-ink-muted); font-size: var(--text-xs); }
-.triage-decisions .primary small { color: var(--color-on-accent-muted); }
+.triage-decisions button { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 7px 4px; }
 .triage-decisions button:disabled { opacity: .45; cursor: default; }
 .triage-empty { padding: 32px 24px; }
 /* The bookmark panel in the phone layout. */
@@ -405,6 +408,9 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
   .triage.queue-minimized .triage-queue :is(.queue-text, .queue-empty, .queue-bar-label, .queue-chevron, .queue-bar-actions) { display: none; }
   .triage.queue-minimized .triage-queue .queue-bar { justify-content: center; padding: 0; }
   .triage.queue-minimized .triage-queue .queue-toggle { flex: 1; flex-direction: column; gap: 2px; height: 64px; padding: 0; border-radius: 0; font-size: var(--text-sm); font-weight: 400; }
+  /* The icon and count share a line, with the Q badge centred under them. */
+  .triage.queue-minimized .triage-queue .queue-toggle { display: grid; grid-template-columns: auto auto; place-content: center; align-items: center; gap: 6px 4px; }
+  .triage.queue-minimized .triage-queue .queue-toggle .key-badge { grid-column: 1 / -1; justify-self: center; }
   .triage.queue-minimized .triage-queue .queue-bar:not(.selection) .queue-count { color: var(--color-ink-muted); }
   .triage.queue-minimized .triage-queue .queue-item { grid-template-columns: 44px; justify-content: center; padding: 6px 0; border-bottom: 0; }
   .triage.queue-minimized .triage-queue .queue-thumb { width: 44px; height: 32px; }
@@ -423,6 +429,8 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 }
 @media (max-width: 1200px) {
   .triage-body, .triage.queue-open .triage-body { grid-template-columns: 64px minmax(0, 1fr) 340px; }
+  /* The narrower panel's bar keeps the key badges and drops the "1 of N" position. */
+  .detail-position { display: none; }
   .triage.queue-open .triage-queue { width: 290px; }
 }
 /* At phone widths: the graph on top, then the queue or the panel under it, switched by the Queue button in their bar. */
@@ -804,6 +812,7 @@ details.appearance-editor > summary .subtle { margin-left: auto; font-size: var(
   .header-undo, .agent-menu-root .menu-trigger { width: 44px; }
   .queue-bar button, .thumb-actions button, .thumb-confirm-buttons button, .group-menu button, .triage-related button, .layout-menu-popover button, .chip-menu-item, .app-menu [role=menuitem] { min-height: 44px; }
   .triage-related button { align-items: center; }
+  .group-add > .key-badge { top: 12px; }
   .filter-check, .chip-option { min-height: 44px; align-items: center; }
   .filter-check input { margin: 0; }
   .group-add input, .chip-search, .view-save input, .view-save button { min-height: 44px; }
@@ -812,6 +821,6 @@ details.appearance-editor > summary .subtle { margin-left: auto; font-size: var(
 }
 /* No keyboard: hide shortcut letters, and show controls that otherwise appear on hover. */
 @media (hover: none) and (pointer: coarse) {
-  .triage-decisions small { display: none; }
+  .key-badge { display: none; }
   .view-delete { opacity: 1; }
 }

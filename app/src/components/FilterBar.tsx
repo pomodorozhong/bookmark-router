@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Icon } from "./Icon";
+import { Icon, Kbd } from "./Icon";
 import type { Command } from "../domain/commands";
 import type { SavedView, Workspace } from "../domain/model";
 import { compileRules, readRules, ruleKinds, ruleOptions, ruleValueCounts, type Rule, type TriageFilter, type TriageTab } from "../domain/triage";
@@ -205,6 +205,7 @@ export function FilterBar({ workspace, filter, tab, searchRef, compact = false, 
           <input ref={searchRef} type="search" aria-label="Search bookmarks and tags" placeholder="Search…" title="Search (F)" value={filter.text}
             onChange={(e) => onChange({ ...filter, text: e.target.value })}
             onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filter, text: "" }); e.currentTarget.blur(); } }} />
+          <Kbd>F</Kbd>
         </label>
         <span className="filter-anchor">
           <button className="filter-button" aria-expanded={open?.what === "show"} aria-haspopup="dialog" onClick={() => toggle("show")}>
