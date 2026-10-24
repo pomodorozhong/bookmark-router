@@ -416,6 +416,10 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
   .triage.queue-minimized .triage-queue .queue-thumb { width: 44px; height: 32px; }
   .triage.queue-minimized .triage-queue .queue-thumb .letter-tile { font-size: var(--text-lg); }
 }
+/* The queue's Q, C and Esc badges show only in the phone layout; above it the shortcuts still work without them. */
+@media (min-width: 821px) {
+  .triage-queue .key-badge { display: none; }
+}
 /* Up to 1280 px the expanded queue floats over the graph beside the rail's column. */
 @media (min-width: 821px) and (max-width: 1280px) {
   .triage.queue-open .triage-body { grid-template-columns: 64px minmax(0, 1fr) 400px; }
