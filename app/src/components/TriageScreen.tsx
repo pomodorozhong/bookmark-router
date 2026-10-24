@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
-import { CopyDialog, type CopyScope } from "./CopyDialog";
+import { CopyDialog, type CopyDialogScope, type CopyGroup, type CopyScope } from "./CopyDialog";
+import { StateHeading } from "./StateHeading";
 import { RecordEditor } from "./RecordEditor";
 import { TagView } from "./TagView";
 import { DetailBar } from "./DetailBar";
@@ -17,11 +18,13 @@ import {
   domainOf,
   emptyTriageFilter,
   graphVisibility,
+  groupByState,
   groupsOf,
   inTab,
   outcomeOf,
   reasonFor,
   relatedOf,
+  stateLabels,
   triageQueue,
   clockwise,
   type TriageFilter,
@@ -89,7 +92,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [menuOpen, setMenuOpen] = useState(false);
   // The filter bar's More menu, holding Empty groups and Ungrouped bookmarks.
   const [menuIndex, setMenuIndex] = useState(0);
-  const [copyScope, setCopyScope] = useState<CopyScope>();
+  const [copyScope, setCopyScope] = useState<CopyDialogScope>();
+  const [copyGroup, setCopyGroup] = useState<CopyGroup>();
   const [busy, setBusy] = useState(false);
   const frameToken = useRef(0);
   const [frameRequest, setFrameRequest] = useState(0);
@@ -118,6 +122,17 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   }, [workspace.id, selection, queue, current?.id, onCopyContext]);
   const groups = current ? groupsOf(workspace, current.id) : [];
   const related = useMemo(() => (current ? [...relatedOf(workspace, current.id)].sort((a, b) => b[1].length - a[1].length) : []), [workspace, current]);
+  // Related bookmarks by state, keeping the shared-tag order inside each group; only the first few show.
+  const relatedGroups = useMemo(() => {
+    const byId = new Map(workspace.bookmarks.map((b) => [b.id, b]));
+    let left = relatedListLimit;
+    return groupByState(related.map(([id]) => byId.get(id)!), workspace).map((group) => {
+      const shown = group.bookmarks.slice(0, Math.max(0, left));
+      left -= shown.length;
+      return { ...group, shown };
+    });
+  }, [workspace, related]);
+  const relatedVia = new Map(related);
   const visibility = useMemo(() => graphVisibility(workspace, filter, tab, current ? [current.id] : []), [workspace, filter, tab, current]);
   const { done, dropped } = decisionStatuses(workspace);
   const counts = useMemo(() => ({
@@ -227,7 +242,12 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     else setQueueOpen((v) => !v);
   }
   function openCopy(scope?: CopyScope) {
+    setCopyGroup(undefined);
     setCopyScope(scope ?? (selection ? "selection" : "list"));
+  }
+  function openCopyGroup(label: string, bookmarks: Bookmark[]) {
+    setCopyGroup({ label, bookmarks });
+    setCopyScope("group");
   }
 
   useEffect(() => {
@@ -375,7 +395,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                     onClose={() => setTagPanel({ ...tagPanel!, editing: false })} />
                 </div>
               : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
-                    onCopy={() => openCopy("selection")} onEdit={() => setTagPanel({ ...tagPanel!, editing: true })}
+                    onCopy={() => openCopy("selection")} onCopyGroup={openCopyGroup} onEdit={() => setTagPanel({ ...tagPanel!, editing: true })}
                     start={<>{sheetQueue}{tagPanel!.back && current && (
                       <button className="text-button tag-back" onClick={() => setTagPanel(undefined)}><Icon name="chevron-left" size={14} /> Back<span className="tag-back-rest"> to the bookmark</span></button>
                     )}</>}
@@ -472,17 +492,22 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                 <section className="triage-section">
                   <h3>Related bookmarks ({related.length})</h3>
                   <div className="triage-related">
-                    {related.slice(0, relatedListLimit).map(([id, via]) => {
-                      const b = workspace.bookmarks.find((x) => x.id === id) as Bookmark;
-                      const viaTag = workspace.tags.find((t) => t.id === via[0]);
-                      return (
-                        <button key={id} onClick={() => show(id)}>
-                          <span className="related-title">{b.title}</span>
-                          {/* With one tag every related bookmark comes through it, so naming it adds nothing. */}
-                          {groups.length > 1 && <span className="related-via">via {viaTag?.name}{via.length > 1 ? ` +${via.length - 1}` : ""}</span>}
-                        </button>
-                      );
-                    })}
+                    {relatedGroups.map((group) => (
+                      <Fragment key={group.tab}>
+                        <StateHeading tab={group.tab} count={group.bookmarks.length} onCopy={() => openCopyGroup(`Related · ${stateLabels[group.tab]}`, group.bookmarks)} />
+                        {group.shown.map((b) => {
+                          const via = relatedVia.get(b.id)!;
+                          const viaTag = workspace.tags.find((t) => t.id === via[0]);
+                          return (
+                            <button key={b.id} onClick={() => show(b.id)}>
+                              <span className="related-title">{b.title}</span>
+                              {/* With one tag every related bookmark comes through it, so naming it adds nothing. */}
+                              {groups.length > 1 && <span className="related-via">via {viaTag?.name}{via.length > 1 ? ` +${via.length - 1}` : ""}</span>}
+                            </button>
+                          );
+                        })}
+                      </Fragment>
+                    ))}
                     {!related.length && <p className="subtle">Shares no tag with another bookmark.</p>}
                     {related.length > relatedListLimit && <p className="subtle">and {related.length - relatedListLimit} more, highlighted in the graph</p>}
                   </div>
@@ -508,6 +533,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         <CopyDialog
           workspace={workspace}
           initialScope={copyScope}
+          group={copyGroup}
           scopes={{
             selection: selection ? selection.map((id) => workspace.bookmarks.find((b) => b.id === id)).filter((b): b is Bookmark => !!b) : undefined,
             list: queue,

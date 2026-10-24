@@ -5,6 +5,8 @@ import { ColorPicker, PointsPicker, StylePicker } from "./AppearancePickers";
 import {
   appearanceFor,
   defaultAppearance,
+  editorStatusId,
+  editorStatuses,
   statusLabel,
   type Appearance,
   type MediaKind,
@@ -36,7 +38,7 @@ export function RecordEditor({
   const [title, setTitle] = useState(bookmark?.title ?? tag?.name ?? ""),
     [description, setDescription] = useState(record.description ?? ""),
     [url, setUrl] = useState(record.url ?? ""),
-    [statusId, setStatus] = useState(record.statusId),
+    [statusId, setStatus] = useState(editorStatusId(workspace, record.statusId)),
     [typeId, setType] = useState(tag?.typeId ?? ""),
     [mediaUrl, setMedia] = useState(
       bookmark?.asset?.source === "remote" ? (bookmark.asset.url ?? "") : "",
@@ -174,7 +176,7 @@ export function RecordEditor({
         <label>
           Status
           <select value={statusId} onChange={(e) => setStatus(e.target.value)}>
-            {workspace.statuses.map((s) => (
+            {editorStatuses(workspace).map((s) => (
               <option key={s.id} value={s.id}>
                 {statusLabel(workspace, s.id)}
               </option>

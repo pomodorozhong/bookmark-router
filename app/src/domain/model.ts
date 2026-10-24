@@ -228,6 +228,15 @@ export function statusLabel(workspace: Workspace, id: string): string {
   if (id === "pending") return "To triage";
   return workspace.statuses.find((s) => s.id === id)?.label ?? id;
 }
+/** The statuses the editor offers, one per queue tab: other open statuses, such as "In progress", are left out. */
+export function editorStatuses(workspace: Workspace): Status[] {
+  if (!workspace.statuses.some((s) => s.id === "pending")) return workspace.statuses;
+  return workspace.statuses.filter((s) => s.outcome !== "active" || s.id === "pending");
+}
+/** A status the editor leaves out shows, and saves, as To triage. */
+export function editorStatusId(workspace: Workspace, id: string): string {
+  return editorStatuses(workspace).some((s) => s.id === id) ? id : "pending";
+}
 export function urlKey(value: string): string {
   const url = new URL(value);
   if (!["http:", "https:"].includes(url.protocol))

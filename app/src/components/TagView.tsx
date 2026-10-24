@@ -3,11 +3,12 @@ import { Cover, type LoadMedia } from "./Cover";
 import { DetailBar } from "./DetailBar";
 import { Icon, IconButton } from "./Icon";
 import { Markdown } from "./Markdown";
-import { appearanceFor, isWebUrl, statusLabel, type Tag, type Workspace } from "../domain/model";
-import { domainOf, reasonFor } from "../domain/triage";
+import { StateHeading } from "./StateHeading";
+import { appearanceFor, isWebUrl, statusLabel, type Bookmark, type Tag, type Workspace } from "../domain/model";
+import { domainOf, groupByState, reasonFor, stateLabels } from "../domain/triage";
 
 /** A tag (an issue, proposal, or topic) to read on its own: what it is and which bookmarks belong to it. */
-export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEdit, start, pin, onClose }: {
+export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onCopyGroup, onEdit, start, pin, onClose }: {
   tag: Tag;
   /** Bookmark IDs in display order, such as the clockwise selection; others follow. */
   order?: string[];
@@ -15,6 +16,8 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
   loadMedia: LoadMedia;
   onOpen: (bookmarkId: string) => void;
   onCopy: () => void;
+  /** Copy one state group, such as the tag's Done bookmarks. */
+  onCopyGroup: (label: string, bookmarks: Bookmark[]) => void;
   onEdit: () => void;
   /** The start of the panel's bar, such as the phone layout's Queue button. */
   start?: ReactNode;
@@ -28,7 +31,6 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
   const rank = new Map(order?.map((id, i) => [id, i]));
   const bookmarks = workspace.bookmarks.filter((b) => ids.has(b.id))
     .sort((a, b) => (rank.get(a.id) ?? rank.size) - (rank.get(b.id) ?? rank.size));
-  const statuses = [...new Set(bookmarks.map((b) => status(b.statusId)))];
   return (
     <>
       <DetailBar start={start} closeLabel="Close (Esc)" closeShortcut="Esc" onClose={onClose}>
@@ -48,9 +50,11 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
         <h2>{tag.name}</h2>
         {tag.description?.trim() ? <Markdown text={tag.description} /> : <p className="subtle">No description.</p>}
         <section className="triage-section">
-          <h3>Bookmarks ({bookmarks.length}){statuses.length === 1 && bookmarks.length > 1 && <span className="tag-view-all">all {statuses[0].toLowerCase()}</span>}</h3>
-          <div className="tag-view-list">
-            {bookmarks.map((b) => {
+          <h3>Bookmarks ({bookmarks.length})</h3>
+          {groupByState(bookmarks, workspace).map((group) => (
+          <div key={group.tab} className="tag-view-list">
+            <StateHeading tab={group.tab} count={group.bookmarks.length} onCopy={() => onCopyGroup(`${tag.name} · ${stateLabels[group.tab]}`, group.bookmarks)} />
+            {group.bookmarks.map((b) => {
               // Converted reasons start with the bookmark's own title; the list already shows it.
               const reason = reasonFor(b, tag, workspace);
               const why = reason?.startsWith(`${b.title}: `) ? reason.slice(b.title.length + 2) : reason;
@@ -59,14 +63,15 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onEd
                   <span className="queue-thumb"><Cover bookmark={b} load={loadMedia} className="" letterTile /></span>
                   <span className="queue-text">
                     <span className="queue-title">{b.title}</span>
-                    <span className="queue-meta"><span className="queue-domain">{domainOf(b.url) || "No URL"}</span><span className="queue-status">{status(b.statusId)}</span></span>
+                    <span className="queue-meta"><span className="queue-domain">{domainOf(b.url) || "No URL"}</span></span>
                     {why && <span className="tag-view-why">{why}</span>}
                   </span>
                 </button>
               );
             })}
-            {!bookmarks.length && <p className="subtle">No bookmarks have this tag yet.</p>}
           </div>
+          ))}
+          {!bookmarks.length && <p className="subtle">No bookmarks have this tag yet.</p>}
         </section>
       </div>
     </>

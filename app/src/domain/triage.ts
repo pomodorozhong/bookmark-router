@@ -115,6 +115,15 @@ export function inTab(bookmark: Bookmark, workspace: Workspace, tab: TriageTab):
   return tab === "all" || (tab === "todo" ? outcome === "active" : tab === "done" ? outcome === "completed" : outcome === "discarded");
 }
 
+export type StateTab = Exclude<TriageTab, "all">;
+export const stateLabels: Record<StateTab, string> = { todo: "To triage", done: "Done", dropped: "Dropped" };
+/** Bookmarks split by queue tab, To triage first, each group in the given order; empty groups are left out. */
+export function groupByState(bookmarks: Bookmark[], workspace: Workspace): Array<{ tab: StateTab; bookmarks: Bookmark[] }> {
+  return (["todo", "done", "dropped"] as const)
+    .map((tab) => ({ tab, bookmarks: bookmarks.filter((b) => inTab(b, workspace, tab)) }))
+    .filter((group) => group.bookmarks.length);
+}
+
 export function groupsOf(workspace: Workspace, bookmarkId: string): Tag[] {
   const ids = new Set(workspace.memberships.filter((m) => m.bookmarkId === bookmarkId).map((m) => m.tagId));
   return workspace.tags.filter((t) => ids.has(t.id));
