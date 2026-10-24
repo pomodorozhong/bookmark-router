@@ -1,12 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { emptyWorkspace, type Workspace } from "../src/domain/model";
+import { editorStatusId, editorStatuses, emptyWorkspace, type Workspace } from "../src/domain/model";
 import {
   clockwise,
   compileRules,
   emptyTriageFilter,
   formatCopy,
   graphVisibility,
+  groupByState,
   reasonFor,
   readRules,
   relatedOf,
@@ -143,4 +144,21 @@ test("a chip's menu counts each value against the other chips", () => {
   assert.equal(counts.get("pending"), 1);
   assert.equal(counts.get("done"), 1);
   assert.equal(counts.get("dropped"), 0);
+});
+
+test("state groups follow the queue tabs in order, keep the given order, and skip empty groups", () => {
+  const w = fixture();
+  const meta = { revision: 0, createdAt: "2026-10-11T00:00:00.000Z", updatedAt: "2026-10-11T00:00:00.000Z", description: "" };
+  w.bookmarks.push({ ...meta, id: "d", title: "Started", statusId: "in-progress" }, { ...meta, id: "e", title: "Shipped", statusId: "done" });
+  const byId = new Map(w.bookmarks.map((b) => [b.id, b]));
+  const groups = groupByState(["e", "c", "d", "b", "a"].map((id) => byId.get(id)!), w);
+  assert.deepEqual(groups.map((g) => [g.tab, g.bookmarks.map((b) => b.id)]), [["todo", ["d", "a"]], ["done", ["e", "b"]], ["dropped", ["c"]]]);
+  assert.deepEqual(groupByState([byId.get("b")!], w).map((g) => g.tab), ["done"]);
+});
+
+test("the editor offers one status per queue tab and reads In progress as To triage", () => {
+  const w = fixture();
+  assert.deepEqual(editorStatuses(w).map((s) => s.id), ["pending", "done", "dropped"]);
+  assert.equal(editorStatusId(w, "in-progress"), "pending");
+  assert.equal(editorStatusId(w, "done"), "done");
 });

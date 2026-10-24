@@ -5,22 +5,28 @@ import { copyFields, copyPresets, formatCopy } from "../domain/triage";
 import { readCopyFormat, rememberCopyFormat, type CopyScope } from "../copy-settings";
 
 export type { CopyScope } from "../copy-settings";
+/** The agent's scopes, plus one list group, such as a tag's Done bookmarks. */
+export type CopyDialogScope = CopyScope | "group";
+export interface CopyGroup { label: string; bookmarks: Bookmark[] }
 const separators: Array<[string, string]> = [["\n", "New line"], ["\n\n", "Blank line"], [", ", "Comma"], [" ", "Space"]];
 const previewLimit = 40;
 
-export function CopyDialog({ workspace, scopes, initialScope, onClose, onCopied }: {
+export function CopyDialog({ workspace, scopes, group, initialScope, onClose, onCopied }: {
   workspace: Workspace;
   scopes: Record<CopyScope, Bookmark[] | undefined>;
-  initialScope: CopyScope;
+  group?: CopyGroup;
+  initialScope: CopyDialogScope;
   onClose: () => void;
   onCopied: (count: number) => void;
 }) {
   const [{ template, separator }, setFormat] = useState(readCopyFormat);
-  const [scope, setScope] = useState<CopyScope>(initialScope);
+  const [scope, setScope] = useState<CopyDialogScope>(initialScope);
   const [failure, setFailure] = useState("");
-  const items = scopes[scope] ?? [];
+  const lists: Partial<Record<CopyDialogScope, Bookmark[]>> = { ...scopes, group: group?.bookmarks };
+  const items = lists[scope] ?? [];
   const update = (next: { template: string; separator: string }) => { setFormat(next); rememberCopyFormat(next); };
-  const labels: Record<CopyScope, string> = {
+  const labels: Partial<Record<CopyDialogScope, string>> = {
+    ...(group ? { group: `${group.label} (${group.bookmarks.length})` } : {}),
     selection: `Selected (${scopes.selection?.length ?? 0})`,
     list: `This list (${scopes.list?.length ?? 0})`,
     current: "Current bookmark",
@@ -53,9 +59,9 @@ export function CopyDialog({ workspace, scopes, initialScope, onClose, onCopied 
           </select>
         </label>
         <label>Bookmarks
-          <select value={scope} onChange={(e) => setScope(e.target.value as CopyScope)}>
-            {(Object.keys(labels) as CopyScope[]).map((key) => (
-              <option key={key} value={key} disabled={!scopes[key]?.length}>{labels[key]}</option>
+          <select value={scope} onChange={(e) => setScope(e.target.value as CopyDialogScope)}>
+            {(Object.keys(labels) as CopyDialogScope[]).map((key) => (
+              <option key={key} value={key} disabled={!lists[key]?.length}>{labels[key]}</option>
             ))}
           </select>
         </label>
@@ -65,7 +71,7 @@ export function CopyDialog({ workspace, scopes, initialScope, onClose, onCopied 
       </pre>
       {failure && <p className="url-warning" role="alert">{failure}</p>}
       <footer>
-        {scope !== "current" && <span className="subtle modal-footer-note">Same order as the queue</span>}
+        {scope !== "current" && <span className="subtle modal-footer-note">{scope === "group" ? "Same order as the list" : "Same order as the queue"}</span>}
         <button onClick={onClose}>Cancel</button>
         <button className="primary" disabled={!items.length} onClick={() => void copy()}>Copy text</button>
       </footer>
