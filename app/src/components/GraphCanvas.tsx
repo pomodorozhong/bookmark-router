@@ -9,6 +9,7 @@ import {
   Graph,
   GraphEvent,
   NodeEvent,
+  type EdgeOptions,
   type IElementEvent,
   type NodeData,
 } from "@antv/g6";
@@ -36,13 +37,30 @@ export interface GraphCanvasHandle {
 }
 // Titles show for related or box-selected bookmarks only while there are few enough to read.
 const emphasisLabelLimit = 30;
-/** A theme color role from styles.css, so the graph follows the theme for letter tiles, the current bookmark and a box selection. */
+/** A theme color role from styles.css. */
 function role(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
+/** Every color the graph draws with, read once per theme. */
+function readGraphColors() {
+  return {
+    node: role("--color-graph-node", "#ffffff"), nodeLine: role("--color-graph-node-line", "#94a3b8"),
+    nodeDone: role("--color-graph-node-done", "#eef2f0"), nodeDoneLine: role("--color-graph-node-done-line", "#cbd5d1"),
+    label: role("--color-graph-label", "#475569"), labelStrong: role("--color-graph-label-strong", "#183e35"), labelBackground: role("--color-graph-label-bg", "#ffffff"),
+    tagLabel: role("--color-graph-tag-label", "#294d41"), tagLabelBackground: role("--color-graph-tag-label-bg", "#f8faf9"), onTag: role("--color-graph-on-tag", "#ffffff"),
+    edge: role("--color-graph-edge", "#93aca7"), accent: role("--color-accent", "#0f766e"), selection: role("--color-selection", "#183e3b"),
+    tile: role("--color-tile", "#e8f3f2"), tileLine: role("--color-tile-line", "#a5ccc9"), onTile: role("--color-on-tile", "#115e59"), iconBackground: role("--color-surface-muted", "#f4f7f6"),
+  };
+}
+type GraphColors = ReturnType<typeof readGraphColors>;
+// Links keep a width in screen pixels between a floor and a cap, so they stay visible
+// zoomed far out without turning heavy zoomed in. G6 widths are in graph units.
+function edgeWidth(zoom: number, current: boolean): number {
+  return (current ? Math.min(3, Math.max(2, 2.5 * zoom)) : Math.min(1.8, Math.max(1, 1.2 * zoom))) / zoom;
+}
 // About a bookmark at maximum zoom on a 2x display.
 const thumbnailSize = 256;
-function roundThumbnail(img: HTMLImageElement, key: string, icon = false): HTMLCanvasElement {
+function roundThumbnail(img: HTMLImageElement, key: string, icon: string | false): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = thumbnailSize;
   const context = canvas.getContext("2d")!;
@@ -50,7 +68,7 @@ function roundThumbnail(img: HTMLImageElement, key: string, icon = false): HTMLC
   context.arc(thumbnailSize / 2, thumbnailSize / 2, thumbnailSize / 2, 0, Math.PI * 2);
   context.clip();
   // Cover: fill the circle, cropping the longer side around the center.
-  if (icon) { context.fillStyle = "#f4f7f5"; context.fillRect(0, 0, thumbnailSize, thumbnailSize); }
+  if (icon) { context.fillStyle = icon; context.fillRect(0, 0, thumbnailSize, thumbnailSize); }
   const scale = icon ? thumbnailSize * .5 / Math.max(img.naturalWidth || 1, img.naturalHeight || 1)
     : thumbnailSize / Math.min(img.naturalWidth || 1, img.naturalHeight || 1);
   const width = img.naturalWidth * scale, height = img.naturalHeight * scale;
@@ -60,19 +78,19 @@ function roundThumbnail(img: HTMLImageElement, key: string, icon = false): HTMLC
 
 // A tag's node follows its appearance: shape picks the node type (tag styles share
 // the "tag-shape" node, turned by `points`), color fills it, and the icon is drawn inside.
-function tagNode(a: Appearance) {
+function tagNode(a: Appearance, colors: GraphColors) {
   const tag = isTagStyle(a.shape);
   return {
     type: tag ? "tag-shape" : a.shape === "rounded-square" ? "rect" : a.shape,
     style: {
       size: a.size,
       radius: 14,
-      ...(tag ? { tagStyle: a.shape, points: a.points } : {}),
+      ...(tag ? { tagStyle: a.shape, points: a.points, ringFill: colors.onTag } : {}),
       fill: a.color,
       stroke: a.color,
       icon: Boolean(a.icon),
       iconText: a.icon ?? "",
-      iconFill: "#fff",
+      iconFill: colors.onTag,
       iconFontSize: Math.round(a.size * (tag ? 0.27 : 0.42)),
       iconFontWeight: 600,
     },
@@ -175,6 +193,23 @@ export function GraphCanvas({
   bookmarksRef.current = bookmarks;
   const loadMediaRef = useRef(loadMedia);
   loadMediaRef.current = loadMedia;
+  // The canvas can't use CSS variables, so the graph re-reads its colors and redraws when the theme changes.
+  const [colors, setColors] = useState(readGraphColors);
+  const colorsRef = useRef(colors);
+  colorsRef.current = colors;
+  useEffect(() => {
+    const update = () => {
+      // Letter tiles and icon thumbnails are drawn in the old colors; draw them again.
+      images.current.clear();
+      setColors(readGraphColors());
+    };
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "class"] });
+    const scheme = matchMedia("(prefers-color-scheme: dark)");
+    scheme.addEventListener("change", update);
+    return () => { observer.disconnect(); scheme.removeEventListener("change", update); };
+  }, []);
+  const edgeStyle = useRef<NonNullable<EdgeOptions["style"]>>({});
   // Bookmark images by source, preloaded so the graph never draws a broken image.
   // Each becomes a small round thumbnail once, because redrawing full-size
   // covers on every frame makes panning slow. G6 reloads string sources as CORS
@@ -188,12 +223,12 @@ export function GraphCanvas({
     const key = `letter:${letter}`;
     const known = images.current.get(key);
     if (known && typeof known !== "string") return known;
-    const canvas = document.createElement("canvas"), context = canvas.getContext("2d")!;
+    const canvas = document.createElement("canvas"), context = canvas.getContext("2d")!, c = colorsRef.current;
     canvas.width = canvas.height = thumbnailSize;
-    context.fillStyle = role("--color-tile", "#e8f3f2");
+    context.fillStyle = c.tile;
     context.beginPath(); context.arc(thumbnailSize / 2, thumbnailSize / 2, thumbnailSize / 2 - 4, 0, Math.PI * 2); context.fill();
-    context.lineWidth = 8; context.strokeStyle = role("--color-tile-line", "#a5ccc9"); context.stroke();
-    context.fillStyle = role("--color-on-tile", "#115e59"); context.font = "600 130px sans-serif"; context.textAlign = "center"; context.textBaseline = "middle";
+    context.lineWidth = 8; context.strokeStyle = c.tileLine; context.stroke();
+    context.fillStyle = c.onTile; context.font = "600 130px sans-serif"; context.textAlign = "center"; context.textBaseline = "middle";
     context.fillText(letter, thumbnailSize / 2, thumbnailSize / 2 + 5);
     const tile = Object.assign(canvas, { src: key, complete: true });
     images.current.set(key, tile);
@@ -216,7 +251,7 @@ export function GraphCanvas({
       if (!src) return images.current.set(key, "failed");
       const img = new Image();
       img.onload = () => {
-        images.current.set(key, roundThumbnail(img, key, local && Boolean(image.icon)));
+        images.current.set(key, roundThumbnail(img, key, local && Boolean(image.icon) && colorsRef.current.iconBackground));
         if (local) URL.revokeObjectURL(src);
         imageReady.current(bookmark!.id);
       };
@@ -226,6 +261,7 @@ export function GraphCanvas({
     return undefined;
   }
   function labelStyle(node: NodeData, scale: number): NonNullable<NodeData["style"]> {
+    const c = colorsRef.current;
     if (!node.data?.tag) {
       const { related, box } = emphasisRef.current;
       const shown = scale >= bookmarkLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current
@@ -243,12 +279,12 @@ export function GraphCanvas({
       label: shown,
       labelPointerEvents: "none",
       labelBackground: focused,
-      labelBackgroundFill: "#ffffff",
+      labelBackgroundFill: c.labelBackground,
       labelBackgroundOpacity: 0.96,
       labelBackgroundRadius: 3 / scale,
       labelBackgroundPointerEvents: "none",
       labelPadding: focused ? [2 / scale, 4 / scale] : 0,
-      labelFill: focused ? "#183e35" : "#475569",
+      labelFill: focused ? c.labelStrong : c.label,
       icon: !!image,
       iconSrc: image as unknown as HTMLImageElement | undefined,
       iconWidth: diameter,
@@ -265,9 +301,9 @@ export function GraphCanvas({
       labelFontWeight: 600,
       labelPlacement: "bottom",
       labelOffsetY: 6 / scale,
-      labelFill: "#294d41",
+      labelFill: c.tagLabel,
       labelBackground: true,
-      labelBackgroundFill: "#f8faf9",
+      labelBackgroundFill: c.tagLabelBackground,
       labelBackgroundOpacity: .94,
       labelBackgroundRadius: 3 / scale,
       // Zoomed-out tag titles cover nearby bookmarks; let hover and clicks reach them.
@@ -423,7 +459,7 @@ export function GraphCanvas({
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const nodes: NodeData[] = [
       ...workspace.tags.map<NodeData>((tag, i) => {
-        const node = tagNode(appearanceFor(tag, workspace));
+        const node = tagNode(appearanceFor(tag, workspace), colors);
         return {
           id: tag.id,
           type: node.type,
@@ -432,7 +468,7 @@ export function GraphCanvas({
             x: 140 + i * 170,
             y: 200,
             ...node.style,
-            labelFill: "#294d41",
+            labelFill: colors.tagLabel,
             labelPlacement: "bottom",
             labelFontWeight: 600,
           },
@@ -446,10 +482,10 @@ export function GraphCanvas({
           x: 90 + (i % 6) * 90,
           y: 120 + Math.floor(i / 6) * 200,
           size: 25,
-          fill: "#fff",
-          stroke: "#94a3b8",
+          fill: colors.node,
+          stroke: colors.nodeLine,
           lineWidth: 2,
-          labelFill: "#475569",
+          labelFill: colors.label,
           labelPlacement: "bottom",
         },
       })),
@@ -504,7 +540,7 @@ export function GraphCanvas({
         }
       }
     });
-    const selectionColor = role("--color-selection", "#183e3b");
+    const selectionColor = colors.selection;
     const boxStyle = { fill: selectionColor, fillOpacity: 0.06, stroke: selectionColor, lineWidth: 1, lineDash: [4, 3] };
     const boxed = (states: Record<string, string | string[]>, adding: boolean) => {
       const ids = Object.entries(states)
@@ -534,7 +570,7 @@ export function GraphCanvas({
           labelFontSize: () => 13 / (graph.current?.getZoom() ?? 1),
         },
       },
-      edge: { style: { stroke: "#a9bdba", lineWidth: 1.2, endArrow: false } },
+      edge: { style: { stroke: colors.edge, lineWidth: 1.2, endArrow: false } },
       layout: {
         type: "d3-force",
         forceSimulation: sim,
@@ -705,7 +741,7 @@ export function GraphCanvas({
         marker.className = "graph-pin";
         const px = Math.max(12, Math.min(18, size * g.getZoom() * .65));
         marker.style.cssText = "left:" + x + "px;top:" + y + "px;width:" + px + "px;height:" + px + "px";
-        marker.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 21 7-7" stroke="#68766f" stroke-width="1.8" stroke-linecap="round"/><path d="m12 3 9 9-2 2-3-1-3 3-1 3-7-7 3-1 3-3-1-3Z" fill="#d84c58" stroke="#a93643" stroke-width="1" stroke-linejoin="round"/></svg>';
+        marker.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="pin-stem" d="m4 21 7-7" stroke-width="1.8" stroke-linecap="round"/><path class="pin-head" d="m12 3 9 9-2 2-3-1-3 3-1 3-7-7 3-1 3-3-1-3Z" stroke-width="1" stroke-linejoin="round"/></svg>';
         layer.append(marker);
       }
     };
@@ -732,6 +768,8 @@ export function GraphCanvas({
               style: labelStyle(n, g.getZoom()),
             })),
           );
+          // Edge widths are set per zoom too, to keep their screen width.
+          g.setEdge({ style: edgeStyle.current });
           g.updateBehavior({
             key: "label-collisions",
             padding: 4 / g.getZoom(),
@@ -891,14 +929,14 @@ export function GraphCanvas({
           const [x, y] = positions.get(n.id)!;
           return {
             id: n.id,
-            type: a ? tagNode(a).type : "circle",
+            type: a ? tagNode(a, colors).type : "circle",
             data: { label: tag ? n.name : n.title, tag },
             style: {
               x,
               y,
-              ...(a ? tagNode(a).style : { size: 25, fill: "#fff", stroke: "#94a3b8" }),
+              ...(a ? tagNode(a, colors).style : { size: 25, fill: colors.node, stroke: colors.nodeLine }),
               lineWidth: 2,
-              labelFill: tag ? "#294d41" : "#475569",
+              labelFill: tag ? colors.tagLabel : colors.label,
               labelPlacement: "bottom",
             },
           };
@@ -916,7 +954,7 @@ export function GraphCanvas({
       ...workspace.tags.map((t) => {
         // Restyle on every change, so appearance edits reach nodes drawn earlier;
         // a new shape swaps the node type.
-        const node = tagNode(appearanceFor(t, workspace));
+        const node = tagNode(appearanceFor(t, workspace), colors);
         return {
           id: t.id,
           ...(g.getNodeData(t.id).type !== node.type ? { type: node.type } : {}),
@@ -992,7 +1030,7 @@ export function GraphCanvas({
     const focusing = Boolean(selected && workspace.bookmarks.some((b) => b.id === selected));
     const decided = new Set(workspace.statuses.filter((s) => s.outcome !== "active").map((s) => s.id));
     const peeking = new Set(peekTagIds);
-    const accent = role("--color-accent", "#0f766e"), selection = role("--color-selection", "#183e3b");
+    const { accent, selection } = colors;
     g.updateNodeData([
       ...workspace.tags.map((tag) => ({
         id: tag.id,
@@ -1011,9 +1049,9 @@ export function GraphCanvas({
           id: b.id,
           style: {
             opacity: !focusing || current || related.has(b.id) || inBox ? 1 : 0.18,
-            stroke: current ? accent : inBox ? selection : done ? "#cbd5d1" : "#94a3b8",
+            stroke: current ? accent : inBox ? selection : done ? colors.nodeDoneLine : colors.nodeLine,
             lineWidth: current ? 4 : inBox ? 3 : 2,
-            fill: done ? "#eef2f0" : "#fff",
+            fill: done ? colors.nodeDone : colors.node,
             halo: current || inBox,
             haloStroke: current ? accent : selection,
             haloLineWidth: current ? 14 : 8,
@@ -1023,15 +1061,14 @@ export function GraphCanvas({
       }),
     ]);
     const tagOf = new Map(workspace.memberships.map((m) => [m.id, m.tagId]));
-    g.setEdge({
-      style: {
-        stroke: (edge) => (edge.source === selected ? "#0f766e" : "#a9bdba"),
-        lineWidth: (edge) => (edge.source === selected ? 2.5 : 1.2),
-        opacity: (edge) => (!focusing || edge.source === selected ? 1 : groups.has(tagOf.get(String(edge.id)) ?? "") ? 0.45 : 0.08),
-        lineDash: (edge) => (peeking.has(tagOf.get(String(edge.id)) ?? "") ? [5, 4] : []),
-        endArrow: false,
-      },
-    });
+    edgeStyle.current = {
+      stroke: (edge) => (edge.source === selected ? accent : colors.edge),
+      lineWidth: (edge) => edgeWidth(g.getZoom(), edge.source === selected),
+      opacity: (edge) => (!focusing || edge.source === selected ? 1 : groups.has(tagOf.get(String(edge.id)) ?? "") ? 0.45 : 0.08),
+      lineDash: (edge) => (peeking.has(tagOf.get(String(edge.id)) ?? "") ? [5, 4] : []),
+      endArrow: false,
+    };
+    g.setEdge({ style: edgeStyle.current });
     // Keep G6's brush state in step with the selection (it is cleared outside the graph too).
     const brushStates: Record<string, string[]> = {};
     for (const b of workspace.bookmarks) {
@@ -1049,7 +1086,7 @@ export function GraphCanvas({
       .catch((e) => {
         if (graph.current === g) setError(String(e));
       });
-  }, [ready, selected, query, matchingBookmarkIds, filtering, hiddenTagIds, peekTagIds, workspace, emphasis]);
+  }, [ready, selected, query, matchingBookmarkIds, filtering, hiddenTagIds, peekTagIds, workspace, emphasis, colors]);
   async function action(work: (g: Graph) => Promise<unknown>) {
     if (!graph.current || !ready) return;
     autoFit.current = false;

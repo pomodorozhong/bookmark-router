@@ -6,6 +6,8 @@ import { exitPoint, tagGeometry } from "./tag-shapes";
 export interface TagNodeStyleProps extends BaseNodeStyleProps {
   tagStyle?: TagStyle;
   points?: Direction;
+  /** The shipping tag's ring, drawn translucent over the fill. */
+  ringFill?: string;
 }
 type Attributes = Required<TagNodeStyleProps>;
 
@@ -16,8 +18,8 @@ class TagNode extends BaseNode<TagNodeStyleProps> {
     return tagGeometry(attributes.tagStyle ?? "price-tag", this.getSize(attributes)[0], attributes.points);
   }
   protected drawKeyShape(attributes: Attributes, container: Group) {
-    const { tagStyle, points, ...style } = this.getKeyStyle(attributes) as Record<string, unknown>;
-    void tagStyle, void points;
+    const { tagStyle, points, ringFill, ...style } = this.getKeyStyle(attributes) as Record<string, unknown>;
+    void tagStyle, void points, void ringFill;
     return this.upsert("key", GPath, { ...style, d: this.tagOutline(attributes).d, fillRule: "evenodd" }, container);
   }
   // Links meet the tag's own outline rather than its bounding box, which the pointed
@@ -44,7 +46,7 @@ class TagNode extends BaseNode<TagNodeStyleProps> {
     // The shipping tag's lighter ring around its hole.
     const ring = this.tagOutline(attributes).ring;
     this.upsert("ring", GCircle,
-      ring ? { cx: ring.at[0], cy: ring.at[1], r: ring.r, fill: "#fff", fillOpacity: 0.28 * Number(attributes.fillOpacity ?? 1), pointerEvents: "none" } : false,
+      ring ? { cx: ring.at[0], cy: ring.at[1], r: ring.r, fill: attributes.ringFill ?? "#fff", fillOpacity: 0.28 * Number(attributes.fillOpacity ?? 1), pointerEvents: "none" } : false,
       container);
   }
 }
