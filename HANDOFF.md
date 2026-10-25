@@ -6,10 +6,10 @@
 
 - **Task:** #21 Hidden nodes overlap shown nodes after Reset positions. Branched from `main` `3b4e6bc`.
 - **PR:** none.
-- **Code checkpoint:** `8bf3c7b` fix(graph): place hidden nodes in free space when resetting positions.
-- **State:** fix built. After the shown nodes settle, `resetPositions` gives each hidden, unpinned node a free spot beside a linked node through `placeNear`'s new optional `radius` argument (`app/src/components/graph-placement.ts`). No visual design change, so no mockup.
-- **Verification (2026-10-25, at `8bf3c7b`):** `npm run build` and `npm test` (117 pass) on the working tree. Headless Chrome on a collection copy: hide Topic, Reset positions, show Topic. Before the fix the Topic tags came back bunched at the right edge outside the layout; after it they sit beside their bookmarks inside the fitted view with no overlaps. Not yet run after a fresh `npm ci` in a clean worktree.
-- **Next action:** the user tries the "You try" tasks; record acceptance on #21, then open the PR with the `open-pr` skill.
+- **Code checkpoint:** `5733208` fix(graph): keep a hidden type's bookmarks around their tags during a reset (on top of `8bf3c7b`).
+- **State:** the user's first review found re-shown tags far from their bookmarks; they chose option B (2026-10-25). A reset now lays out shown nodes plus the hidden tags of shown bookmarks (undrawn, via `laidOutHidden` in `GraphCanvas.tsx`); other hidden nodes take free spots from `placeNear`, which now starts from the middle of all placed neighbors. While a type is hidden, its bookmarks group around empty spots; that is the accepted trade-off.
+- **Verification (2026-10-25, at `5733208`):** `npm run build` and `npm test` (118 pass). Headless Chrome on a collection copy, hide Topic → Reset → show Topic: median Topic link 1564 on `main`, 685 at `8bf3c7b`, 165 now; no overlaps; Done tab still fits at 29%. Not yet run after a fresh `npm ci` in a clean worktree.
+- **Next action:** the user re-reviews on their collection (dev server on this branch at `127.0.0.1:5199`); record acceptance on #21, then open the PR with the `open-pr` skill.
 
 ## Ranked work
 
