@@ -4,12 +4,12 @@
 
 ### fix/hidden-nodes-overlap
 
-- **Task:** #21 Hidden nodes overlap shown nodes after Reset positions. Branched from `main` `3b4e6bc` (after stack 3, #77–#82) and linked to #21 on GitHub on 2026-10-24.
+- **Task:** #21 Hidden nodes overlap shown nodes after Reset positions. Branched from `main` `3b4e6bc`.
 - **PR:** none.
-- **Code checkpoint:** none; no source work started. The branch contains only `docs:` handoff commits.
-- **State:** not investigated. Per the issue, **Layout → Reset positions** leaves hidden nodes at their old positions, so peeking or re-shown nodes can overlap shown ones or sit off-screen. The reset lives in `app/src/components/GraphCanvas.tsx` (`resetPositions`). Planning and repository cleanup completed on 2026-10-25: milestone #2 and issues #83–#84 now capture the Agent-assisted imports work after #21; milestone #1 and seven merged branches were removed from the active surface.
-- **Verification:** the branch link to #21 and the absence of a PR were verified on GitHub on 2026-10-25. No app checks were run because no app code changed; `git diff --check` passed.
-- **Next action:** reproduce on a copy of the collection (hide a tag type with **Show**, run **Layout → Reset positions**, show the type again), then propose the fix. If the result changes what the user sees, mockup first.
+- **Code checkpoint:** `8bf3c7b` fix(graph): place hidden nodes in free space when resetting positions.
+- **State:** fix built. After the shown nodes settle, `resetPositions` gives each hidden, unpinned node a free spot beside a linked node through `placeNear`'s new optional `radius` argument (`app/src/components/graph-placement.ts`). No visual design change, so no mockup.
+- **Verification (2026-10-25, at `8bf3c7b`):** `npm run build` and `npm test` (117 pass) on the working tree. Headless Chrome on a collection copy: hide Topic, Reset positions, show Topic. Before the fix the Topic tags came back bunched at the right edge outside the layout; after it they sit beside their bookmarks inside the fitted view with no overlaps. Not yet run after a fresh `npm ci` in a clean worktree.
+- **Next action:** the user tries the "You try" tasks; record acceptance on #21, then open the PR with the `open-pr` skill.
 
 ## Ranked work
 
