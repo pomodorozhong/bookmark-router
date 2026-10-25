@@ -5,11 +5,12 @@
 ### fix/hidden-nodes-overlap
 
 - **Task:** #21 Hidden nodes overlap shown nodes after Reset positions. Branched from `main` `3b4e6bc`.
-- **PR:** none.
+- **PR:** opened from tip after this commit; closes #21.
 - **Code checkpoint:** `5733208` fix(graph): keep a hidden type's bookmarks around their tags during a reset (on top of `8bf3c7b`).
 - **State:** the user's first review found re-shown tags far from their bookmarks; they chose option B (2026-10-25). A reset now lays out shown nodes plus the hidden tags of shown bookmarks (undrawn, via `laidOutHidden` in `GraphCanvas.tsx`); other hidden nodes take free spots from `placeNear`, which now starts from the middle of all placed neighbors. While a type is hidden, its bookmarks group around empty spots; that is the accepted trade-off.
 - **Verification (2026-10-25, at `5733208`):** `npm run build` and `npm test` (118 pass). Headless Chrome on a collection copy, hide Topic → Reset → show Topic: median Topic link 1564 on `main`, 685 at `8bf3c7b`, 165 now; no overlaps; Done tab still fits at 29%. Not yet run after a fresh `npm ci` in a clean worktree.
-- **Next action:** the user re-reviews on their collection (dev server on this branch at `127.0.0.1:5199`); record acceptance on #21, then open the PR with the `open-pr` skill.
+- **Approval requests:** none open. The user accepted the review on their collection and approved opening the PR (2026-10-25).
+- **Next action:** after the PR merges, start the next ranked item from `main`.
 
 ## Ranked work
 
