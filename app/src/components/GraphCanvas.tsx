@@ -165,6 +165,8 @@ export function GraphCanvas({
     pins = useRef(new Set<string>()),
     // Nodes the filters hide; they keep their place while the shown ones lay out.
     hiddenNodes = useRef(new Set<string>()),
+    // Hidden nodes that still move during a reset (see resetPositions).
+    laidOutHidden = useRef(new Set<string>()),
     frozen = useRef(false),
     // Nodes allowed to move while the rest of the layout is frozen.
     settling = useRef(new Set<string>()),
@@ -377,8 +379,15 @@ export function GraphCanvas({
     }
     const sim = simulation.current;
     if (!sim) return;
-    // Lay out only what is shown: hidden nodes hold still and exert no force.
-    const hidden = (node: ForceNode | string | number) => hiddenNodes.current.has(typeof node === "object" ? node.id : String(node));
+    // Lay out what is shown, plus hidden tags of shown bookmarks: they are not
+    // drawn, but keep their bookmarks together around the spot they come back to.
+    // Other hidden nodes hold still and exert no force.
+    const linked = new Set(workspace.memberships.filter((m) => !hiddenNodes.current.has(m.bookmarkId)).map((m) => m.tagId));
+    laidOutHidden.current = new Set([...hiddenNodes.current].filter((id) => linked.has(id)));
+    const hidden = (node: ForceNode | string | number) => {
+      const id = typeof node === "object" ? node.id : String(node);
+      return hiddenNodes.current.has(id) && !laidOutHidden.current.has(id);
+    };
     (sim.force("charge") as ReturnType<typeof forceManyBody<ForceNode>> | undefined)?.strength((n) => (hidden(n) ? 0 : -250));
     (sim.force("collide") as ReturnType<typeof forceCollide<ForceNode>> | undefined)?.radius((n) => (hidden(n) ? 0 : collideRadius(n.id)));
     (sim.force("link") as ReturnType<typeof forceLink<ForceNode, SimulationLinkDatum<ForceNode>>> | undefined)?.strength((l) => (hidden(l.source as ForceNode) || hidden(l.target as ForceNode) ? 0 : 0.45));
@@ -398,8 +407,9 @@ export function GraphCanvas({
     sim.stop();
     sim.alpha(1);
     while (sim.alpha() > sim.alphaMin()) sim.tick();
-    // Then give hidden nodes free spots beside their links, so they don't land
-    // on shown nodes or far away when shown again.
+    laidOutHidden.current = new Set();
+    // Then give the other hidden nodes free spots beside their links, so they
+    // don't land on shown nodes or far away when shown again.
     const left = sim.nodes().filter((n) => hidden(n) && !pins.current.has(n.id));
     const placed = new Map(sim.nodes().filter((n) => !left.includes(n)).map((n) => [n.id, [n.x ?? 0, n.y ?? 0] as const]));
     const center: Point = placed.size
@@ -540,7 +550,7 @@ export function GraphCanvas({
       for (const node of sim.nodes()) {
         if (dragging.current.has(node.id)) continue;
         const datum = graph.current?.getNodeData(node.id);
-        if ((frozen.current && !settling.current.has(node.id)) || pins.current.has(node.id) || hiddenNodes.current.has(node.id)) {
+        if ((frozen.current && !settling.current.has(node.id)) || pins.current.has(node.id) || (hiddenNodes.current.has(node.id) && !laidOutHidden.current.has(node.id))) {
           node.fx = Number(datum?.style?.x ?? node.x ?? 0);
           node.fy = Number(datum?.style?.y ?? node.y ?? 0);
         } else {

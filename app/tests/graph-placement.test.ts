@@ -42,3 +42,10 @@ test("with radii, nodes land in free space beside their links", () => {
   assert.ok(distance(result.get("tag-a")!, placed.get("b1")!) < distance(result.get("tag-a")!, placed.get("b23")!));
   assert.ok(distance(result.get("tag-b")!, placed.get("b23")!) < distance(result.get("tag-b")!, placed.get("b1")!));
 });
+
+test("a node linked to several placed nodes starts among them", () => {
+  const placed = new Map([["b1", [0, 0] as const], ["b2", [600, 0] as const], ["b3", [300, 500] as const]]);
+  const memberships = ["b1", "b2", "b3"].map((bookmarkId) => ({ bookmarkId, tagId: "tag" }));
+  const result = placeNear(["tag"], placed, memberships, [0, 0], () => 40);
+  assert.ok(distance(result.get("tag")!, [300, 167]) < 120);
+});
