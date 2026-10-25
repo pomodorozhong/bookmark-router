@@ -54,7 +54,8 @@ export type Command =
       };
     }
   | { type: "tag-type.create"; name: string; appearance: TagType["appearance"] }
-  | { type: "tag.create"; name: string; typeId?: string }
+  /** `id` lets a batch link bookmarks to the tag before it exists; it is generated when omitted. */
+  | { type: "tag.create"; name: string; typeId?: string; id?: string }
   | { type: "membership.set"; bookmarkId: string; tagId: string; linked: boolean }
   | {
       type: "tag.status";
@@ -181,8 +182,11 @@ export function applyCommand(
       w.tags.some((t) => t.name === name && t.typeId === command.typeId)
     )
       throw new Error("Choose a new tag name.");
+    const id = command.id ?? crypto.randomUUID();
+    if (!id.trim() || [...w.bookmarks, ...w.tags].some((r) => r.id === id))
+      throw new Error("Choose a new tag ID.");
     w.tags.push({
-      id: crypto.randomUUID(),
+      id,
       name,
       typeId: command.typeId,
       statusId: w.statuses[0].id,
