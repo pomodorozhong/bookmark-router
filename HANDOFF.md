@@ -10,7 +10,6 @@
 - **State:** not investigated. Per the issue, **Layout → Reset positions** leaves hidden nodes at their old positions, so peeking or re-shown nodes can overlap shown ones or sit off-screen. The reset lives in `app/src/components/GraphCanvas.tsx` (`resetPositions`). Planning and repository cleanup completed on 2026-10-25: milestone #2 and issues #83–#84 now capture the Agent-assisted imports work after #21; milestone #1 and seven merged branches were removed from the active surface.
 - **Verification:** the branch link to #21 and the absence of a PR were verified on GitHub on 2026-10-25. No app checks were run because no app code changed; `git diff --check` passed.
 - **Next action:** reproduce on a copy of the collection (hide a tag type with **Show**, run **Layout → Reset positions**, show the type again), then propose the fix. If the result changes what the user sees, mockup first.
-- **Pending P-06 — Push the handoff commit.** Approval is needed to push this branch's new `docs:` commit; until then, another computer cannot retrieve the updated ranked work and cleanup state.
 
 ## Ranked work
 
