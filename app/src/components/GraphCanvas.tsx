@@ -398,6 +398,15 @@ export function GraphCanvas({
     sim.stop();
     sim.alpha(1);
     while (sim.alpha() > sim.alphaMin()) sim.tick();
+    // Then give hidden nodes free spots beside their links, so they don't land
+    // on shown nodes or far away when shown again.
+    const left = sim.nodes().filter((n) => hidden(n) && !pins.current.has(n.id));
+    const placed = new Map(sim.nodes().filter((n) => !left.includes(n)).map((n) => [n.id, [n.x ?? 0, n.y ?? 0] as const]));
+    const center: Point = placed.size
+      ? [[...placed.values()].reduce((sum, p) => sum + p[0], 0) / placed.size, [...placed.values()].reduce((sum, p) => sum + p[1], 0) / placed.size]
+      : [0, 0];
+    const spots = placeNear(left.map((n) => n.id), placed, workspace.memberships, center, collideRadius);
+    for (const n of left) [n.x, n.y] = spots.get(n.id)!;
     const g = graph.current;
     if (g && renderedGraph.current === g) {
       const ids = new Set(g.getNodeData().map((node) => node.id));
