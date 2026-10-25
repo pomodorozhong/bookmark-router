@@ -1,6 +1,6 @@
 # Untangle: find the best next bookmark to process
 
-Recorded October 25, 2026. This is a feature plan, not current app behavior. The user chose the direction below and requested that it be documented. The clickable mockup, implementation, issue filing, and publication are still to come.
+Recorded October 25, 2026. This is a feature plan, not current app behavior. The user chose the direction below and approved filing [#90](https://github.com/pomodorozhong/bookmark-router/issues/90) and publishing the documentation branch. The issue is filed and `docs/untangle-plan` is published; the clickable mockup and implementation are still to come.
 
 ## Goal and inspiration
 
@@ -61,7 +61,7 @@ The recommendation describes the best measured **next step**, not a globally opt
 
 Follow [the change workflow](workflow.md#how-each-change-works):
 
-1. Obtain approval to file one feature issue using the draft retained in `HANDOFF.md`. The documentation branch only records the plan; link the eventual implementation branch to the feature issue when it will fully resolve it.
+1. Track the feature in [#90](https://github.com/pomodorozhong/bookmark-router/issues/90), filed with the user's approval on October 25, 2026. The documentation branch only records the plan; link the eventual implementation branch to the feature issue when it will fully resolve it.
 2. Deliver a working clickable mockup using a disposable copy of the real collection. Include the SCRNSHTS example, dense-cluster fallback, step-by-step trace, impact preview, and phone layout. Record the user's mockup approval on the issue before implementation.
 3. Build on a feature branch from the then-current `main` after the mockup is approved.
 4. Verify the behavior locally with a copied collection on a separate origin, following [the real-collection verification recipe](workflow.md#verifying-on-the-real-collection). Do not restore into or reload a pending agent batch on the user's `127.0.0.1:5199` origin without approval.
@@ -84,4 +84,4 @@ Verify desktop and narrow layouts, trace controls, preview exit, recommendation 
 
 ## Resume state
 
-Only the plan and handoff have been documented. No Untangle source implementation, mockup, or feature issue was created in this session. The next feature deliverable is the clickable mockup after issue-filing approval. The feature has no dependency on the already merged agent-import implementation.
+The plan and handoff are documented, the documentation branch is published, and the feature is tracked in [#90](https://github.com/pomodorozhong/bookmark-router/issues/90). No Untangle source implementation or mockup has started. The next feature deliverable is the clickable mockup for approval. The feature has no dependency on the already merged agent-import implementation.
