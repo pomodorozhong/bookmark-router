@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Icon, Kbd } from "./Icon";
 import type { Command } from "../domain/commands";
 import type { SavedView, Workspace } from "../domain/model";
@@ -11,12 +11,14 @@ type Open = { what: "show" | "filters" | "saved" | "sheet" } | { what: "edit"; i
  * Filters holds the chips: its menu lists the ones that are on and adds new ones; a chip opens its values.
  * In the phone layout (compact) Show, Filters and Saved filters share one sheet behind a single Filters button.
  */
-export function FilterBar({ workspace, filter, tab, searchRef, compact = false, onChange, save }: {
+export function FilterBar({ workspace, filter, tab, searchRef, compact = false, highlight, onChange, save }: {
   workspace: Workspace;
   filter: TriageFilter;
   tab: TriageTab;
   searchRef: RefObject<HTMLInputElement | null>;
   compact?: boolean;
+  /** The highlight's segment, last in the joined box; in the phone layout, its picker. */
+  highlight?: ReactNode;
   onChange: (next: TriageFilter) => void;
   save: (command: Command, label?: string) => Promise<void>;
 }) {
@@ -38,7 +40,8 @@ export function FilterBar({ workspace, filter, tab, searchRef, compact = false, 
   }
   useEffect(() => {
     if (!open) return;
-    const outside = (e: PointerEvent) => { if (!root.current?.contains(e.target as Node)) close(); };
+    // The highlight's picker shares this bar but is its own menu, so opening it closes these.
+    const outside = (e: PointerEvent) => { if (!root.current?.contains(e.target as Node) || (e.target as Element).closest?.(".highlight-anchor")) close(); };
     // Esc closes the menu only, before the triage screen's own Esc handling sees it.
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
     document.addEventListener("pointerdown", outside);
@@ -194,6 +197,7 @@ export function FilterBar({ workspace, filter, tab, searchRef, compact = false, 
         </div>
       )}
       {editing !== undefined && filter.rules[editing] && editor(editing)}
+      {highlight}
     </div>
   );
 
@@ -231,6 +235,7 @@ export function FilterBar({ workspace, filter, tab, searchRef, compact = false, 
           )}
           {editing !== undefined && filter.rules[editing] && editor(editing)}
         </span>
+        {highlight}
       </div>
       <span className="filter-anchor">
         <button className="filter-saved" aria-expanded={open?.what === "saved"} aria-haspopup="dialog" onClick={() => toggle("saved")}>

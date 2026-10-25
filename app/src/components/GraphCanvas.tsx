@@ -48,7 +48,7 @@ function readGraphColors() {
     nodeDone: role("--color-graph-node-done", "#eef2f0"), nodeDoneLine: role("--color-graph-node-done-line", "#cbd5d1"),
     label: role("--color-graph-label", "#475569"), labelStrong: role("--color-graph-label-strong", "#183e35"), labelBackground: role("--color-graph-label-bg", "#ffffff"),
     tagLabel: role("--color-graph-tag-label", "#294d41"), tagLabelBackground: role("--color-graph-tag-label-bg", "#f8faf9"), onTag: role("--color-graph-on-tag", "#ffffff"),
-    edge: role("--color-graph-edge", "#93aca7"), accent: role("--color-accent", "#0f766e"), selection: role("--color-selection", "#183e3b"),
+    edge: role("--color-graph-edge", "#93aca7"), accent: role("--color-accent", "#0f766e"), selection: role("--color-selection", "#183e3b"), mark: role("--color-graph-mark", "#c2570c"),
     tile: role("--color-tile", "#e8f3f2"), tileLine: role("--color-tile-line", "#a5ccc9"), onTile: role("--color-on-tile", "#115e59"), iconBackground: role("--color-surface-muted", "#f4f7f6"),
   };
 }
@@ -116,6 +116,9 @@ export function GraphCanvas({
   onImport, onClearSearch, onShowList,
   loadMedia,
   boxSelection,
+  highlightIds,
+  fadeRest = false,
+  onHighlight,
   onBoxSelect,
   onCenter,
   compact = false,
@@ -126,6 +129,12 @@ export function GraphCanvas({
   compact?: boolean;
   /** Bookmarks in the current box selection. */
   boxSelection?: ReadonlySet<string>;
+  /** Bookmarks the tag highlight matches: ringed with a wide glow, without changing what is shown. */
+  highlightIds?: ReadonlySet<string>;
+  /** Fades bookmarks the highlight doesn't match. */
+  fadeRest?: boolean;
+  /** Opens the highlight picker from the phone layout's View menu. */
+  onHighlight?: () => void;
   /** Called when a box is drawn on empty canvas; `adding` when Shift was held. */
   onBoxSelect?: (ids: string[], adding: boolean) => void;
   loadMedia?: (id: string) => Promise<{ blob: Blob } | undefined>;
@@ -182,12 +191,12 @@ export function GraphCanvas({
   const hovered = useRef<string | undefined>(undefined);
   const onBoxSelectRef = useRef(onBoxSelect);
   onBoxSelectRef.current = onBoxSelect;
-  // Triage emphasis: the selected bookmark's groups, bookmarks sharing them, and the box selection.
+  // Triage emphasis: the selected bookmark's groups, bookmarks sharing them, the box selection, and the tag highlight.
   const emphasis = useMemo(() => {
     const groups = new Set(workspace.memberships.filter((m) => m.bookmarkId === selected).map((m) => m.tagId));
     const related = new Set(workspace.memberships.filter((m) => groups.has(m.tagId) && m.bookmarkId !== selected).map((m) => m.bookmarkId));
-    return { groups, related, box: boxSelection ?? new Set<string>() };
-  }, [workspace.memberships, selected, boxSelection]);
+    return { groups, related, box: boxSelection ?? new Set<string>(), marked: highlightIds ?? new Set<string>() };
+  }, [workspace.memberships, selected, boxSelection, highlightIds]);
   const emphasisRef = useRef(emphasis);
   emphasisRef.current = emphasis;
   const bookmarks = useMemo(() => new Map(workspace.bookmarks.map((b) => [b.id, b])), [workspace.bookmarks]);
@@ -265,9 +274,10 @@ export function GraphCanvas({
   function labelStyle(node: NodeData, scale: number): NonNullable<NodeData["style"]> {
     const c = colorsRef.current;
     if (!node.data?.tag) {
-      const { related, box } = emphasisRef.current;
+      const { related, box, marked } = emphasisRef.current;
       const shown = scale >= bookmarkLabelMinZoom || node.id === selectedRef.current || node.id === hovered.current
-        || (related.has(node.id) && related.size <= emphasisLabelLimit) || (box.has(node.id) && box.size <= emphasisLabelLimit);
+        || (related.has(node.id) && related.size <= emphasisLabelLimit) || (box.has(node.id) && box.size <= emphasisLabelLimit)
+        || (marked.has(node.id) && marked.size <= emphasisLabelLimit);
       // Images show with the title once the bookmark is big enough to read; far out they are too small.
       const bookmark = bookmarksRef.current.get(node.id);
       const image = shown && scale >= bookmarkImageMinZoom ? bookmarkImage(bookmark) ?? letterImage(bookmark) : undefined;
@@ -834,11 +844,14 @@ export function GraphCanvas({
       layouts++;
     });
     const observer = new ResizeObserver(() => {
-      if (!canceled && container.current && container.current.clientWidth > 0 && container.current.clientHeight > 0)
+      if (!canceled && container.current && container.current.clientWidth > 0 && container.current.clientHeight > 0) {
         g.setSize(
           container.current.clientWidth,
           container.current.clientHeight,
         );
+        // Pins sit in screen pixels, so they move with the new size.
+        drawPinsRef.current();
+      }
     });
     observer.observe(container.current);
     void g
@@ -1045,7 +1058,10 @@ export function GraphCanvas({
       visibility[m.id] = matching.has(m.bookmarkId) && !hiddenTagIds.includes(m.tagId) ? "visible" : "hidden";
     // Triage emphasis: the current bookmark with its groups and related bookmarks
     // stays strong, the box selection is outlined, and everything else fades.
-    const { groups, related, box } = emphasis;
+    // Highlighted bookmarks get a thick ring and a wide glow, so they stand out by size as well as color; with fadeRest, the others fade too.
+    const { groups, related, box, marked } = emphasis;
+    const fading = fadeRest && marked.size > 0;
+    const markedTags = new Set(workspace.memberships.filter((m) => marked.has(m.bookmarkId)).map((m) => m.tagId));
     const focusing = Boolean(selected && workspace.bookmarks.some((b) => b.id === selected));
     const decided = new Set(workspace.statuses.filter((s) => s.outcome !== "active").map((s) => s.id));
     const peeking = new Set(peekTagIds);
@@ -1054,7 +1070,7 @@ export function GraphCanvas({
       ...workspace.tags.map((tag) => ({
         id: tag.id,
         style: {
-          opacity: !focusing || groups.has(tag.id) ? 1 : 0.28,
+          opacity: Math.min(!focusing || groups.has(tag.id) ? 1 : 0.28, !fading || markedTags.has(tag.id) ? 1 : 0.35),
           stroke: appearanceFor(tag, workspace).color,
           lineWidth: peeking.has(tag.id) ? 2.5 : 1,
           lineDash: peeking.has(tag.id) ? [5, 4] : [],
@@ -1063,18 +1079,18 @@ export function GraphCanvas({
         },
       })),
       ...workspace.bookmarks.map((b) => {
-        const current = b.id === selected, inBox = box.has(b.id), done = decided.has(b.statusId);
+        const current = b.id === selected, inBox = box.has(b.id), done = decided.has(b.statusId), mark = marked.has(b.id);
         return {
           id: b.id,
           style: {
-            opacity: !focusing || current || related.has(b.id) || inBox ? 1 : 0.18,
-            stroke: current ? accent : inBox ? selection : done ? colors.nodeDoneLine : colors.nodeLine,
-            lineWidth: current ? 4 : inBox ? 3 : 2,
+            opacity: Math.min(!focusing || current || related.has(b.id) || inBox ? 1 : 0.18, !fading || mark || current ? 1 : 0.3),
+            stroke: current ? accent : inBox ? selection : mark ? colors.mark : done ? colors.nodeDoneLine : colors.nodeLine,
+            lineWidth: current ? 4 : inBox || mark ? 3 : 2,
             fill: done ? colors.nodeDone : colors.node,
-            halo: current || inBox,
-            haloStroke: current ? accent : selection,
-            haloLineWidth: current ? 14 : 8,
-            haloStrokeOpacity: current ? 0.25 : 0.16,
+            halo: current || inBox || mark,
+            haloStroke: current ? accent : inBox ? selection : colors.mark,
+            haloLineWidth: current ? 14 : mark && !inBox ? 30 : 8,
+            haloStrokeOpacity: current ? 0.25 : mark && !inBox ? 0.3 : 0.16,
           },
         };
       }),
@@ -1083,7 +1099,7 @@ export function GraphCanvas({
     edgeStyle.current = {
       stroke: (edge) => (edge.source === selected ? accent : colors.edge),
       lineWidth: (edge) => edgeWidth(g.getZoom(), edge.source === selected),
-      opacity: (edge) => (!focusing || edge.source === selected ? 1 : groups.has(tagOf.get(String(edge.id)) ?? "") ? 0.45 : 0.08),
+      opacity: (edge) => Math.min(!focusing || edge.source === selected ? 1 : groups.has(tagOf.get(String(edge.id)) ?? "") ? 0.45 : 0.08, !fading || marked.has(String(edge.source)) ? 1 : 0.15),
       lineDash: (edge) => (peeking.has(tagOf.get(String(edge.id)) ?? "") ? [5, 4] : []),
       endArrow: false,
     };
@@ -1105,7 +1121,7 @@ export function GraphCanvas({
       .catch((e) => {
         if (graph.current === g) setError(String(e));
       });
-  }, [ready, selected, query, matchingBookmarkIds, filtering, hiddenTagIds, peekTagIds, workspace, emphasis, colors]);
+  }, [ready, selected, query, matchingBookmarkIds, filtering, hiddenTagIds, peekTagIds, workspace, emphasis, fadeRest, colors]);
   async function action(work: (g: Graph) => Promise<unknown>) {
     if (!graph.current || !ready) return;
     autoFit.current = false;
@@ -1203,6 +1219,7 @@ export function GraphCanvas({
                 <span className="zoom-value">{Math.round(zoom * 100)}%</span>
                 <IconButton label="Zoom in" icon="zoom-in" onClick={zoomIn} />
               </div>
+              {onHighlight && <><hr /><button role="menuitem" onClick={() => { setLayoutOpen(false); onHighlight(); }}><Icon name="tag" size={15} /> Highlight by tag…</button></>}
               <hr />
               {layoutItems}
             </div>
