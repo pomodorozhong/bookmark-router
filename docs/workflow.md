@@ -38,4 +38,6 @@ Local data to keep in mind:
 - Create `node_modules/.tmp-verify` before converting; the script does not create it.
 - Let the graph finish placing at desktop width before emulating a narrow one. Resizing while it shows "Placing your collection…" left it stuck in headless runs (on `main` too; not seen in a real browser). Use the **Whole collection** button to fit it to the new width.
 - If a run fails, kill its Chrome (`pkill -f remote-debugging-port=<port>`) before the next one, or the next run attaches to the old page.
+- After a `git rebase` (such as folding in `fixup!` commits) while the Vite dev server runs, it can keep serving an intermediate `styles.css`: new rules were missing until the server restarted (2026-10-24). Restart the server after a rebase before checking styles.
+- Reusing one `--user-data-dir` across headless runs keeps the restored collection in IndexedDB, so restore once per profile. The profile then holds a copy of the collection: delete it when done.
 - Use the toolbar's zoom buttons, not wheel events (those pan the saved view away). localStorage does not survive between headless runs, so pick the restored collection from the Collections menu each run, or check reloads within one run.
