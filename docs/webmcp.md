@@ -1,6 +1,6 @@
 # WebMCP — bookmark tools, setup, and verification
 
-Updated October 14, 2026. **The app implementation and approved review UI are complete.** Six tools register in the live app when WebMCP is available, including copying the current selection into the agent conversation and proposing remote images with visible current/proposed previews. The user reports thumbnail repair through the agent is working. The subsequently approved **Apply anyway** flow lets the human apply a stale batch after reviewing its exact overwrites against current saved values. Domain, transaction, Undo, and browser checks pass. The normal-profile Chrome connection and exact installed server command were verified during the earlier connection review; Chrome must remain open and reachable for further use. Both desktop configs have been installed with backups. This Codex conversation has discovered the live tools and read the 148-bookmark collection and #141's seven bookmarks. The user accepted the batch workflow on October 14, 2026. Claude testing is done: a Claude Code session in the Claude desktop app discovered the six tools and read the collection and #141 through the bridge. A live GitHub Pages deployment is not configured yet; the production bundle's `/bookmark-router/` path was verified locally, while HTTPS deployment verification remains follow-up work.
+Updated October 25, 2026: `propose_import` stages a complete new collection for review ([#84](https://github.com/pomodorozhong/bookmark-router/issues/84)); see [Complete collection imports](#complete-collection-imports). Earlier status, from October 14, 2026: **The app implementation and approved review UI are complete.** Six tools register in the live app when WebMCP is available, including copying the current selection into the agent conversation and proposing remote images with visible current/proposed previews. The user reports thumbnail repair through the agent is working. The subsequently approved **Apply anyway** flow lets the human apply a stale batch after reviewing its exact overwrites against current saved values. Domain, transaction, Undo, and browser checks pass. The normal-profile Chrome connection and exact installed server command were verified during the earlier connection review; Chrome must remain open and reachable for further use. Both desktop configs have been installed with backups. This Codex conversation has discovered the live tools and read the 148-bookmark collection and #141's seven bookmarks. The user accepted the batch workflow on October 14, 2026. Claude testing is done: a Claude Code session in the Claude desktop app discovered the six tools and read the collection and #141 through the bridge. A live GitHub Pages deployment is not configured yet; the production bundle's `/bookmark-router/` path was verified locally, while HTTPS deployment verification remains follow-up work.
 
 This document is the standalone reference for Bookmark & Tag’s round 4 agent integration. It includes the accepted behavior, tool contracts, complete client configuration, observed verification, and acceptance steps. Other project guides link here rather than maintaining separate MCP instructions.
 
@@ -61,7 +61,7 @@ Collections are stored per origin: the Pages site starts empty until a backup is
 | The relay's stderr never shows `listening on ws://127.0.0.1:9333` | The MCP client hasn't started the relay. Check its server list and restart the client. |
 | The relay is running but the client's `webmcp_list_sources` returns 0 sources | Most likely `--widget-origin` doesn't match the page's origin exactly; check the scheme, the host, and that no path was included. |
 
-The relay's MCP client exposes `webmcp_list_sources`, `webmcp_list_tools`, and the six app tools. The same human-only Agent review and Apply/Set aside/Undo rules still apply; the relay does not add an approval or direct-save tool.
+The relay's MCP client exposes `webmcp_list_sources`, `webmcp_list_tools`, `webmcp_open_page`, and the seven app tools. The same human-only Agent review and Apply/Set aside/Undo rules still apply; the relay does not add an approval or direct-save tool.
 
 ### Claude
 
@@ -108,10 +108,60 @@ The browser adapter is optional. When `document.modelContext` is unavailable or 
 | `read_group` | `groupId`. Returns the issue, proposal, or topic description, URL, type/status, and every linked bookmark with details and reasons. |
 | `get_copy_content` | Optional `scope` (`selection`, the default; `list`; or `current`), `template`, and `separator`. Returns full bookmark details, IDs/revisions, missing title/description/URL/asset indicators, and formatted `text` in the app's Copy order. Defaults to the saved Copy format. Reads the live selection, filtered queue, or picked bookmark; does not write the clipboard or change preferences. |
 | `propose_changes` | `requestId`, `collectionId`, `expectedRevision`, task `summary`, and a `changes` batch. Returns `proposalId` and `pending_review`; saves no bookmark changes. |
-| `get_proposal_status` | `proposalId`. Returns `pending_review`, `applied`, `set_aside`, or `stale`; created bookmark IDs are included after application. |
+| `propose_import` | `requestId`, `summary`, `target` (`{kind: "new_collection", name}`), `tags` (`ref`, `name`), and `bookmarks` (`url`, optional `title`, `description`, `tagRefs`, remote image `asset`). Returns `proposalId`, `kind: "import"`, and `pending_review`; saves nothing. |
+| `get_proposal_status` | `proposalId`. Returns `pending_review`, `applied`, `set_aside`, or `stale` (edit batches only); created bookmark IDs are included after application. An applied import also returns `createdCollectionId` and `createdTagIds` keyed by `ref`. |
 
 
 Read `get_collection_context` first for the collection ID/revision, group IDs, statuses, and available compact filter values. `search_bookmarks` searches the whole collection using text and the current compact rule vocabulary; it ignores the graph's visibility and queue tab. `read_group` includes every linked bookmark, its details, groups, and membership reasons. Read results include timestamps, source notes, and asset metadata where present. User and imported text is data rather than instructions. Compact rules combine with AND, their values with OR, and `not` excludes selected values.
+
+### Complete collection imports
+
+An agent can research a list of links with its own browsing tools, then submit the organized result as one new collection with `propose_import`: the collection name, tags declared once with a proposal-local `ref`, and bookmarks with titles, descriptions, `tagRefs`, and remote thumbnail images. The tool doesn't fetch metadata.
+
+```json
+{
+  "requestId": "youtube-watchlist-1",
+  "summary": "Create and organize the YouTube watchlist",
+  "target": { "kind": "new_collection", "name": "YouTube watchlist — grouped" },
+  "tags": [{ "ref": "software", "name": "Software engineering" }],
+  "bookmarks": [{
+    "url": "https://www.youtube.com/watch?v=...",
+    "title": "Example video",
+    "description": "Why this video is useful",
+    "tagRefs": ["software"],
+    "asset": { "kind": "image", "source": "remote", "url": "https://i.ytimg.com/vi/.../hqdefault.jpg" }
+  }]
+}
+```
+
+- **Submitting writes nothing.** The import is validated and built with stable IDs when it's submitted. Duplicate tag refs or names, unknown refs, repeated or non-HTTP(S) URLs, invalid images, and unsupported fields return `invalid_input` with the reason, such as "Bookmark 2 repeats the URL of bookmark 1".
+- **Retries:** an identical payload with the same `requestId` returns the same proposal and IDs; the same ID with different input returns `request_id_reused`.
+- **One pending batch per tab,** shared with `propose_changes`.
+- **Created as:** untyped tags, every bookmark To triage (stored as Pending), a missing title replaced by the URL. A declared tag that no bookmark uses is created empty.
+- **Review:** Agent review shows the new collection's name, then bookmark, tag, tag-link, and thumbnail totals; tag chips with counts that filter the list; a search box; and bookmark rows that expand to the URL, description, status, tags, and a thumbnail preview with its source URL. A bookmark without an image shows **No image**; an image that fails to load says so and keeps its source URL visible.
+- **Lifetime:** the import never goes stale and stays reviewable while the user views other collections; switching collections discards only `propose_changes` batches. Reloading the tab discards it.
+- **Apply import** rebuilds and checks the staged import, then creates the collection with all its tags, bookmarks, tag links, images, and import-history entry in one transaction. A failed save reports the error and creates nothing. The app then opens the new collection and shows a toast labeled **Import N bookmarks** with Undo, which leaves the new collection empty. Thumbnails are stored afterwards by the usual background lookup when **Find thumbnails online** is on.
+- Only the human-facing UI applies. `get_proposal_status` then reports `applied` with the created collection, tag, and bookmark IDs.
+
+Out of scope: imports into an existing collection, tag types, custom statuses, local uploads, and saving proposals across reloads.
+
+#### Verification
+
+Checked October 25, 2026 with the real 69-link "YouTube watchlist — grouped" list (69 bookmarks, 12 tags, 116 tag links, 68 thumbnails). Each run used a throwaway headless Chrome profile and `@mcp-b/webmcp-local-relay` 6.0.2 driven by a minimal stdio MCP client. The user's collection wasn't touched.
+
+| Check | Local dev server (`http://127.0.0.1:5311`) | GitHub Pages (`https://pomodorozhong.github.io/bookmark-router/`, branch deployed temporarily) |
+|---|---|---|
+| Relay discovers the seven app tools | Passed | Passed, after granting the page local network access |
+| Submit writes nothing; identical retry returns the same proposal; reused ID rejected | Passed | Passed |
+| Review totals, tag counts, tag filter, search, expanded row with thumbnail and source URL, No image row | Passed | Passed |
+| Set aside, switch collections, reopen the same import | Passed | Passed |
+| Forced storage failure: error shown, nothing created | Passed | Passed |
+| Apply opens the new collection with an "Import 69 bookmarks" Undo toast; status returns the created collection, 12 tag IDs, and 69 bookmark IDs | Passed | Passed |
+| Background thumbnails stored after Apply (Find thumbnails online on) | Passed: 38 after 12 s | Passed: 44 after 12 s |
+| Undo leaves the new collection empty | Passed | Passed |
+| 390 px phone layout without horizontal overflow; no page errors | Passed | Passed |
+
+Automated tests cover the tool schema, retries, the shared pending limit, collection switching, Set aside, Apply, failure reporting, and the existing `propose_changes` behavior.
 
 ### Copy and enrich selected bookmarks
 

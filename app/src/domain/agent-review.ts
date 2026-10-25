@@ -1,5 +1,6 @@
 import { applyCommand, ConflictError, DuplicateBookmarkError, type Command } from "./commands";
 import { storedUrlKey, urlKey, type Asset, type Bookmark, type Workspace } from "./model";
+import { ImportInputError, stageCollectionImport, type CollectionImportBookmark, type CollectionImportTag, type StagedCollectionImport } from "./collection-import";
 
 export type RemoteImage = Asset & { kind: "image"; source: "remote"; url: string };
 
@@ -28,6 +29,7 @@ export interface ProposalInput {
 }
 export type ProposalState = "pending_review" | "applied" | "set_aside" | "stale";
 export interface AgentProposal {
+  kind: "changes";
   id: string;
   input: ProposalInput;
   state: ProposalState;
@@ -37,6 +39,23 @@ export interface AgentProposal {
   before: Workspace;
   preview: Workspace;
 }
+export interface ImportProposalInput {
+  requestId: string;
+  summary: string;
+  target: { kind: "new_collection"; name: string };
+  tags: CollectionImportTag[];
+  bookmarks: CollectionImportBookmark[];
+}
+/** A complete new collection staged for review. It doesn't depend on the active collection, so it never goes stale. */
+export interface ImportProposal {
+  kind: "import";
+  id: string;
+  input: ImportProposalInput;
+  state: Exclude<ProposalState, "stale">;
+  /** Stable IDs are assigned once here; retries and Apply reuse them. */
+  staged: StagedCollectionImport;
+}
+export type ReviewProposal = AgentProposal | ImportProposal;
 export type ProposalField = keyof NonNullable<UpdateChange["patch"]>;
 export interface ProposalOverwrite {
   bookmarkId: string;
@@ -110,6 +129,24 @@ export function parseProposal(value: unknown): ProposalInput {
   });
   return { requestId: text(input.requestId, "Request ID"), collectionId: text(input.collectionId, "Collection ID"), expectedRevision: revision(input.expectedRevision), summary: text(input.summary, "Summary").trim(), changes };
 }
+export function parseImportProposal(value: unknown): ImportProposalInput {
+  const input = inputObject(value, ["requestId", "summary", "target", "tags", "bookmarks"]);
+  const target = inputObject(input.target, ["kind", "name"]);
+  if (target.kind !== "new_collection") throw new AgentInputError("Target kind must be new_collection.");
+  if (input.tags !== undefined && !Array.isArray(input.tags)) throw new AgentInputError("Tags must be an array.");
+  if (!Array.isArray(input.bookmarks) || !input.bookmarks.length) throw new AgentInputError("Include at least one bookmark.");
+  const tags = ((input.tags ?? []) as unknown[]).map((value) => {
+    const tag = inputObject(value, ["ref", "name"]);
+    return { ref: text(tag.ref, "Tag reference"), name: text(tag.name, "Tag name") };
+  });
+  const bookmarks = input.bookmarks.map((value): CollectionImportBookmark => {
+    const b = inputObject(value, ["url", "title", "description", "tagRefs", "asset"]);
+    if (b.tagRefs !== undefined && (!Array.isArray(b.tagRefs) || b.tagRefs.some((ref) => typeof ref !== "string" || !ref.trim())))
+      throw new AgentInputError("Tag references must be non-empty strings.");
+    return { url: text(b.url, "URL"), title: optionalText(b.title, "Title"), description: optionalText(b.description, "Description"), tagRefs: b.tagRefs as string[] | undefined, asset: b.asset === undefined ? undefined : remoteImage(b.asset) };
+  });
+  return { requestId: text(input.requestId, "Request ID"), summary: text(input.summary, "Summary").trim(), target: { kind: "new_collection", name: text(target.name, "Collection name").trim() }, tags, bookmarks };
+}
 function previewChanges(input: ProposalInput, source: Workspace, creationIds: string[]): { commands: Command[]; preview: Workspace } {
   if (input.collectionId !== source.id || input.expectedRevision !== source.revision) throw new ConflictError();
   let preview = source, createIndex = 0;
@@ -182,14 +219,14 @@ export function reviewAgentProposal(proposal: AgentProposal, workspace: Workspac
 
 /** Tab-local review state. Only the human-facing UI applies or sets batches aside. */
 export class AgentReviewSession {
-  private proposals = new Map<string, AgentProposal>();
+  private proposals = new Map<string, ReviewProposal>();
   private requestIds = new Map<string, string>();
   private applying = false;
   private currentId?: string;
   constructor(private readonly changed: () => void = () => {}) {}
-  get current(): AgentProposal | undefined { return this.currentId ? this.proposals.get(this.currentId) : undefined; }
-  get batches(): AgentProposal[] { return [...this.proposals.values()]; }
-  get pending(): AgentProposal | undefined { return this.batches.find((p) => p.state === "pending_review" || p.state === "stale"); }
+  get current(): ReviewProposal | undefined { return this.currentId ? this.proposals.get(this.currentId) : undefined; }
+  get batches(): ReviewProposal[] { return [...this.proposals.values()]; }
+  get pending(): ReviewProposal | undefined { return this.batches.find((p) => p.state === "pending_review" || p.state === "stale"); }
   select(id: string) {
     if (this.applying) throw new AgentInputError("Wait for the batch to finish saving.", "review_busy");
     if (!this.proposals.has(id)) throw new AgentInputError("Proposal is no longer available in this tab.", "proposal_not_found");
@@ -199,10 +236,21 @@ export class AgentReviewSession {
     if (this.applying) throw new AgentInputError("Wait for the batch to finish saving.", "review_busy");
     this.proposals.clear(); this.requestIds.clear(); this.currentId = undefined; this.changed();
   }
+  /** Switching collections discards edit batches for the old one; import proposals stay reviewable from any collection. */
+  discardCollectionBatches() {
+    if (this.applying) throw new AgentInputError("Wait for the batch to finish saving.", "review_busy");
+    for (const [id, proposal] of this.proposals) {
+      if (proposal.kind !== "changes") continue;
+      this.proposals.delete(id);
+      this.requestIds.delete(proposal.input.requestId);
+    }
+    if (this.currentId && !this.proposals.has(this.currentId)) this.currentId = this.pending?.id ?? this.batches.at(-1)?.id;
+    this.changed();
+  }
   refresh(workspace: Workspace) {
     let changed = false;
     for (const proposal of this.proposals.values()) {
-      if (proposal.state === "pending_review" && (proposal.input.collectionId !== workspace.id || proposal.input.expectedRevision !== workspace.revision)) {
+      if (proposal.kind === "changes" && proposal.state === "pending_review" && (proposal.input.collectionId !== workspace.id || proposal.input.expectedRevision !== workspace.revision)) {
         proposal.state = "stale"; changed = true;
       }
     }
@@ -211,20 +259,48 @@ export class AgentReviewSession {
   submit(value: unknown, workspace: Workspace): AgentProposal {
     const input = parseProposal(value);
     this.refresh(workspace);
-    const previous = this.requestIds.get(input.requestId);
+    const previous = this.retry(input);
     if (previous) {
-      const proposal = this.proposals.get(previous)!;
-      if (JSON.stringify(proposal.input) !== JSON.stringify(input)) throw new AgentInputError("This request ID already belongs to a different proposal.", "request_id_reused");
-      return proposal;
+      if (previous.kind !== "changes") throw new AgentInputError("This request ID already belongs to a different proposal.", "request_id_reused");
+      return previous;
     }
     if (this.applying || this.pending) throw new AgentInputError("Apply or set aside the pending batch before submitting another.", "review_pending");
     const createdBookmarkIds = input.changes.filter((c) => c.kind === "create").map(() => crypto.randomUUID());
     const { commands, preview } = previewChanges(input, workspace, createdBookmarkIds);
-    const proposal: AgentProposal = { id: crypto.randomUUID(), input: structuredClone(input), state: "pending_review", createdBookmarkIds, commands, before: structuredClone(workspace), preview };
+    const proposal: AgentProposal = { kind: "changes", id: crypto.randomUUID(), input: structuredClone(input), state: "pending_review", createdBookmarkIds, commands, before: structuredClone(workspace), preview };
     this.proposals.set(proposal.id, proposal); this.requestIds.set(input.requestId, proposal.id); this.currentId = proposal.id;
     this.changed(); return proposal;
   }
-  get(id: string, workspace: Workspace): AgentProposal {
+  /** Stages a complete new collection for review. Writes nothing. */
+  submitImport(value: unknown, workspace: Workspace): ImportProposal {
+    const input = parseImportProposal(value);
+    this.refresh(workspace);
+    const previous = this.retry(input);
+    if (previous) {
+      if (previous.kind !== "import") throw new AgentInputError("This request ID already belongs to a different proposal.", "request_id_reused");
+      return previous;
+    }
+    if (this.applying || this.pending) throw new AgentInputError("Apply or set aside the pending batch before submitting another.", "review_pending");
+    let staged: StagedCollectionImport;
+    try {
+      staged = stageCollectionImport({ name: input.target.name, source: `Agent: ${input.summary}`, tags: input.tags, bookmarks: input.bookmarks });
+    } catch (error) {
+      if (error instanceof ImportInputError) throw new AgentInputError(error.message);
+      throw error;
+    }
+    const proposal: ImportProposal = { kind: "import", id: crypto.randomUUID(), input: structuredClone(input), state: "pending_review", staged };
+    this.proposals.set(proposal.id, proposal); this.requestIds.set(input.requestId, proposal.id); this.currentId = proposal.id;
+    this.changed(); return proposal;
+  }
+  /** The proposal already submitted under this request ID, if its input is identical. */
+  private retry(input: ProposalInput | ImportProposalInput): ReviewProposal | undefined {
+    const previous = this.requestIds.get(input.requestId);
+    if (!previous) return undefined;
+    const proposal = this.proposals.get(previous)!;
+    if (JSON.stringify(proposal.input) !== JSON.stringify(input)) throw new AgentInputError("This request ID already belongs to a different proposal.", "request_id_reused");
+    return proposal;
+  }
+  get(id: string, workspace: Workspace): ReviewProposal {
     this.refresh(workspace);
     const proposal = this.proposals.get(id);
     if (!proposal) throw new AgentInputError("Proposal is no longer available in this tab.", "proposal_not_found");
@@ -238,6 +314,7 @@ export class AgentReviewSession {
   }
   async apply(id: string, workspace: Workspace, commit: (collectionId: string, expectedRevision: number, commands: Command[], label: string) => Promise<Workspace>, options?: { reviewedRevision: number }): Promise<Workspace> {
     const proposal = this.get(id, workspace);
+    if (proposal.kind !== "changes") throw new AgentInputError("Apply imports with applyImport.");
     if (this.applying) throw new AgentInputError("The batch is already saving.", "review_busy");
     const stale = proposal.state === "stale" || proposal.input.expectedRevision !== workspace.revision;
     if (proposal.state === "applied" || (stale && !options)) throw new ConflictError("Review the latest values and overwrite warning before applying this batch.");
@@ -254,5 +331,17 @@ export class AgentReviewSession {
       if (error instanceof ConflictError && proposal.state !== "set_aside") proposal.state = "stale";
       this.changed(); throw error;
     } finally { this.applying = false; }
+  }
+  /** Creates the staged collection through one atomic save. Only the human-facing UI calls this. */
+  async applyImport(id: string, create: (staged: StagedCollectionImport) => Promise<Workspace>): Promise<Workspace> {
+    const proposal = this.proposals.get(id);
+    if (!proposal || proposal.kind !== "import") throw new AgentInputError("Proposal is no longer available in this tab.", "proposal_not_found");
+    if (this.applying) throw new AgentInputError("The batch is already saving.", "review_busy");
+    if (proposal.state === "applied") throw new ConflictError("This import was already applied.");
+    this.applying = true;
+    try {
+      const saved = await create(proposal.staged);
+      proposal.state = "applied"; return saved;
+    } finally { this.applying = false; this.changed(); }
   }
 }

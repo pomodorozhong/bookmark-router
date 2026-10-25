@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import "fake-indexeddb/auto";
-import { AgentReviewSession, AgentInputError, hasGroup, reviewAgentProposal, type ProposalInput } from "../src/domain/agent-review";
+import { AgentReviewSession, AgentInputError, hasGroup, reviewAgentProposal, type AgentProposal, type ProposalInput } from "../src/domain/agent-review";
 import { applyCommand, ConflictError, DuplicateBookmarkError } from "../src/domain/commands";
 import { demoWorkspace } from "../src/domain/samples";
 import { WorkspaceStore } from "../src/domain/storage";
@@ -312,7 +312,7 @@ test("failed batch storage rolls back every operation and can be retried", async
 test("tools read all groups and statuses, use compact filter semantics, and return duplicate IDs without exposing approval", async () => {
   let w = demoWorkspace(); const session = new AgentReviewSession(), tools = createAgentTools({ session, getWorkspace: async () => w });
   const call = async (name: string, input: unknown = {}) => JSON.parse(await tools.find((t) => t.name === name)!.execute(input));
-  assert.deepEqual(tools.map((t) => t.name), ["get_collection_context", "search_bookmarks", "read_group", "get_copy_content", "propose_changes", "get_proposal_status"]);
+  assert.deepEqual(tools.map((t) => t.name), ["get_collection_context", "search_bookmarks", "read_group", "get_copy_content", "propose_changes", "propose_import", "get_proposal_status"]);
   assert.equal((await call("get_collection_context")).bookmarkCount, 12);
   const group = await call("read_group", { groupId: w.tags[0].id }); assert.equal(group.bookmarks.length, 5);
   const found = await call("search_bookmarks", { text: "Research", rules: [{ kind: "status", values: ["done"], not: true }] }); assert.equal(found.total, 5);
@@ -331,7 +331,7 @@ test("WebMCP is optional, registration uses abort cleanup, and failed or cancell
   assert.equal(detectWebMcp(undefined), undefined); assert.equal((await registerAgentTools(host)).available, false);
   const registered = new Map<string, WebMcpTool>();
   const context = { registerTool(tool: WebMcpTool, options: { signal: AbortSignal }) { registered.set(tool.name, tool); options.signal.addEventListener("abort", () => registered.delete(tool.name), { once: true }); } };
-  const handle = await registerAgentTools(host, context); assert.equal(handle.available, true); assert.equal(registered.size, 6);
+  const handle = await registerAgentTools(host, context); assert.equal(handle.available, true); assert.equal(registered.size, 7);
   handle.dispose(); assert.equal(registered.size, 0);
   await assert.rejects(registerAgentTools(host, { registerTool(tool, options) { context.registerTool(tool, options); if (tool.name === "read_group") throw new Error("Registration failed"); } }), /Registration failed/);
   assert.equal(registered.size, 0);
@@ -401,7 +401,7 @@ test("selected missing fields can be read, proposed, reviewed and undone without
   ];
   const result = await call("propose_changes", { requestId: "fill-selection", collectionId: selected.collectionId, expectedRevision: selected.revision, summary: "Fill missing titles and descriptions in selection", changes });
   assert.equal(result.state, "pending_review"); assert.deepEqual(await store.get(w.id), before);
-  const p = session.current!;
+  const p = session.current as AgentProposal;
   assert.equal(p.preview.bookmarks[0].missingTitle, false); assert.equal(p.preview.bookmarks[0].description, before.bookmarks[0].description);
   assert.equal(p.preview.bookmarks[1].title, before.bookmarks[1].title);
   assert.equal(p.preview.bookmarks[2].title, before.bookmarks[2].title); assert.equal(p.preview.bookmarks[2].description, before.bookmarks[2].description);
@@ -436,7 +436,7 @@ test("agent can fill a selected missing image while preserving existing assets a
   assert.equal(staged.state, "pending_review");
   assert.equal((await call("propose_changes", request)).proposalId, staged.proposalId);
   assert.deepEqual(await store.get(w.id), before); assert.equal(await store.nextUndo(w.id), undefined);
-  const proposal = session.current!, asset = { kind: "image", source: "remote", url: "https://images.example/cover.jpg" };
+  const proposal = session.current as AgentProposal, asset = { kind: "image", source: "remote", url: "https://images.example/cover.jpg" };
   assert.deepEqual(proposal.preview.bookmarks[0].asset, asset);
   assert.deepEqual(proposal.preview.bookmarks.slice(1), before.bookmarks.slice(1));
   assert.deepEqual(proposal.preview.memberships, before.memberships);

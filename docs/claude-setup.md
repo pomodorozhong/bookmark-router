@@ -10,7 +10,7 @@ Updated October 17, 2026. This guide covers the Claude-specific setup. The tools
 | Browsers | Chrome with WebMCP and remote debugging enabled | Any browser that allows the page to reach `127.0.0.1`, including the Claude desktop in-app browser for a page served from `127.0.0.1` |
 | App setting | None | **Connect to a local agent** turned on |
 
-Both give the agent the same six tools, and Agent review still decides what is saved. The relay exists so the Claude desktop in-app browser, which has no native WebMCP, can use the app.
+Both give the agent the same seven tools, and Agent review still decides what is saved. The relay exists so the Claude desktop in-app browser, which has no native WebMCP, can use the app.
 
 ## Chrome bridge in Claude Desktop
 

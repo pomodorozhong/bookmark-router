@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { hasGroup, reviewAgentProposal, type AgentProposal, type ProposalField, type ProposalOverwrite } from "../domain/agent-review";
+import { hasGroup, reviewAgentProposal, type AgentProposal, type ImportProposal, type ProposalField, type ProposalOverwrite, type ReviewProposal } from "../domain/agent-review";
 import { isWebUrl, statusLabel, type Asset, type Bookmark, type Workspace } from "../domain/model";
 import type { LoadMedia } from "./Cover";
 import { Dialog, DialogHeader } from "./Dialog";
@@ -71,9 +71,18 @@ function MembershipDiff({ bookmarkId, tagId, before, after, overwritten }: {
   </div>;
 }
 
-export function AgentReviewDialog({ proposal, proposals, workspace, availability, busy, error, loadMedia, onApply, onApplyAnyway, onSetAside, onSelect, onClose }: {
-  proposal?: AgentProposal;
-  proposals: AgentProposal[];
+function BatchPicker({ proposal, proposals, busy, onSelect }: { proposal: ReviewProposal; proposals: ReviewProposal[]; busy: boolean; onSelect: (proposalId: string) => void }) {
+  if (proposals.length < 2) return null;
+  return <label className="agent-review-picker">Batch
+    <select aria-label="Choose batch" value={proposal.id} disabled={busy} onChange={(event) => onSelect(event.target.value)}>
+      {proposals.map((batch) => <option key={batch.id} value={batch.id}>{batch.input.summary} · {stateLabels[batch.state]}</option>)}
+    </select>
+  </label>;
+}
+
+type ReviewProps = {
+  proposal?: ReviewProposal;
+  proposals: ReviewProposal[];
   workspace: Workspace;
   availability: "checking" | "available" | "unavailable" | "failed";
   busy: boolean;
@@ -81,10 +90,17 @@ export function AgentReviewDialog({ proposal, proposals, workspace, availability
   loadMedia: LoadMedia;
   onApply: () => void;
   onApplyAnyway: (reviewedRevision: number) => void;
+  onApplyImport: () => void;
   onSetAside: () => void;
   onSelect: (proposalId: string) => void;
   onClose: () => void;
-}) {
+};
+export function AgentReviewDialog(props: ReviewProps) {
+  const { proposal } = props;
+  return proposal?.kind === "import" ? <ImportReview {...props} proposal={proposal} /> : <ChangeReview {...props} proposal={proposal} />;
+}
+
+function ChangeReview({ proposal, proposals, workspace, availability, busy, error, loadMedia, onApply, onApplyAnyway, onSetAside, onSelect, onClose }: ReviewProps & { proposal?: AgentProposal }) {
   const [confirmation, setConfirmation] = useState<{ proposalId: string; revision: number }>();
   // Confirm only the proposal and saved values shown when the first click happened.
   useEffect(() => { setConfirmation(undefined); }, [proposal?.id, proposal?.state, workspace.id, workspace.revision, error]);
@@ -107,11 +123,7 @@ export function AgentReviewDialog({ proposal, proposals, workspace, availability
   return (
     <Dialog labelledBy="agent-review-title" className="agent-review-modal" onClose={() => { if (!busy) onClose(); }}>
       <DialogHeader id="agent-review-title" label="Agent" title="Agent review" description={proposal?.input.summary ?? "Batch review before saving"} closeLabel="Close agent review" disabled={busy} onClose={onClose} />
-      {proposal && proposals.length > 1 && <label className="agent-review-picker">Batch
-        <select aria-label="Choose batch" value={proposal.id} disabled={busy} onChange={(event) => { setConfirmation(undefined); onSelect(event.target.value); }}>
-          {proposals.map((batch) => <option key={batch.id} value={batch.id}>{batch.input.summary} · {stateLabels[batch.state]}</option>)}
-        </select>
-      </label>}
+      {proposal && <BatchPicker proposal={proposal} proposals={proposals} busy={busy} onSelect={(id) => { setConfirmation(undefined); onSelect(id); }} />}
       {error && <div className="alert" role="alert">{error}</div>}
       {!proposal ? (
         <div className="agent-review-empty">
@@ -172,6 +184,87 @@ export function AgentReviewDialog({ proposal, proposals, workspace, availability
           }}>{busy ? "Saving batch…" : confirming ? overwrites.length ? "Confirm overwrite" : "Confirm apply" : "Apply anyway"}</button> : <button className="primary" disabled={busy || !review?.values} onClick={onApply}>{busy ? "Saving batch…" : "Apply batch"}</button>}
         </div>
         {confirming && <p className="agent-review-confirm-reminder" id="agent-confirm-reminder" role="status">{overwrites.length ? `Nothing saved yet. Confirming will overwrite ${overwrites.length} newer ${overwrites.length === 1 ? "edit" : "edits"} listed above.` : "Nothing saved yet. Confirming will save the whole batch; no newer edits will be overwritten."}</p>}
+      </footer>}
+    </Dialog>
+  );
+}
+
+function RowThumb({ url }: { url?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!url) return <span className="import-review-thumb is-empty">No image</span>;
+  if (failed) return <span className="import-review-thumb is-failed">Could not load</span>;
+  return <img className="import-review-thumb" src={url} alt="" loading="lazy" onError={() => setFailed(true)} />;
+}
+function ImportReview({ proposal, proposals, busy, error, loadMedia, onApplyImport, onSetAside, onSelect, onClose }: ReviewProps & { proposal: ImportProposal }) {
+  const [tagFilter, setTagFilter] = useState<string>();
+  const [query, setQuery] = useState("");
+  useEffect(() => { setTagFilter(undefined); setQuery(""); }, [proposal.id]);
+  const { collection, bookmarkIds } = proposal.staged;
+  const bookmarks = useMemo(() => bookmarkIds.map((id) => collection.bookmarks.find((b) => b.id === id)!), [collection, bookmarkIds]);
+  const tagsOf = useMemo(() => new Map(bookmarks.map((b) => [b.id, collection.memberships.filter((m) => m.bookmarkId === b.id).map((m) => m.tagId)])), [collection, bookmarks]);
+  const tags = useMemo(() => collection.tags.map((t) => ({ ...t, count: collection.memberships.filter((m) => m.tagId === t.id).length }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)), [collection]);
+  const tagName = (id: string) => collection.tags.find((t) => t.id === id)?.name ?? id;
+  const text = query.trim().toLowerCase();
+  const visible = bookmarks.filter((b) => (!tagFilter || tagsOf.get(b.id)!.includes(tagFilter)) && (!text || `${b.title} ${b.url ?? ""} ${b.description}`.toLowerCase().includes(text)));
+  const thumbnails = bookmarks.filter((b) => b.asset).length;
+  const reviewable = proposal.state !== "applied";
+  return (
+    <Dialog labelledBy="agent-review-title" className="agent-review-modal" onClose={() => { if (!busy) onClose(); }}>
+      <DialogHeader id="agent-review-title" label="Agent" title="Agent review" description={proposal.input.summary} closeLabel="Close agent review" disabled={busy} onClose={onClose} />
+      <BatchPicker proposal={proposal} proposals={proposals} busy={busy} onSelect={onSelect} />
+      <p className="agent-review-summary" aria-live="polite"><span className="agent-review-state">{stateLabels[proposal.state]}</span><span className="subtle">New collection · {bookmarks.length} {bookmarks.length === 1 ? "addition" : "additions"}</span></p>
+      {proposal.state === "set_aside" && <p role="status">Nothing saved. You can apply this import later from any collection in this tab.</p>}
+      {proposal.state === "applied" && <p role="status">The whole import was saved as a new collection. Close this review to use Undo. If you already undid it, this remains a record of the original import.</p>}
+      {error && <div className="alert" role="alert">Not saved: {error} No collection was created. Try Apply again, or set the import aside.</div>}
+      <section className="import-review-target" aria-labelledby="import-review-name">
+        <span className="eyebrow">Creates a new collection</span>
+        <h3 id="import-review-name">{collection.name}</h3>
+        <dl className="import-review-totals">
+          <div><dt>Bookmarks</dt><dd>{bookmarks.length}</dd></div>
+          <div><dt>Tags</dt><dd>{collection.tags.length}</dd></div>
+          <div><dt>Tag links</dt><dd>{collection.memberships.length}</dd></div>
+          <div><dt>Thumbnails</dt><dd>{thumbnails}</dd></div>
+        </dl>
+        <p className="subtle">Every bookmark starts as {statusLabel(collection, "pending")}. Tags are plain tags with no type.</p>
+      </section>
+      {tags.length > 0 && <>
+        <div className="import-review-heading"><h3>Tags</h3><span className="subtle">Select a tag to see its bookmarks</span></div>
+        <ul className="import-review-tags">{tags.map((t) => <li key={t.id}>
+          <button type="button" aria-pressed={tagFilter === t.id} onClick={() => setTagFilter(tagFilter === t.id ? undefined : t.id)}>{t.name} <span>{t.count}</span></button>
+        </li>)}</ul>
+      </>}
+      <div className="import-review-heading"><h3>Bookmarks</h3><span className="subtle">{tagFilter ? `${visible.length} in ${tagName(tagFilter)}` : text ? `${visible.length} of ${bookmarks.length} match` : bookmarks.length}</span></div>
+      <div className="import-review-tools">
+        <input type="search" aria-label="Search proposed bookmarks" placeholder="Search titles, links and descriptions" value={query} onChange={(event) => setQuery(event.target.value)} />
+        {(tagFilter || text) && <button type="button" className="text-button" onClick={() => { setTagFilter(undefined); setQuery(""); }}>Show all {bookmarks.length}</button>}
+      </div>
+      <ul className="import-review-list">
+        {visible.map((b) => {
+          const names = tagsOf.get(b.id)!.map(tagName).join(" · ") || "No tags";
+          return <li key={b.id}><details>
+            <summary><RowThumb url={b.asset?.url} /><span className="import-review-row"><strong>{b.title}</strong><span className="subtle">{names}</span></span></summary>
+            <div className="import-review-detail">
+              <dl className="agent-review-fields">
+                <dt>URL</dt><dd>{b.url && isWebUrl(b.url) ? <a href={b.url} target="_blank" rel="noreferrer">{b.url}</a> : b.url}</dd>
+                <dt>Description</dt><dd>{b.description || "None"}</dd>
+                <dt>Status</dt><dd>{statusLabel(collection, b.statusId)}</dd>
+                <dt>Tags</dt><dd>{names}</dd>
+                {b.missingTitle && <><dt>Title</dt><dd>Uses the URL; marked as missing a title.</dd></>}
+              </dl>
+              <div><AssetPreview asset={b.asset} label={`Proposed thumbnail for ${b.title}`} loadMedia={loadMedia} /></div>
+            </div>
+          </details></li>;
+        })}
+        {!visible.length && <li className="subtle import-review-empty">No proposed bookmarks match.</li>}
+      </ul>
+      <p className="agent-review-note subtle">Nothing is saved until you apply. The import stays in this tab while you switch collections; reloading the tab discards it. Thumbnails are stored after Apply, the same way as for other bookmarks.</p>
+      {reviewable && <footer className="agent-review-save">
+        <p className="subtle import-review-footnote">Apply creates the collection and everything in it in one save, as one Undo action. Undo leaves the new collection empty.</p>
+        <div className="agent-review-actions">
+          {proposal.state !== "set_aside" && <button disabled={busy} onClick={onSetAside}>Set aside</button>}
+          <button className="primary" disabled={busy} onClick={onApplyImport}>{busy ? "Creating collection…" : "Apply import"}</button>
+        </div>
       </footer>}
     </Dialog>
   );
