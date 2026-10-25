@@ -1,9 +1,10 @@
 # Documentation
 
-Updated October 14, 2026. Rounds 0–4 are approved and round 1.5 is skipped.
+Updated October 25, 2026. Rounds 0–4 are approved and round 1.5 is skipped.
 
 - [Product](product.md): what the app is for, scope boundaries, and current behavior.
 - [Workflow](workflow.md): how each change works, working agreements, test data, and the verification recipe.
+- [Untangle plan](untangle-plan.md): planned Connections view, calculated triage priorities, impact preview, and connection tracing; not implemented yet.
 - [WebMCP](webmcp.md): standalone agent-integration reference, including tools, selection copy/enrichment, remote image proposals with previews, stale-batch Apply anyway with explicit overwrite warnings, reversible Set aside with a retained-batch picker, complete client configuration, and verification.
 - [Claude setup](claude-setup.md): connecting Claude Code, Claude Desktop, and the in-app browser through the Chrome bridge or the local relay, the in-app browser limitation, and its control check.
 - [Thumbnails](thumbnails.md): stored thumbnails, online lookup consent, fallback order, service limits and failure signals, the October 2026 cover check, and implementation verification.
