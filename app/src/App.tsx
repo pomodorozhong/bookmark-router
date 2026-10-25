@@ -1190,6 +1190,11 @@ export default function App() {
         onApplyAnyway={(revision) => void applyAgentBatch(revision)}
         onApplyImport={() => void applyAgentImport()}
         onSetAside={() => { if (agentProposal && !busy) { agentSession.setAside(agentProposal.id); setAgentError(""); notify(`${agentProposal.kind === "import" ? "Import" : "Batch"} set aside. Nothing saved; you can apply it later.`); } }}
+        onBatchTag={(value) => {
+          if (!agentProposal || busy) return "Wait for the batch to finish saving.";
+          try { agentSession.setBatchTag(agentProposal.id, value); return undefined; }
+          catch (e) { return e instanceof Error ? e.message : String(e); }
+        }}
         onSelect={(id) => { if (!busy) { agentSession.select(id); setAgentError(""); } }}
         onClose={() => setAgentReviewOpen(false)} />}
       {editing && (
