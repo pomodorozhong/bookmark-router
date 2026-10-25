@@ -8,6 +8,7 @@ import {
   validateWorkspace,
   type Workspace,
   type Backup,
+  type MediaKind,
 } from "./model";
 export type Format = "auto" | "urls" | "csv" | "tsv" | "html" | "json";
 export type Field =
@@ -46,6 +47,8 @@ export interface Candidate {
   description: string;
   url?: string;
   mediaUrl?: string;
+  /** Set when the source states the media kind; otherwise it's read from the URL's extension. */
+  mediaKind?: MediaKind;
   urlWarning?: string;
   status: string;
   tags: string[];
@@ -303,70 +306,80 @@ export function guessMapping(headers: string[]): Mapping {
     ]),
   ) as Mapping;
 }
+export type CandidateFields = Record<Exclude<Field, "tags">, string> & { tags: string[] };
+/** One record's cleanup, shared by every import path: trimmed fields, the title fallback, and URL checks. */
+export function candidateFrom(row: number, fields: CandidateFields, errors: string[] = []): Candidate {
+  const url = fields.url.trim(),
+    mediaUrl = fields.mediaUrl.trim(),
+    suppliedTitle = fields.title.trim();
+  const candidate: Candidate = {
+    row,
+    title: suppliedTitle || url || "Untitled",
+    missingTitle: !suppliedTitle,
+    description: fields.description.trim(),
+    url: url || undefined,
+    mediaUrl: mediaUrl || undefined,
+    status: fields.status.trim(),
+    tags: [...new Set(fields.tags.map((t) => t.trim()).filter(Boolean))],
+    tagType: fields.tagType.trim() || undefined,
+    errors: [...errors],
+  };
+  if (url && !isWebUrl(url))
+    candidate.urlWarning = "Unrecognized URL · saved as text, not a link";
+  if (mediaUrl && !isWebUrl(mediaUrl))
+    candidate.errors.push("Media URL must be an HTTP or HTTPS link.");
+  return candidate;
+}
+/** Marks each valid candidate whose URL matches a bookmark in the collection or an earlier candidate. */
+export function markDuplicates(candidates: Candidate[], w: Workspace) {
+  const seenUrls = new Map<string, Candidate>();
+  for (const candidate of candidates) {
+    if (!candidate.url || candidate.errors.length) continue;
+    const key = storedUrlKey(candidate.url),
+      existing = w.bookmarks.find((b) => b.url && storedUrlKey(b.url) === key),
+      earlier = seenUrls.get(key);
+    if (existing)
+      candidate.duplicate = {
+        kind: "workspace",
+        title: existing.title,
+        id: existing.id,
+      };
+    else if (earlier)
+      candidate.duplicate = {
+        kind: "import",
+        title: earlier.title,
+        row: earlier.row,
+      };
+    if (!earlier) seenUrls.set(key, candidate);
+  }
+}
 export function previewImport(
   parsed: ParsedImport,
   mapping: Mapping,
   w: Workspace,
   options: { delimiter: string; commonTags: string; initialStatus: string },
 ): Preview {
-  const seenUrls = new Map<string, Candidate>(),
-    signatures = new Map<string, number>();
+  const signatures = new Map<string, number>();
   const candidates = parsed.rows.map((row) => {
     const get = (f: Field) => (row.values[mapping[f]] ?? "").trim();
-    const url = get("url"),
-      mediaUrl = get("mediaUrl"),
-      suppliedTitle = get("title");
-    const candidate: Candidate = {
-      row: row.row,
-      title: suppliedTitle || url || "Untitled",
-      missingTitle: !suppliedTitle,
+    const candidate = candidateFrom(row.row, {
+      title: get("title"),
       description: get("description"),
-      url: url || undefined,
-      mediaUrl: mediaUrl || undefined,
+      url: get("url"),
+      mediaUrl: get("mediaUrl"),
       status: get("status") || options.initialStatus,
-      tags: [
-        ...new Set(
-          [get("tags"), options.commonTags].flatMap((v) =>
-            v
-              ? v
-                  .split(options.delimiter || "|")
-                  .map((t) => t.trim())
-                  .filter(Boolean)
-              : [],
-          ),
-        ),
-      ],
-      tagType: get("tagType") || undefined,
-      errors: [...row.errors],
-    };
-    if (url && !isWebUrl(url))
-      candidate.urlWarning = "Unrecognized URL · saved as text, not a link";
-    if (mediaUrl && !isWebUrl(mediaUrl))
-      candidate.errors.push("Media URL must be an HTTP or HTTPS link.");
+      tags: [get("tags"), options.commonTags].flatMap((v) =>
+        v ? v.split(options.delimiter || "|") : [],
+      ),
+      tagType: get("tagType"),
+    }, row.errors);
     const signature = JSON.stringify(row.values);
     if (signatures.has(signature))
       candidate.repeatedRow = signatures.get(signature);
     else signatures.set(signature, row.row);
-    if (url && !candidate.errors.length) {
-      const key = storedUrlKey(url),
-        existing = w.bookmarks.find((b) => b.url && storedUrlKey(b.url) === key),
-        earlier = seenUrls.get(key);
-      if (existing)
-        candidate.duplicate = {
-          kind: "workspace",
-          title: existing.title,
-          id: existing.id,
-        };
-      else if (earlier)
-        candidate.duplicate = {
-          kind: "import",
-          title: earlier.title,
-          row: earlier.row,
-        };
-      if (!earlier) seenUrls.set(key, candidate);
-    }
     return candidate;
   });
+  markDuplicates(candidates, w);
   const valid = candidates.filter((c) => !c.errors.length);
   return {
     candidates,

@@ -8,19 +8,20 @@ import {
   type Workspace,
 } from "./model";
 import type { ImportCommitCommand } from "./imports";
+/** `newId` and `now` let a staged import be rebuilt with the same IDs and timestamps when it's applied. */
 export function commitImport(
   source: Workspace,
   command: ImportCommitCommand,
+  { newId = () => crypto.randomUUID(), now = new Date().toISOString() }: { newId?: () => string; now?: string } = {},
 ): Workspace {
   if (
     source.revision !== command.expectedRevision ||
     command.preview.workspaceRevision !== source.revision
   )
     throw new ConflictError();
-  const w = structuredClone(source),
-    now = new Date().toISOString();
+  const w = structuredClone(source);
   const batch: ImportBatch = {
-    id: crypto.randomUUID(),
+    id: newId(),
     source: command.source,
     createdAt: now,
     bookmarkIds: [],
@@ -52,7 +53,7 @@ export function commitImport(
       const mapping = command.statusMapping[c.status];
       if (mapping === "__create__") {
         const status = {
-          id: crypto.randomUUID(),
+          id: newId(),
           label: c.status,
           color: "#64748b",
           outcome: "active" as const,
@@ -70,7 +71,7 @@ export function commitImport(
     if (c.tagType && !typeId) {
       const mapping = command.typeMapping[c.tagType];
       if (mapping === "__create__") {
-        typeId = crypto.randomUUID();
+        typeId = newId();
         w.tagTypes.push({
           id: typeId,
           name: c.tagType,
@@ -121,7 +122,7 @@ export function commitImport(
       bookmark.importBatchId = batch.id;
     } else {
       bookmark = {
-        id: crypto.randomUUID(),
+        id: newId(),
         title: c.title,
         description: c.description,
         url: c.url,
@@ -138,17 +139,17 @@ export function commitImport(
       bookmark.asset = {
         source: "remote",
         url: c.mediaUrl,
-        kind: /\.(mp4|webm|mov)(\?|$)/i.test(c.mediaUrl)
+        kind: c.mediaKind ?? (/\.(mp4|webm|mov)(\?|$)/i.test(c.mediaUrl)
           ? "video"
           : /\.(mp3|wav|ogg|m4a)(\?|$)/i.test(c.mediaUrl)
             ? "audio"
-            : "image",
+            : "image"),
       };
     for (const name of c.tags) {
       let tag = w.tags.find((t) => t.name === name && t.typeId === typeId);
       if (!tag) {
         tag = {
-          id: crypto.randomUUID(),
+          id: newId(),
           name,
           typeId,
           appearance: {},
@@ -166,7 +167,7 @@ export function commitImport(
         )
       )
         w.memberships.push({
-          id: crypto.randomUUID(),
+          id: newId(),
           bookmarkId: bookmark.id,
           tagId: tag.id,
         });
