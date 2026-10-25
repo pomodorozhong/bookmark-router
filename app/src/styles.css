@@ -659,10 +659,44 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .agent-review-actions > button { flex-shrink: 0; }
 .agent-review-save-error { color: var(--color-error-ink); font-size: var(--text-md); overflow-wrap: anywhere; }
 .agent-review-empty { padding: 16px 0; }
+/* A proposed new collection: totals first, then tags that filter the bookmark list. */
+.import-review-target { margin-top: 16px; padding: 16px; border: 1px solid var(--color-line); border-radius: var(--radius-control); background: var(--color-surface-muted); }
+.import-review-target h3 { margin: 6px 0 12px; font-size: var(--text-lg); overflow-wrap: anywhere; }
+.import-review-target > p { margin: 12px 0 0; }
+.import-review-totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.import-review-totals div { display: flex; flex-direction: column-reverse; gap: 2px; padding: 10px 12px; border: 1px solid var(--color-line-soft); border-radius: var(--radius-chip); background: var(--color-surface); }
+.import-review-totals dt { font-size: var(--text-sm); color: var(--color-ink-muted); }
+.import-review-totals dd { margin: 0; font-size: var(--text-2xl); font-weight: 600; font-variant-numeric: tabular-nums; }
+.import-review-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 22px 0 10px; }
+.import-review-heading h3 { margin: 0; font-size: var(--text-base); }
+.import-review-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.import-review-tags button { min-height: 32px; padding: 4px 10px; gap: 7px; border-radius: var(--radius-pill); font-size: var(--text-md); }
+.import-review-tags button span { color: var(--color-ink-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.import-review-tags button[aria-pressed=true], .import-review-tags button[aria-pressed=true] span { border-color: var(--color-accent-line); background: var(--color-accent-soft); color: var(--color-accent-strong); }
+.import-review-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+.modal .import-review-tools input { flex: 1 1 220px; width: auto; margin: 0; }
+.import-review-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--color-line); }
+.import-review-list > li { border-bottom: 1px solid var(--color-line); }
+.import-review-list summary { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: 12px; padding: 10px 4px; border-radius: var(--radius-chip); }
+.import-review-list summary:hover { background: var(--color-hover); }
+.import-review-thumb { display: grid; place-items: center; width: 80px; aspect-ratio: 16 / 9; border-radius: 4px; object-fit: cover; background: var(--color-surface-muted); font-size: var(--text-xs); color: var(--color-ink-muted); text-align: center; line-height: 1.2; }
+.import-review-thumb.is-empty, .import-review-thumb.is-failed { border: 1px dashed var(--color-line-strong); background: transparent; }
+.import-review-thumb.is-failed { color: var(--color-error-ink); border-color: var(--color-error-line); }
+.import-review-row { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--text-md); overflow-wrap: anywhere; }
+.import-review-row strong { font-weight: 500; line-height: 1.4; }
+.import-review-detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 260px); gap: 16px; padding: 4px 4px 16px 96px; }
+.import-review-detail .agent-review-image, .import-review-detail .agent-review-no-image { margin-top: 0; }
+.import-review-detail .subtle { overflow-wrap: anywhere; }
+.import-review-empty { padding: 18px 4px; }
+.import-review-footnote { margin: 0 0 12px; }
 @media (max-width: 620px) {
   .agent-review-diff { grid-template-columns: minmax(0, 1fr); }
   .agent-review-change-heading { flex-direction: column; gap: 5px; }
   .agent-review-fields { grid-template-columns: 74px minmax(0, 1fr); }
+  .import-review-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .import-review-list summary { grid-template-columns: 64px minmax(0, 1fr); gap: 10px; }
+  .import-review-thumb { width: 64px; }
+  .import-review-detail { grid-template-columns: minmax(0, 1fr); padding: 4px 4px 16px; }
 }
 .topbar-end { display: flex; align-items: center; gap: 8px; }
 .danger { background: var(--color-danger); border-color: var(--color-danger); color: var(--color-on-accent); }

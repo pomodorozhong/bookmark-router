@@ -31,7 +31,7 @@ test("relay adapter exposes registered tools when the runtime only supports regi
   const context = ensureDocumentWebMcpContext(doc)!;
   assert.notEqual(context, nativeContext);
   const handle = await registerAgentTools({ session: new AgentReviewSession(), getWorkspace: async () => demoWorkspace() }, context);
-  assert.equal((await context.getTools?.())?.length, 6);
+  assert.equal((await context.getTools?.())?.length, 7);
   assert.match(String(await context.executeTool?.("get_collection_context", {})), /bookmarkCount/);
   handle.dispose();
   assert.equal((await context.getTools?.())?.length, 0);

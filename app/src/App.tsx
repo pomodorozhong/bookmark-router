@@ -261,7 +261,7 @@ export default function App() {
       if (!latest) throw new ConflictError("This collection is no longer available.");
       const layout = await store.getGeometry(w.id), undo = await store.nextUndo(w.id);
       if (w.id !== workspaceRef.current.id) {
-        agentSession.reset();
+        agentSession.discardCollectionBatches();
         setAgentReviewOpen(false);
         setAgentError("");
       }
@@ -298,7 +298,7 @@ export default function App() {
   }
   async function applyAgentBatch(reviewedRevision?: number) {
     const proposal = agentSession.current;
-    if (!proposal || submitting.current || busy || switchingCollection.current) return;
+    if (proposal?.kind !== "changes" || submitting.current || busy || switchingCollection.current) return;
     submitting.current = true;
     agentApplying.current = true;
     setBusy(true);
@@ -319,6 +319,31 @@ export default function App() {
       submitting.current = false;
       setBusy(false);
     }
+  }
+  async function applyAgentImport() {
+    const proposal = agentSession.current;
+    if (proposal?.kind !== "import" || submitting.current || busy || switchingCollection.current) return;
+    submitting.current = true;
+    agentApplying.current = true;
+    setBusy(true);
+    setAgentError("");
+    let created: Workspace | undefined;
+    try {
+      created = await agentSession.applyImport(proposal.id, (staged) => store.createFromImport(staged));
+      setCollections(await store.list());
+    } catch (e) {
+      setAgentError(e instanceof Error ? e.message : String(e));
+    } finally {
+      agentApplying.current = false;
+      submitting.current = false;
+      setBusy(false);
+    }
+    if (!created) return;
+    // Open the new collection; the applied import stays in this tab's review history.
+    await openWorkspace(created);
+    setAgentReviewOpen(false);
+    const entry = await store.nextUndo(created.id);
+    notify(entry?.label ?? "Import applied", () => void undoRef.current());
   }
   async function openAgentReview() {
     if (busy || agentApplying.current || switchingCollection.current) return;
@@ -1163,7 +1188,8 @@ export default function App() {
       {agentReviewOpen && <AgentReviewDialog proposal={agentProposal} proposals={agentSession.batches} workspace={workspace} availability={agentAvailability} busy={busy} error={agentError} loadMedia={loadReviewMedia}
         onApply={() => void applyAgentBatch()}
         onApplyAnyway={(revision) => void applyAgentBatch(revision)}
-        onSetAside={() => { if (agentProposal && !busy) { agentSession.setAside(agentProposal.id); setAgentError(""); notify("Batch set aside. Nothing saved; you can apply it later."); } }}
+        onApplyImport={() => void applyAgentImport()}
+        onSetAside={() => { if (agentProposal && !busy) { agentSession.setAside(agentProposal.id); setAgentError(""); notify(`${agentProposal.kind === "import" ? "Import" : "Batch"} set aside. Nothing saved; you can apply it later.`); } }}
         onSelect={(id) => { if (!busy) { agentSession.select(id); setAgentError(""); } }}
         onClose={() => setAgentReviewOpen(false)} />}
       {editing && (
