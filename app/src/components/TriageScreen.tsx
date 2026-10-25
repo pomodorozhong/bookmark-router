@@ -6,12 +6,14 @@ import { RecordEditor } from "./RecordEditor";
 import { TagView } from "./TagView";
 import { DetailBar } from "./DetailBar";
 import { FilterBar } from "./FilterBar";
+import { HighlightBar, HighlightMenu } from "./HighlightControl";
 import { Cover, type LoadMedia } from "./Cover";
 import { ThumbnailFinder } from "./ThumbnailFinder";
 import type { FindBookmarkThumbnail } from "../use-thumbnails";
 import { Icon, IconButton, Kbd } from "./Icon";
 import type { Command } from "../domain/commands";
 import type { CopyContext } from "../copy-settings";
+import { highlightedBookmarks, liveHighlight, noHighlight, readHighlightFade, writeHighlightFade, type Highlight } from "../domain/highlight";
 import { isWebUrl, statusLabel, type Bookmark, type Geometry, type Workspace } from "../domain/model";
 import {
   decisionStatuses,
@@ -134,6 +136,16 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   }, [workspace, related]);
   const relatedVia = new Map(related);
   const visibility = useMemo(() => graphVisibility(workspace, filter, tab, current ? [current.id] : []), [workspace, filter, tab, current]);
+  // The tag highlight marks bookmarks without changing the filters, the tab, or what the graph shows.
+  const [highlightChoice, setHighlight] = useState<Highlight>(noHighlight);
+  const [highlightPicker, setHighlightPicker] = useState(false);
+  const [fadeRest, setFadeRest] = useState(readHighlightFade);
+  const highlight = useMemo(() => liveHighlight(workspace, highlightChoice), [workspace, highlightChoice]);
+  const highlightIds = useMemo(() => highlightedBookmarks(workspace, highlight), [workspace, highlight]);
+  const highlightShown = useMemo(() => {
+    const shown = visibility.bookmarkIds ? visibility.bookmarkIds.filter((id) => highlightIds.has(id)).length : highlightIds.size;
+    return { shown, hidden: highlightIds.size - shown };
+  }, [visibility.bookmarkIds, highlightIds]);
   const { done, dropped } = decisionStatuses(workspace);
   const counts = useMemo(() => ({
     todo: workspace.bookmarks.filter((b) => inTab(b, workspace, "todo")).length,
@@ -351,7 +363,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
         </nav>
         <div className="triage-stage">
           <div className="triage-tools">
-            <FilterBar workspace={workspace} filter={filter} tab={tab} searchRef={filterInput} compact={shared} onChange={changeFilter} save={(c, label) => save(c, label)} />
+            <FilterBar workspace={workspace} filter={filter} tab={tab} searchRef={filterInput} compact={shared} onChange={changeFilter} save={(c, label) => save(c, label)}
+              highlight={<HighlightMenu workspace={workspace} highlight={highlight} compact={shared} open={highlightPicker} onOpen={setHighlightPicker} onChange={setHighlight} />} />
+            <HighlightBar workspace={workspace} highlight={highlight} shown={highlightShown.shown} hidden={highlightShown.hidden} fade={fadeRest} onChange={setHighlight}
+              onFade={(fade) => { setFadeRest(fade); writeHighlightFade(fade); }} />
           </div>
           {toast}
           <GraphCanvas
@@ -376,6 +391,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             hiddenTagIds={visibility.hiddenTagIds}
             peekTagIds={visibility.peekTagIds}
             boxSelection={selectionSet}
+            highlightIds={highlightIds}
+            fadeRest={fadeRest}
+            onHighlight={shared ? () => setHighlightPicker(true) : undefined}
             onCenter={current ? () => graphRef.current?.frame([current.id, ...groups.map((g) => g.id)]) : undefined}
             compact={shared}
             onBoxSelect={boxSelect}
@@ -425,6 +443,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                     <h2>{current.title}</h2>
                   </div>
                 </div>
+                {highlightIds.has(current.id) && <p className="highlight-note">
+                  Highlighted: tagged {highlight.tagIds.filter((id) => workspace.memberships.some((m) => m.bookmarkId === current.id && m.tagId === id)).map((id) => `“${workspace.tags.find((t) => t.id === id)!.name}”`).join(" and ")}.
+                </p>}
                 <ThumbnailFinder key={current.id} bookmark={current} cover={<Cover bookmark={current} load={loadMedia} letterTile />} onFind={onThumbnail} />
                 <p className="triage-desc">{current.description || <span className="subtle">No description.</span>}</p>
                 {current.source?.fields.tags && (
