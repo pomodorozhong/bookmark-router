@@ -29,6 +29,13 @@ test("create command defaults title and Pending, advances group revisions, and r
   assert.equal(applyCommand(w, 0, { type: "bookmark.create", url: "https://a.test", statusId: "done" }).bookmarks.at(-1)!.statusId, "done");
 });
 
+test("tag.create keeps a caller-supplied ID and rejects one already in use", () => {
+  const w = demoWorkspace(), next = applyCommand(w, 0, { type: "tag.create", id: "batch-tag", name: "Batch" });
+  assert.equal(next.tags.at(-1)!.id, "batch-tag"); assert.equal(next.tags.at(-1)!.typeId, undefined);
+  for (const id of [" ", "batch-tag", next.bookmarks[0].id]) assert.throws(() => applyCommand(next, next.revision, { type: "tag.create", id, name: "Other" }), /new tag ID/);
+  assert.notEqual(applyCommand(w, 0, { type: "tag.create", name: "Batch" }).tags.at(-1)!.id, "batch-tag");
+});
+
 test("proposals do not save, duplicate retries are stable, and only one batch can await review", () => {
   const w = demoWorkspace(), before = structuredClone(w), session = new AgentReviewSession(), proposal = session.submit(input(w), w);
   assert.deepEqual(w, before); assert.equal(proposal.state, "pending_review"); assert.equal(proposal.preview.bookmarks.length, 14);

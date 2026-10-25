@@ -1,4 +1,4 @@
-import { AgentInputError, AgentReviewSession, inputObject, type ReviewProposal } from "../domain/agent-review";
+import { AgentInputError, AgentReviewSession, inputObject, type ImportProposal, type ReviewProposal } from "../domain/agent-review";
 import { DuplicateBookmarkError, ConflictError } from "../domain/commands";
 import { emptyTriageFilter, groupsOf, matchesFilter, reasonFor, ruleOptions, ruleKinds, compileRules, copyPresets, formatCopy, type Rule } from "../domain/triage";
 import { matchesFilter as matchesEngine } from "../domain/filters";
@@ -45,11 +45,15 @@ function requireText(value: unknown, label: string): string {
   if (typeof value !== "string" || !value.trim()) throw new AgentInputError(`${label} must be non-empty text.`);
   return value;
 }
+/** Tag IDs by the agent's own refs; a batch tag the reviewer added has no ref of the agent's. */
+function agentTagIds(p: ImportProposal) {
+  return Object.fromEntries(Object.entries(p.staged.tagIds).filter(([ref]) => ref !== p.batchTag?.ref));
+}
 function proposalResult(p: ReviewProposal) {
   if (p.kind === "import") {
     const applied = p.state === "applied";
     return { proposalId: p.id, requestId: p.input.requestId, kind: p.kind, state: p.state, summary: p.input.summary, collectionName: p.staged.collection.name,
-      ...(applied ? { createdCollectionId: p.staged.collection.id, createdTagIds: p.staged.tagIds, createdBookmarkIds: p.staged.bookmarkIds } : { createdBookmarkIds: [] }),
+      ...(applied ? { createdCollectionId: p.staged.collection.id, createdTagIds: agentTagIds(p), createdBookmarkIds: p.staged.bookmarkIds } : { createdBookmarkIds: [] }),
       nextStep: p.state === "pending_review" ? "The user must open Agent review and apply or set aside this import. Nothing has been saved." : p.state === "set_aside" ? "Nothing has been saved. The user can select this import in Agent review and apply it later. Do not resubmit it unless asked; only the human-facing UI can apply." : "The new collection was created. Later Undo is a separate action, so read the collection again before further writes." };
   }
   return { proposalId: p.id, requestId: p.input.requestId, state: p.state, summary: p.input.summary, createdBookmarkIds: p.state === "applied" ? p.createdBookmarkIds : [], nextStep: p.state === "pending_review" ? "The user must open Agent review and apply or set aside this batch. Nothing has been saved." : p.state === "stale" ? "The user can review the latest values and overwrite warning in Agent review, then choose Apply anyway, or set aside this batch and ask for a fresh proposal. Nothing has been saved; only the human-facing UI can apply." : p.state === "set_aside" ? "Nothing has been saved. The user can select this batch in Agent review and apply it later, reviewing the latest values and overwrite warning if the collection changed. Another batch may be proposed when none awaits review. Do not resubmit this batch unless asked; only the human-facing UI can apply." : undefined };

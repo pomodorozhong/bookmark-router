@@ -659,6 +659,31 @@ th { background: var(--color-surface-muted); color: var(--color-ink-muted); }
 .agent-review-actions > button { flex-shrink: 0; }
 .agent-review-save-error { color: var(--color-error-ink); font-size: var(--text-md); overflow-wrap: anywhere; }
 .agent-review-empty { padding: 16px 0; }
+/* The reviewer's batch tag: one panel above the changes, and a chip wherever the tag will be added. */
+.agent-review-batch { display: grid; gap: 14px; margin: 16px 0 4px; padding: 14px 16px; border: 1px solid var(--color-line-strong); border-radius: var(--radius-panel); background: var(--color-surface-muted); }
+.agent-review-batch.is-set { border-color: var(--color-accent-line); background: var(--color-accent-soft); }
+.agent-review-batch-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+.agent-review-batch-row > .agent-review-batch-heading { flex: 1 1 260px; }
+.agent-review-batch-heading { display: grid; gap: 2px; min-width: 0; }
+.agent-review-batch-heading h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--text-base); }
+.agent-review-batch-heading p { margin: 0; line-height: 1.5; }
+.agent-review-batch-field { display: grid; gap: 6px; font-size: var(--text-md); font-weight: 600; }
+.agent-review-batch-hint { margin: -6px 0 0; font-size: var(--text-sm); color: var(--color-ink-muted); }
+.agent-review-batch-hint.is-reuse { color: var(--color-accent-strong); }
+.agent-review-batch-hint.is-error { color: var(--color-error-ink); }
+.agent-review-batch-scope { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--color-line); border-radius: var(--radius-control); background: var(--color-surface); font-size: var(--text-md); }
+.agent-review-batch-scope p { display: flex; align-items: center; gap: 8px; margin: 0; }
+.agent-review-batch-scope p svg { color: var(--color-accent); }
+.agent-review-batch-scope label { display: flex; align-items: flex-start; gap: 8px; font-size: var(--text-md); font-weight: 500; line-height: 1.4; }
+.agent-review-batch-scope label input { margin-top: 2px; }
+.agent-review-batch-scope label .subtle { display: block; font-weight: 400; overflow-wrap: anywhere; }
+.agent-review-batch-scope strong { font-variant-numeric: tabular-nums; }
+.agent-review-batch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.agent-review-batch-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 2px 8px 2px 6px; border: 1px solid var(--color-accent-line); border-radius: var(--radius-chip); background: var(--color-accent-soft); color: var(--color-accent-strong); font-weight: 600; white-space: normal; overflow-wrap: anywhere; vertical-align: middle; }
+.agent-review-batch-chip small { font-size: var(--text-xs); font-weight: 500; color: var(--color-ink-muted); }
+.agent-review-batch.is-set .agent-review-batch-chip { padding: 5px 11px 5px 9px; font-size: var(--text-base); background: var(--color-surface); }
+.agent-review-batch-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; font-size: var(--text-md); }
+.agent-review-batch-pending { margin: 10px 0 0; text-align: right; font-size: var(--text-md); color: var(--color-ink-muted); }
 /* A proposed new collection: totals first, then tags that filter the bookmark list. */
 .import-review-target { margin-top: 16px; padding: 16px; border: 1px solid var(--color-line); border-radius: var(--radius-control); background: var(--color-surface-muted); }
 .import-review-target h3 { margin: 6px 0 12px; font-size: var(--text-lg); overflow-wrap: anywhere; }
