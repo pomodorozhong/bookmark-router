@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import { commitImport, undoImport } from "./import-commands";
+import { collectionImportLabel, revalidateCollectionImport, type StagedCollectionImport } from "./collection-import";
 import type { ImportCommitCommand } from "./imports";
 import { makeBackup, prepareRestore } from "./backup";
 import type { Backup } from "./model";
@@ -82,6 +83,26 @@ export class WorkspaceStore {
   }
   async import(id: string, command: ImportCommitCommand) {
     return this.mutate(id, (w) => commitImport(w, command), "Import bookmarks");
+  }
+  /**
+   * Creates the staged collection with all its tags, bookmarks, tag links and images in one transaction.
+   * Undo restores the empty collection. Any failure leaves no collection behind.
+   */
+  async createFromImport(staged: StagedCollectionImport): Promise<Workspace> {
+    const { collection, empty } = revalidateCollectionImport(staged);
+    const tx = (await this.database).transaction("workspaces", "readwrite");
+    try {
+      if (await tx.store.get(collection.id)) throw new ConflictError("This import was already applied.");
+      await tx.store.add({ ...collection, _undoHistory: addUndo([], empty, collection, collectionImportLabel(staged)) });
+      await tx.done;
+    } catch (e) {
+      try {
+        tx.abort();
+      } catch {}
+      await tx.done.catch(() => {});
+      throw e;
+    }
+    return collection;
   }
   async undo(
     id: string,
