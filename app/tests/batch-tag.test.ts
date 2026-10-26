@@ -1,14 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import "fake-indexeddb/auto";
-import { AgentReviewSession, hasGroup, reviewAgentProposal, type ImportProposal, type ProposalInput } from "../src/domain/agent-review";
+import { AgentReviewSession, defaultBatchTagName, hasGroup, importTypeId, reviewAgentProposal, type ImportProposal, type ProposalInput } from "../src/domain/agent-review";
 import { applyCommand } from "../src/domain/commands";
+import { defaultAppearance, type Workspace } from "../src/domain/model";
 import { demoWorkspace } from "../src/domain/samples";
 import { WorkspaceStore } from "../src/domain/storage";
 import { createAgentTools } from "../src/agent/webmcp";
-import type { Workspace } from "../src/domain/model";
 
-const changes = (w: Workspace): ProposalInput => ({ requestId: "videos", collectionId: w.id, expectedRevision: w.revision, summary: "Two videos", changes: [
+const changes = (w: Workspace, summary = "Two videos"): ProposalInput => ({ requestId: "videos", collectionId: w.id, expectedRevision: w.revision, summary, changes: [
   { kind: "create", url: "https://www.youtube.com/watch?v=a", title: "First video", tagIds: [w.tags[0].id] },
   { kind: "create", url: "https://www.youtube.com/watch?v=b", title: "Second video" },
   { kind: "update", bookmarkId: w.bookmarks[0].id, expectedRecordRevision: w.bookmarks[0].revision, patch: { description: "Updated" } },
@@ -20,55 +20,75 @@ const importPayload = {
   tags: [{ ref: "games", name: "Games" }],
   bookmarks: [{ url: "https://www.youtube.com/watch?v=one", tagRefs: ["games"] }, { url: "https://www.youtube.com/watch?v=two" }],
 };
-const tagNamed = (w: Workspace, name: string) => w.tags.find((t) => t.name === name);
+const batchTagOf = (w: Workspace) => w.tags.find((t) => t.typeId === importTypeId);
+const today = /^\d{4}-\d{2}-\d{2}/;
 
-test("a batch tag links the additions, keeps proposed tags, and can include updated bookmarks", () => {
-  const w = demoWorkspace(), before = structuredClone(w), session = new AgentReviewSession(), p = session.submit(changes(w), w);
-  session.setBatchTag(p.id, { name: "  Video batch  ", includeUpdates: false });
-  const tag = tagNamed(p.preview, "Video batch")!;
-  assert.equal(tag.id, p.batchTag!.tagId); assert.equal(tag.typeId, undefined);
-  assert.deepEqual(p.createdBookmarkIds.map((id) => hasGroup(p.preview, id, tag.id)), [true, true]);
-  assert.ok(hasGroup(p.preview, p.createdBookmarkIds[0], w.tags[0].id));
-  assert.ok(!hasGroup(p.preview, w.bookmarks[0].id, tag.id));
-  session.setBatchTag(p.id, { name: "Video batch", includeUpdates: true });
-  assert.equal(p.batchTag!.tagId, tag.id, "the new tag keeps its ID across edits");
-  assert.ok(hasGroup(p.preview, w.bookmarks[0].id, tag.id));
-  session.setBatchTag(p.id, undefined);
-  assert.equal(tagNamed(p.preview, "Video batch"), undefined); assert.equal(p.batchTag, undefined);
-  assert.deepEqual(w, before, "editing the batch tag saves nothing");
-  assert.throws(() => session.setBatchTag(p.id, { name: " ", includeUpdates: false }), /Enter a tag name/);
+test("the batch tag name is the date and summary, or the date and time without a summary", () => {
+  const at = new Date(2026, 9, 6, 9, 5);
+  assert.equal(defaultBatchTagName("Pricing research", at), "2026-10-06 · Pricing research");
+  assert.equal(defaultBatchTagName("", at), "2026-10-06 09:05");
 });
 
-test("a batch tag reuses an existing tag with the same name instead of creating one", () => {
+test("every batch gets an Import batch tag on its additions, which the reviewer can skip and add back", () => {
+  const w = demoWorkspace(), before = structuredClone(w), session = new AgentReviewSession(), p = session.submit(changes(w), w);
+  const tag = batchTagOf(p.preview)!;
+  assert.match(tag.name, new RegExp(`${today.source} · Two videos$`));
+  assert.equal(tag.id, p.batchTag!.tagId);
+  assert.equal(p.preview.tagTypes.find((t) => t.id === importTypeId)?.name, "Import");
+  assert.deepEqual(p.createdBookmarkIds.map((id) => hasGroup(p.preview, id, tag.id)), [true, true]);
+  assert.ok(hasGroup(p.preview, p.createdBookmarkIds[0], w.tags[0].id), "the agent's own tags stay");
+  assert.ok(!hasGroup(p.preview, w.bookmarks[0].id, tag.id), "updated bookmarks aren't tagged when the batch adds some");
+  session.setBatchTag(p.id, false);
+  assert.equal(batchTagOf(p.preview), undefined); assert.equal(p.batchTag, undefined);
+  assert.ok(!p.preview.tagTypes.some((t) => t.id === importTypeId), "a skipped tag creates no Import type");
+  session.setBatchTag(p.id, true);
+  assert.equal(p.batchTag!.tagId, tag.id, "the tag keeps its ID when added back");
+  assert.equal(batchTagOf(p.preview)!.name, tag.name);
+  assert.deepEqual(w, before, "staging the batch tag saves nothing");
+});
+
+test("a batch that only updates bookmarks tags the bookmarks it updates", () => {
+  const w = demoWorkspace(), session = new AgentReviewSession();
+  const p = session.submit({ ...changes(w), changes: [changes(w).changes[2]] }, w);
+  assert.ok(hasGroup(p.preview, w.bookmarks[0].id, batchTagOf(p.preview)!.id));
+});
+
+test("a batch without a summary is accepted and its tag is named by date and time", async () => {
+  const w = demoWorkspace(), session = new AgentReviewSession();
+  const tools = createAgentTools({ session, getWorkspace: async () => w });
+  const { summary: _, ...input } = changes(w);
+  const result = JSON.parse(await tools.find((t) => t.name === "propose_changes")!.execute(input));
+  const p = session.get(result.proposalId, w);
+  assert.equal(p.input.summary, "");
+  assert.match(p.batchTagName, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+});
+
+test("batch tags reuse the Import type, and a user's own Import type keeps its name", () => {
   let w = demoWorkspace();
-  w = applyCommand(w, w.revision, { type: "tag.create", name: w.tags[0].name });
-  const plain = w.tags.at(-1)!, session = new AgentReviewSession(), p = session.submit(changes(w), w);
-  session.setBatchTag(p.id, { name: plain.name, includeUpdates: false });
-  assert.equal(p.preview.tags.length, w.tags.length, "no tag was created");
-  assert.ok(p.createdBookmarkIds.every((id) => hasGroup(p.preview, id, plain.id)), "the plain tag wins over a typed tag of the same name");
-  const typed = w.tags.find((t) => t.typeId && t.name !== plain.name)!;
-  session.setBatchTag(p.id, { name: typed.name, includeUpdates: false });
-  assert.equal(p.preview.tags.length, w.tags.length);
-  assert.ok(p.createdBookmarkIds.every((id) => hasGroup(p.preview, id, typed.id)));
+  w = applyCommand(w, w.revision, { type: "tag-type.create", name: "Import", appearance: defaultAppearance });
+  const session = new AgentReviewSession(), p = session.submit(changes(w), w);
+  assert.equal(p.preview.tagTypes.find((t) => t.id === importTypeId)?.name, "Import 2");
+  const typed = applyCommand(p.preview, p.preview.revision, { type: "tag.create", name: "Later batch", typeId: importTypeId });
+  const next = new AgentReviewSession().submit({ ...changes(typed), requestId: "later", changes: [changes(typed).changes[2]] }, typed);
+  assert.equal(next.preview.tagTypes.filter((t) => t.id === importTypeId).length, 1, "the type is created once");
 });
 
 test("Apply saves the bookmarks, the batch tag, and its links together, and one Undo removes them all", async () => {
   const w = demoWorkspace(), before = structuredClone(w), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession();
   await store.create(w);
   const p = session.submit(changes(w), w);
-  session.setBatchTag(p.id, { name: "Video batch", includeUpdates: true });
   await assert.rejects(session.apply(p.id, w, async () => { throw new Error("Disk full"); }), /Disk full/);
   assert.deepEqual(await store.get(w.id), before, "a failed save leaves no tag or bookmarks behind");
   session.setAside(p.id);
-  assert.equal(p.batchTag!.name, "Video batch", "setting the batch aside keeps the choice");
-  assert.deepEqual(await store.get(w.id), before);
+  assert.ok(p.batchTag, "setting the batch aside keeps the tag");
   const saved = await session.apply(p.id, w, store.command.bind(store));
-  const tag = tagNamed(saved, "Video batch")!;
-  assert.deepEqual(saved.memberships.filter((m) => m.tagId === tag.id).map((m) => m.bookmarkId).sort(), [...p.createdBookmarkIds, w.bookmarks[0].id].sort());
-  assert.throws(() => session.setBatchTag(p.id, undefined), /already applied/);
+  const tag = batchTagOf(saved)!;
+  assert.deepEqual(saved.memberships.filter((m) => m.tagId === tag.id).map((m) => m.bookmarkId).sort(), [...p.createdBookmarkIds].sort());
+  assert.throws(() => session.setBatchTag(p.id, false), /already applied/);
   const undo = (await store.nextUndo(w.id))!, undone = await store.undoLast(w.id, saved.revision, undo.id);
-  // Undo bumps record revisions, so compare which tags exist.
+  // Undo bumps record revisions, so compare which records exist.
   assert.deepEqual(undone.tags.map((t) => t.id), before.tags.map((t) => t.id)); assert.deepEqual(undone.memberships, before.memberships);
+  assert.deepEqual(undone.tagTypes, before.tagTypes);
   assert.deepEqual(undone.bookmarks.map((b) => b.id), before.bookmarks.map((b) => b.id));
   await store.close();
 });
@@ -77,39 +97,40 @@ test("a stale batch previews and applies its batch tag against the latest collec
   const w = demoWorkspace(), store = new WorkspaceStore(crypto.randomUUID()), session = new AgentReviewSession();
   await store.create(w);
   const p = session.submit(changes(w), w);
-  const latest = await store.command(w.id, w.revision, { type: "tag.create", name: "Video batch" });
+  // Another batch saved an Import tag with the same name in the meantime.
+  const latest = await store.command(w.id, w.revision, [
+    { type: "tag-type.create", id: importTypeId, name: "Import", appearance: defaultAppearance },
+    { type: "tag.create", name: p.batchTagName, typeId: importTypeId },
+  ]);
   session.refresh(latest);
-  session.setBatchTag(p.id, { name: "Video batch", includeUpdates: false });
-  const reused = tagNamed(latest, "Video batch")!;
+  const reused = batchTagOf(latest)!;
   assert.ok(p.createdBookmarkIds.every((id) => hasGroup(reviewAgentProposal(p, latest).preview, id, reused.id)));
   const saved = await session.apply(p.id, latest, store.command.bind(store), { reviewedRevision: latest.revision });
-  assert.equal(saved.tags.filter((t) => t.name === "Video batch").length, 1);
+  assert.equal(saved.tags.filter((t) => t.typeId === importTypeId).length, 1);
   assert.ok(p.createdBookmarkIds.every((id) => hasGroup(saved, id, reused.id)));
   await store.close();
 });
 
-test("an import's batch tag goes on every bookmark, reuses a declared tag, and stays out of the agent's tag refs", async () => {
+test("an import's batch tag goes on every bookmark as an Import tag and stays out of the agent's tag refs", async () => {
   const w = demoWorkspace(), session = new AgentReviewSession(), store = new WorkspaceStore(crypto.randomUUID());
   const tools = createAgentTools({ session, getWorkspace: async () => w });
   const call = async (name: string, input: unknown) => JSON.parse(await tools.find((t) => t.name === name)!.execute(input));
   const { proposalId } = await call("propose_import", importPayload);
   const p = session.get(proposalId, w) as ImportProposal;
-  session.setBatchTag(p.id, { name: "games", includeUpdates: true });
-  assert.equal(p.staged.collection.tags.length, 1, "a declared tag with the same name is reused");
-  assert.equal(p.staged.collection.memberships.length, 2);
-  session.setBatchTag(p.id, { name: "Video batch", includeUpdates: false });
-  const tag = tagNamed(p.staged.collection, "Video batch")!;
+  const tag = batchTagOf(p.staged.collection)!;
+  assert.match(tag.name, new RegExp(`${today.source} · Watchlist$`));
+  assert.deepEqual(p.staged.collection.tagTypes.map((t) => [t.id, t.name]), [[importTypeId, "Import"]]);
   assert.deepEqual(p.staged.bookmarkIds.map((id) => hasGroup(p.staged.collection, id, tag.id)), [true, true]);
   await session.applyImport(p.id, (staged) => store.createFromImport(staged));
   const status = await call("get_proposal_status", { proposalId });
   assert.deepEqual(Object.keys(status.createdTagIds), ["games"]);
-  assert.ok((await store.get(status.createdCollectionId))!.tags.some((t) => t.name === "Video batch"));
+  assert.equal(batchTagOf((await store.get(status.createdCollectionId))!)?.name, tag.name);
   await store.close();
 });
 
-test("removing an import's batch tag restores the agent's own tags", async () => {
+test("skipping an import's batch tag restores the agent's own tags", () => {
   const session = new AgentReviewSession(), w = demoWorkspace(), p = session.submitImport(importPayload, w);
-  session.setBatchTag(p.id, { name: "Video batch", includeUpdates: false });
-  session.setBatchTag(p.id, undefined);
+  session.setBatchTag(p.id, false);
   assert.deepEqual(p.staged.collection.tags.map((t) => t.name), ["Games"]); assert.equal(p.batchTag, undefined);
+  assert.deepEqual(p.staged.collection.tagTypes, []);
 });
