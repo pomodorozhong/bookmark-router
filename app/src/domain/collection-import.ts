@@ -1,12 +1,14 @@
 import { ConflictError } from "./commands";
 import { commitImport } from "./import-commands";
 import { candidateFrom, markDuplicates, type ImportCommitCommand } from "./imports";
-import { emptyWorkspace, isWebUrl, validateWorkspace, type Workspace } from "./model";
+import { emptyWorkspace, isWebUrl, validateWorkspace, type TagType, type Workspace } from "./model";
 
 export interface CollectionImportTag {
   /** Names the tag inside this import only; bookmarks link to it through `tagRefs`. */
   ref: string;
   name: string;
+  /** One of the import's `tagTypes`; agents can't set it. */
+  typeId?: string;
 }
 export interface CollectionImportBookmark {
   url: string;
@@ -22,6 +24,8 @@ export interface CollectionImportInput {
   source: string;
   tags: CollectionImportTag[];
   bookmarks: CollectionImportBookmark[];
+  /** Tag types the new collection starts with. */
+  tagTypes?: TagType[];
 }
 export interface StagedCollectionImport {
   input: CollectionImportInput;
@@ -100,6 +104,8 @@ function build(input: CollectionImportInput, newId: () => string, now: string) {
     collection.tags.push(tag);
     batch.createdTagIds!.push(tag.id);
   }
+  collection.tagTypes.push(...structuredClone(input.tagTypes ?? []));
+  for (const tag of input.tags) if (tag.typeId) collection.tags.find((t) => t.name === tag.name.trim())!.typeId = tag.typeId;
   validateWorkspace(collection);
   const tagIds = Object.fromEntries([...refs].map(([ref, tagName]) => [ref, collection.tags.find((t) => t.name === tagName)!.id]));
   return { collection, empty, tagIds, bookmarkIds: batch.bookmarkIds, batchId: batch.id };
