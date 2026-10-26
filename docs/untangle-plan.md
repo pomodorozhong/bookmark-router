@@ -1,6 +1,6 @@
 # Untangle: find the best next bookmark to process
 
-Recorded October 25, 2026. This is a feature plan, not current app behavior. The user chose the direction below and approved filing [#90](https://github.com/pomodorozhong/bookmark-router/issues/90) and publishing the documentation branch. The issue is filed and `docs/untangle-plan` is published; the clickable mockup and implementation are still to come.
+Recorded October 25, 2026; mockup status updated October 26, 2026. This is a feature plan, not current app behavior. The user chose the direction below and approved filing [#90](https://github.com/pomodorozhong/bookmark-router/issues/90) and publishing the documentation branch. The issue is filed and `docs/untangle-plan` is published. A clickable mockup is now available in the planning chat; its layout choice and approval are pending before implementation.
 
 ## Goal and inspiration
 
@@ -16,6 +16,9 @@ In the saved 148-bookmark collection, processing **SCRNSHTS** would split a conn
 
 - Add a **Tags / Connections** switch to the desktop graph tools and the phone's View menu. Tags remains the initial default.
 - Draw one node per bookmark and one undirected link per bookmark pair sharing an eligible tag. Retain every shared tag ID as evidence. More shared tags produce stronger links and attraction; larger nodes indicate more direct neighbors. A distinct ring marks Best next.
+- Add **Show tags as nodes** to Connections, off by default. When enabled, replace direct bookmark-to-bookmark lines with the regular bookmark-to-tag membership links. Turning it off restores direct bookmark links. Tag visibility changes neither bookmark positions nor analysis scope, scores, queue order, forecast sizes, or trace hop counts.
+- Tags are excluded from all processing targets: Best next, ranked candidates, the current bookmark, and Done/Drop continue to use bookmark IDs only. Clicking a context tag highlights its bookmarks without replacing the current bookmark or filtering the backlog. A separate Clear action removes that context highlight.
+- Draw tags with a pointed tag silhouette, a hole, and a distinct fill, separate from the round bookmark nodes. Keep context tag labels readable. In dense overviews or narrow layouts, compact tag shapes can use focus/tap tooltips for their full names and type; keep the current bookmark's tag labels visible. Hidden tag types do not create context nodes.
 - On **To triage**, analyze bookmarks matching the current search, filters, and selection. Hidden tag types contribute no connections. Display the analyzed bookmark count. Done and Dropped bookmarks do not participate in the remaining network.
 - Rank the To triage queue by untangling priority. J/K follows that displayed order. Done, Dropped, and All support browsing connections; recommendation controls direct the user to To triage.
 - Selecting a bookmark opens its existing detail panel. Connection information names the shared tags that explain each link.
@@ -50,6 +53,7 @@ The recommendation describes the best measured **next step**, not a globally opt
 ## Implementation and compatibility
 
 - Add a pure domain module for graph projection, candidate ranking, predicted splits, and trace layers. Its inputs describe the scoped bookmarks and eligible tags; its output includes shared-tag evidence, ranked candidates, resulting cluster sizes, and hop layers.
+- Keep optional tag display nodes separate from the graph analyzed by that module. The Show tags as nodes preference belongs to view state and must not add tags to the candidate set or create extra bookmark hops.
 - Add a dedicated Connections canvas using the installed G6 and d3-force libraries. Reuse the existing bookmark details, commands, Undo, queue controls, and copy context. The ranked queue must also be the list published to copy context.
 - Preserve separate positions, pins, and viewports for each graph. Extend the existing `Geometry` record with an optional `connections` layout containing positions and viewport. Merge saves so either view preserves the other's layout.
 - Validate and round-trip the optional layout through backup/restore. Existing backups remain valid. No Workspace schema or IndexedDB version change is needed.
@@ -71,6 +75,7 @@ Follow [the change workflow](workflow.md#how-each-change-works):
 
 - A bridge outranks a higher-degree non-bridge. Cover chains, cycles, cliques, disconnected clusters, isolates, deterministic ties, and an empty backlog.
 - Cover shared-tag evidence, multiple shared tags, hidden tag types, search and filters, selected subsets, and custom status outcomes. Trace layers must match shortest hop distances.
+- With Show tags as nodes on and off, assert identical bookmark candidates, scores, queue order, forecasts, and hop distances. With it on, normal, preview, and trace states must draw only bookmark-to-tag links; with it off, restore direct bookmark links. Clicking a context tag must preserve the current bookmark; Done/Drop must process that bookmark only. Cover distinct tag shapes in both queue layouts, preview/trace, dense overviews, and narrow widths.
 - Forecasted cluster sizes must equal the actual result after processing. Failed saves must not advance; Undo must restore connectivity and priorities.
 - Cover queue order, J/K, copy context, independent layouts and pins, reload, and compatibility with backups with and without the optional layout.
 
@@ -84,4 +89,12 @@ Verify desktop and narrow layouts, trace controls, preview exit, recommendation 
 
 ## Resume state
 
-The plan and handoff are documented, the documentation branch is published, and the feature is tracked in [#90](https://github.com/pomodorozhong/bookmark-router/issues/90). No Untangle source implementation or mockup has started. The next feature deliverable is the clickable mockup for approval. The feature has no dependency on the already merged agent-import implementation.
+The plan and handoff are documented, the documentation branch is published, and the feature is tracked in [#90](https://github.com/pomodorozhong/bookmark-router/issues/90). On October 26, 2026, a working mockup was delivered in the planning chat with **Priority queue** and **Map first** layouts, each using an independent copy of the real 148-bookmark fixture. The source is `untangle-mockup.html` in that chat's visualization directory, outside the repository because it embeds personal collection data.
+
+The preview calculates its recommendations rather than using fixed example scores. Browser checks covered impact preview, automatic next recommendation after Done, Undo, trace, scoped search and tag types, both layouts, Tags/Connections, whole-collection framing, and the queue/detail switch and preview at 320 px. The user's live app and browser storage were not changed.
+
+The user then requested Show tags as nodes in Connections, with tags excluded from processing targets. The mockup now includes that toggle in both queue layouts. Direct checks confirmed identical rankings with it on and off, and browser checks confirmed that tag context keeps the current bookmark, Done processes that bookmark, the 19/11 forecast stays the same, and the first hop still reaches 18 bookmarks. Tag placement was checked in focused clusters and whole-collection views at desktop and 320 px widths.
+
+The user further clarified that visible tags should look different from bookmarks and should restore the regular link pattern. The mockup now uses pointed, punched tag shapes and exclusively bookmark-to-tag links when tags are shown. Render checks covered all six combinations of tag visibility and normal/preview/trace: the focused example renders 54 membership links with tags shown and 162 direct bookmark links with tags hidden. Bookmark positions and recommendation scores remain unchanged.
+
+Next: obtain the preferred layout and mockup approval, record it on the issue, and start implementation from the then-current `main`. No application implementation has started. The feature has no dependency on the already merged agent-import implementation.
