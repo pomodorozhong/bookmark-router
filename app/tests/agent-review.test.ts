@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import "fake-indexeddb/auto";
-import { AgentReviewSession, AgentInputError, hasGroup, reviewAgentProposal, type AgentProposal, type ProposalInput } from "../src/domain/agent-review";
+import { AgentReviewSession, AgentInputError, hasGroup, importTypeId, reviewAgentProposal, type AgentProposal, type ProposalInput } from "../src/domain/agent-review";
 import { applyCommand, ConflictError, DuplicateBookmarkError } from "../src/domain/commands";
 import { demoWorkspace } from "../src/domain/samples";
 import { WorkspaceStore } from "../src/domain/storage";
@@ -413,7 +413,9 @@ test("selected missing fields can be read, proposed, reviewed and undone without
   assert.equal(p.preview.bookmarks[1].title, before.bookmarks[1].title);
   assert.equal(p.preview.bookmarks[2].title, before.bookmarks[2].title); assert.equal(p.preview.bookmarks[2].description, before.bookmarks[2].description);
   assert.deepEqual(p.preview.bookmarks.slice(3), before.bookmarks.slice(3));
-  assert.deepEqual(p.preview.memberships, before.memberships);
+  // Only the batch tag adds links.
+  const batchTagId = p.preview.tags.find((t) => t.typeId === importTypeId)!.id;
+  assert.deepEqual(p.preview.memberships.filter((m) => m.tagId !== batchTagId), before.memberships);
   assert.deepEqual(p.preview.bookmarks.map((b) => b.statusId), before.bookmarks.map((b) => b.statusId));
   w = await session.apply(p.id, w, store.command.bind(store));
   assert.equal(w.bookmarks[0].title, "Source title"); assert.equal(w.bookmarks[1].description, "Source description");
@@ -446,7 +448,7 @@ test("agent can fill a selected missing image while preserving existing assets a
   const proposal = session.current as AgentProposal, asset = { kind: "image", source: "remote", url: "https://images.example/cover.jpg" };
   assert.deepEqual(proposal.preview.bookmarks[0].asset, asset);
   assert.deepEqual(proposal.preview.bookmarks.slice(1), before.bookmarks.slice(1));
-  assert.deepEqual(proposal.preview.memberships, before.memberships);
+  assert.deepEqual(proposal.preview.memberships.filter((m) => m.tagId !== proposal.batchTag!.tagId), before.memberships);
   w = await session.apply(proposal.id, w, store.command.bind(store));
   assert.deepEqual(w.bookmarks[0].asset, asset);
   assert.deepEqual(w.bookmarks.slice(1), before.bookmarks.slice(1));

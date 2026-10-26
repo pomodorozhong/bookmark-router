@@ -27,7 +27,7 @@ import { Dialog, DialogHeader } from "./components/Dialog";
 import { Icon, type IconName } from "./components/Icon";
 import { AgentReviewDialog } from "./components/AgentReviewDialog";
 import { AddBookmarkDialog } from "./components/AddBookmarkDialog";
-import { AgentInputError, AgentReviewSession } from "./domain/agent-review";
+import { AgentInputError, AgentReviewSession, batchTagMatch } from "./domain/agent-review";
 import { ensureDocumentWebMcpContext, registerAgentTools } from "./agent/webmcp";
 import { connectLocalRelay, installLocalAgentRuntime } from "./agent/local-relay";
 import { readCopyFormat, type CopyContext } from "./copy-settings";
@@ -132,6 +132,9 @@ export default function App() {
   const copyContext = useRef<CopyContext | undefined>(undefined);
   const toastId = useRef(0);
   const notify = (text: string, undo?: () => void) => setToast({ id: ++toastId.current, text, undo });
+  // Asks the graph to highlight one tag; `seq` repeats a request for the same tag.
+  const [highlightRequest, setHighlightRequest] = useState<{ tagId: string; seq: number }>();
+  const highlightTag = (tagId: string) => setHighlightRequest((r) => ({ tagId, seq: (r?.seq ?? 0) + 1 }));
   const [statusMapping, setStatusMapping] = useState<Record<string, string>>(
       {},
     ),
@@ -309,7 +312,13 @@ export default function App() {
       const saved = await agentSession.apply(proposal.id, latest, store.command.bind(store), reviewedRevision === undefined ? undefined : { reviewedRevision });
       const entry = await publish(saved);
       setAgentReviewOpen(false);
-      notify(entry?.label ?? "Agent batch applied", () => void undoRef.current());
+      const tagId = proposal.batchTag && batchTagMatch(saved, proposal.batchTag.name)?.id;
+      const id = ++toastId.current;
+      // Highlight shows the batch in the graph; it leaves the toast, without the button, so Undo stays in reach.
+      setToast({ id, text: entry?.label ?? "Agent batch applied", undo: () => void undoRef.current(), action: tagId ? { label: "Highlight", run: () => {
+        highlightTag(tagId);
+        setToast((t) => t?.id === id ? { ...t, action: undefined } : t);
+      } } : undefined });
     } catch (e) {
       setAgentError(e instanceof Error ? e.message : String(e));
       const latest = await store.get(workspaceRef.current.id).catch(() => undefined);
@@ -1166,6 +1175,7 @@ export default function App() {
             onThumbnail={thumbnails.find}
             toast={toastElement}
             notify={notify}
+            highlightRequest={highlightRequest}
             onEdit={setEditing}
             onImport={() => openImport()}
             onTagTypes={() => setTagTypesOpen(true)}
@@ -1190,11 +1200,12 @@ export default function App() {
         onApplyAnyway={(revision) => void applyAgentBatch(revision)}
         onApplyImport={() => void applyAgentImport()}
         onSetAside={() => { if (agentProposal && !busy) { agentSession.setAside(agentProposal.id); setAgentError(""); notify(`${agentProposal.kind === "import" ? "Import" : "Batch"} set aside. Nothing saved; you can apply it later.`); } }}
-        onBatchTag={(value) => {
-          if (!agentProposal || busy) return "Wait for the batch to finish saving.";
-          try { agentSession.setBatchTag(agentProposal.id, value); return undefined; }
-          catch (e) { return e instanceof Error ? e.message : String(e); }
+        onBatchTag={(tagged) => {
+          if (!agentProposal || busy) return;
+          try { agentSession.setBatchTag(agentProposal.id, tagged); setAgentError(""); }
+          catch (e) { setAgentError(e instanceof Error ? e.message : String(e)); }
         }}
+        onHighlight={(tagId) => { setAgentReviewOpen(false); highlightTag(tagId); }}
         onSelect={(id) => { if (!busy) { agentSession.select(id); setAgentError(""); } }}
         onClose={() => setAgentReviewOpen(false)} />}
       {editing && (

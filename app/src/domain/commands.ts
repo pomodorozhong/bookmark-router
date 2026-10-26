@@ -53,7 +53,8 @@ export type Command =
         appearance?: Partial<TagType["appearance"]>;
       };
     }
-  | { type: "tag-type.create"; name: string; appearance: TagType["appearance"] }
+  /** `id`, like a tag's, lets a batch create a tag of the new type in the same save; it is generated when omitted. */
+  | { type: "tag-type.create"; name: string; appearance: TagType["appearance"]; id?: string }
   /** `id` lets a batch link bookmarks to the tag before it exists; it is generated when omitted. */
   | { type: "tag.create"; name: string; typeId?: string; id?: string }
   | { type: "membership.set"; bookmarkId: string; tagId: string; linked: boolean }
@@ -174,7 +175,9 @@ export function applyCommand(
     const name = command.name.trim();
     if (!name) throw new Error("Tag type needs a name.");
     if (w.tagTypes.some((other) => other.name === name)) throw new Error("Choose a new tag type name.");
-    w.tagTypes.push({ id: `type:${crypto.randomUUID()}`, name, appearance: { ...command.appearance } });
+    const id = command.id ?? `type:${crypto.randomUUID()}`;
+    if (w.tagTypes.some((other) => other.id === id)) throw new Error("Choose a new tag type ID.");
+    w.tagTypes.push({ id, name, appearance: { ...command.appearance } });
   } else if (command.type === "tag.create") {
     const name = command.name.trim();
     if (

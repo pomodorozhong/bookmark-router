@@ -1014,13 +1014,16 @@ export function GraphCanvas({
       if (!currentNodes.length) autoFit.current = true;
       const sim = simulation.current;
       sim?.alpha(0).restart();
+      // G6 lays out only nodes that are already drawn, so draw the new ones first;
+      // otherwise they stay out of the simulation and can't be dragged.
       void g
-        .layout({
+        .draw()
+        .then(() => g.layout({
           ...(!Array.isArray(g.getLayout()) ? g.getLayout() : undefined),
           type: "d3-force",
           forceSimulation: sim,
           alpha: added.length ? 0.6 : 0,
-        })
+        }))
         .then(() => {
           frozen.current = false;
           settling.current = new Set();

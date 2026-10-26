@@ -1,5 +1,5 @@
 import { applyCommand, ConflictError, DuplicateBookmarkError, type Command } from "./commands";
-import { storedUrlKey, urlKey, type Asset, type Bookmark, type Workspace } from "./model";
+import { defaultAppearance, storedUrlKey, urlKey, type Asset, type Bookmark, type TagType, type Workspace } from "./model";
 import { ImportInputError, stageCollectionImport, type CollectionImportBookmark, type CollectionImportTag, type StagedCollectionImport } from "./collection-import";
 
 export type RemoteImage = Asset & { kind: "image"; source: "remote"; url: string };
@@ -24,15 +24,25 @@ export interface ProposalInput {
   requestId: string;
   collectionId: string;
   expectedRevision: number;
+  /** Empty when the agent gave none. */
   summary: string;
   changes: Array<CreateChange | UpdateChange>;
 }
 export type ProposalState = "pending_review" | "applied" | "set_aside" | "stale";
-/** A tag the reviewer adds to a batch's bookmarks before applying. It stays with the proposal in this tab and is saved only by Apply. */
+/** The tag every batch adds to its bookmarks unless the reviewer skips it. It stays with the proposal in this tab and is saved only by Apply. */
 export interface BatchTag {
   name: string;
-  /** Edit batches only: also tag the existing bookmarks the batch updates, not just the ones it adds. */
+  /** Edit batches tag the bookmarks they add, or the ones they update when they add none. */
   includeUpdates: boolean;
+}
+/** Batch tags go in this tag type, which the graph hides by default. Its ID is fixed so the app still finds it after a rename. */
+export const importTypeId = "type:import";
+const importAppearance: TagType["appearance"] = { ...defaultAppearance, color: "#64748b" };
+/** The batch tag's name: the date and the agent's summary, or the date and time when there is no summary. */
+export function defaultBatchTagName(summary: string, at = new Date()) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+  return summary ? `${date} · ${summary}` : `${date} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 export interface AgentProposal {
   kind: "changes";
@@ -44,11 +54,15 @@ export interface AgentProposal {
   commands: Command[];
   before: Workspace;
   preview: Workspace;
-  /** `tagId` is assigned once and used only if no tag with the name exists when the batch is applied. */
+  /** `tagId` is assigned once and used only if no tag with the name exists when the batch is applied. Absent when the reviewer skipped it. */
   batchTag?: BatchTag & { tagId: string };
+  /** The batch tag's name and new-tag ID, fixed when the batch arrives so skipping and adding it back changes neither. */
+  batchTagName: string;
+  batchTagId: string;
 }
 export interface ImportProposalInput {
   requestId: string;
+  /** Empty when the agent gave none. */
   summary: string;
   target: { kind: "new_collection"; name: string };
   tags: CollectionImportTag[];
@@ -62,8 +76,9 @@ export interface ImportProposal {
   state: Exclude<ProposalState, "stale">;
   /** Stable IDs are assigned once here; retries and Apply reuse them. Adding or changing the batch tag stages it again. */
   staged: StagedCollectionImport;
-  /** `ref` is the tag reference added for the batch tag; it is absent when the batch tag reuses a declared tag. */
+  /** `ref` is the tag reference added for the batch tag; it is absent when the batch tag reuses a declared tag. Absent when the reviewer skipped it. */
   batchTag?: { name: string; ref?: string };
+  batchTagName: string;
 }
 export type ReviewProposal = AgentProposal | ImportProposal;
 export type ProposalField = keyof NonNullable<UpdateChange["patch"]>;
@@ -137,7 +152,7 @@ export function parseProposal(value: unknown): ProposalInput {
     }
     throw new AgentInputError("Change kind must be create or update.");
   });
-  return { requestId: text(input.requestId, "Request ID"), collectionId: text(input.collectionId, "Collection ID"), expectedRevision: revision(input.expectedRevision), summary: text(input.summary, "Summary").trim(), changes };
+  return { requestId: text(input.requestId, "Request ID"), collectionId: text(input.collectionId, "Collection ID"), expectedRevision: revision(input.expectedRevision), summary: optionalText(input.summary, "Summary")?.trim() ?? "", changes };
 }
 export function parseImportProposal(value: unknown): ImportProposalInput {
   const input = inputObject(value, ["requestId", "summary", "target", "tags", "bookmarks"]);
@@ -155,7 +170,7 @@ export function parseImportProposal(value: unknown): ImportProposalInput {
       throw new AgentInputError("Tag references must be non-empty strings.");
     return { url: text(b.url, "URL"), title: optionalText(b.title, "Title"), description: optionalText(b.description, "Description"), tagRefs: b.tagRefs as string[] | undefined, asset: b.asset === undefined ? undefined : remoteImage(b.asset) };
   });
-  return { requestId: text(input.requestId, "Request ID"), summary: text(input.summary, "Summary").trim(), target: { kind: "new_collection", name: text(target.name, "Collection name").trim() }, tags, bookmarks };
+  return { requestId: text(input.requestId, "Request ID"), summary: optionalText(input.summary, "Summary")?.trim() ?? "", target: { kind: "new_collection", name: text(target.name, "Collection name").trim() }, tags, bookmarks };
 }
 function previewChanges(input: ProposalInput, source: Workspace, creationIds: string[], batchTag?: AgentProposal["batchTag"]): { commands: Command[]; preview: Workspace } {
   if (input.collectionId !== source.id || input.expectedRevision !== source.revision) throw new ConflictError();
@@ -188,18 +203,22 @@ function previewChanges(input: ProposalInput, source: Workspace, creationIds: st
     for (const tagId of remove) run({ type: "membership.set", bookmarkId: bookmark.id, tagId, linked: false });
   }
   if (batchTag) {
+    if (!preview.tagTypes.some((t) => t.id === importTypeId)) {
+      let name = "Import", n = 2;
+      while (preview.tagTypes.some((t) => t.name === name)) name = `Import ${n++}`;
+      run({ type: "tag-type.create", id: importTypeId, name, appearance: importAppearance });
+    }
     const tagId = batchTagMatch(preview, batchTag.name)?.id ?? batchTag.tagId;
-    if (tagId === batchTag.tagId) run({ type: "tag.create", id: tagId, name: batchTag.name });
+    if (tagId === batchTag.tagId) run({ type: "tag.create", id: tagId, name: batchTag.name, typeId: importTypeId });
     const updated = batchTag.includeUpdates ? input.changes.flatMap((c) => c.kind === "update" ? [c.bookmarkId] : []) : [];
     for (const bookmarkId of [...creationIds, ...updated])
       if (!hasGroup(preview, bookmarkId, tagId)) run({ type: "membership.set", bookmarkId, tagId, linked: true });
   }
   return { commands, preview };
 }
-/** The existing tag a batch tag name reuses: a plain tag with that exact name first, then a tag of any type. */
+/** The existing Import tag a batch tag name reuses. */
 export function batchTagMatch(workspace: Workspace, name: string) {
-  const exact = workspace.tags.filter((t) => t.name === name.trim());
-  return exact.find((t) => !t.typeId) ?? exact[0];
+  return workspace.tags.find((t) => t.typeId === importTypeId && t.name === name.trim());
 }
 /** Stages an import with the batch tag added to every bookmark, reusing a declared tag of the same name. */
 function stageImport(input: ImportProposalInput, batchTagName?: string): { staged: StagedCollectionImport; batchTag?: ImportProposal["batchTag"] } {
@@ -208,12 +227,13 @@ function stageImport(input: ImportProposalInput, batchTagName?: string): { stage
     const declared = tags.find((t) => t.name.trim().toLowerCase() === batchTagName.toLowerCase());
     let ref = declared?.ref ?? "batch-tag";
     while (!declared && tags.some((t) => t.ref === ref)) ref += "-";
-    if (!declared) tags = [...tags, { ref, name: batchTagName }];
+    tags = declared ? tags.map((t) => t === declared ? { ...t, typeId: importTypeId } : t) : [...tags, { ref, name: batchTagName, typeId: importTypeId }];
     bookmarks = bookmarks.map((b) => b.tagRefs?.includes(ref) ? b : { ...b, tagRefs: [...(b.tagRefs ?? []), ref] });
     batchTag = { name: batchTagName, ref: declared ? undefined : ref };
   }
   try {
-    return { staged: stageCollectionImport({ name: input.target.name, source: `Agent: ${input.summary}`, tags, bookmarks }), batchTag };
+    const tagTypes = batchTagName ? [{ id: importTypeId, name: "Import", appearance: importAppearance }] : [];
+    return { staged: stageCollectionImport({ name: input.target.name, source: `Agent: ${input.summary || input.target.name}`, tags, bookmarks, tagTypes }), batchTag };
   } catch (error) {
     if (error instanceof ImportInputError) throw new AgentInputError(error.message);
     throw error;
@@ -306,8 +326,10 @@ export class AgentReviewSession {
     }
     if (this.applying || this.pending) throw new AgentInputError("Apply or set aside the pending batch before submitting another.", "review_pending");
     const createdBookmarkIds = input.changes.filter((c) => c.kind === "create").map(() => crypto.randomUUID());
-    const { commands, preview } = previewChanges(input, workspace, createdBookmarkIds);
-    const proposal: AgentProposal = { kind: "changes", id: crypto.randomUUID(), input: structuredClone(input), state: "pending_review", createdBookmarkIds, commands, before: structuredClone(workspace), preview };
+    const batchTagName = defaultBatchTagName(input.summary);
+    const batchTagId = crypto.randomUUID(), batchTag = { name: batchTagName, includeUpdates: !createdBookmarkIds.length, tagId: batchTagId };
+    const { commands, preview } = previewChanges(input, workspace, createdBookmarkIds, batchTag);
+    const proposal: AgentProposal = { kind: "changes", id: crypto.randomUUID(), input: structuredClone(input), state: "pending_review", createdBookmarkIds, commands, before: structuredClone(workspace), preview, batchTag, batchTagName, batchTagId };
     this.proposals.set(proposal.id, proposal); this.requestIds.set(input.requestId, proposal.id); this.currentId = proposal.id;
     this.changed(); return proposal;
   }
@@ -321,8 +343,9 @@ export class AgentReviewSession {
       return previous;
     }
     if (this.applying || this.pending) throw new AgentInputError("Apply or set aside the pending batch before submitting another.", "review_pending");
-    const { staged } = stageImport(input);
-    const proposal: ImportProposal = { kind: "import", id: crypto.randomUUID(), input: structuredClone(input), state: "pending_review", staged };
+    const batchTagName = defaultBatchTagName(input.summary);
+    const { staged, batchTag } = stageImport(input, batchTagName);
+    const proposal: ImportProposal = { kind: "import", id: crypto.randomUUID(), input: structuredClone(input), state: "pending_review", staged, batchTag, batchTagName };
     this.proposals.set(proposal.id, proposal); this.requestIds.set(input.requestId, proposal.id); this.currentId = proposal.id;
     this.changed(); return proposal;
   }
@@ -340,19 +363,17 @@ export class AgentReviewSession {
     if (!proposal) throw new AgentInputError("Proposal is no longer available in this tab.", "proposal_not_found");
     return proposal;
   }
-  /** Adds, changes, or removes the reviewer's batch tag. Saves nothing. */
-  setBatchTag(id: string, batchTag: BatchTag | undefined) {
+  /** Skips the batch tag, or adds it back. Saves nothing. */
+  setBatchTag(id: string, tagged: boolean) {
     if (this.applying) throw new AgentInputError("Wait for the batch to finish saving.", "review_busy");
     const proposal = this.proposals.get(id);
     if (!proposal) throw new AgentInputError("Proposal is no longer available in this tab.", "proposal_not_found");
     if (proposal.state === "applied") throw new AgentInputError("This batch was already applied.");
-    const name = batchTag?.name.trim();
-    if (batchTag && !name) throw new AgentInputError("Enter a tag name.");
     if (proposal.kind === "import") {
-      const next = stageImport(proposal.input, name);
+      const next = stageImport(proposal.input, tagged ? proposal.batchTagName : undefined);
       proposal.staged = next.staged; proposal.batchTag = next.batchTag;
     } else {
-      const next = batchTag && { name: name!, includeUpdates: batchTag.includeUpdates, tagId: proposal.batchTag?.tagId ?? crypto.randomUUID() };
+      const next = tagged ? { name: proposal.batchTagName, includeUpdates: !proposal.createdBookmarkIds.length, tagId: proposal.batchTagId } : undefined;
       // A stale batch is previewed against the latest collection when reviewed or applied.
       if (proposal.state === "pending_review") {
         const { commands, preview } = previewChanges(proposal.input, proposal.before, proposal.createdBookmarkIds, next);
@@ -380,7 +401,7 @@ export class AgentReviewSession {
     const { commands, preview } = options ? reviewAgentProposal(proposal, workspace) : previewChanges(proposal.input, workspace, proposal.createdBookmarkIds, proposal.batchTag);
     this.applying = true;
     try {
-      const saved = await commit(proposal.input.collectionId, workspace.revision, commands, `Agent: ${proposal.input.summary}`);
+      const saved = await commit(proposal.input.collectionId, workspace.revision, commands, `Agent: ${proposal.input.summary || proposal.batchTagName}`);
       proposal.before = structuredClone(workspace); proposal.preview = preview; proposal.commands = commands;
       proposal.state = "applied"; this.changed(); return saved;
     } catch (error) {

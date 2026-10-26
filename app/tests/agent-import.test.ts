@@ -29,7 +29,7 @@ test("propose_import declares a strict schema and is the only new writing tool",
   const tool = tools.find((t) => t.name === "propose_import")!;
   assert.equal(tool.annotations.readOnlyHint, false);
   const schema = tool.inputSchema as { required: string[]; additionalProperties: boolean; properties: Record<string, any> };
-  assert.deepEqual(schema.required, ["requestId", "summary", "target", "bookmarks"]);
+  assert.deepEqual(schema.required, ["requestId", "target", "bookmarks"]);
   assert.equal(schema.additionalProperties, false);
   assert.equal(schema.properties.target.properties.kind.const, "new_collection");
   assert.equal(schema.properties.bookmarks.items.additionalProperties, false);
@@ -45,7 +45,7 @@ test("submitting stages the import without writing, and identical retries return
   assert.equal(first.collectionName, "YouTube watchlist — grouped");
   assert.deepEqual(await store.list(), before);
   const staged = (session.current as ImportProposal).staged;
-  assert.equal(staged.collection.bookmarks.length, 2); assert.equal(staged.collection.memberships.length, 3);
+  assert.equal(staged.collection.bookmarks.length, 2); assert.equal(staged.collection.memberships.length, 5, "three links plus the batch tag on both");
   const retry = await call("propose_import", payload());
   assert.equal(retry.proposalId, first.proposalId);
   assert.equal((session.current as ImportProposal).staged, staged);

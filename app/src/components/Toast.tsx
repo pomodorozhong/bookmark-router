@@ -6,6 +6,8 @@ export interface ToastMessage {
   id: number;
   text: string;
   undo?: () => void;
+  /** A follow-up shown before Undo, such as highlighting what was just saved. */
+  action?: { label: string; run: () => void };
   error?: boolean;
 }
 const visibleMs = 6000;
@@ -36,6 +38,7 @@ export function Toast({ toast, onClose }: { toast: ToastMessage; onClose: () => 
       <span className="app-toast-text" title={toast.text}>
         {split > 0 ? <><strong>{toast.text.slice(0, split)}</strong> · {toast.text.slice(split + 2)}</> : toast.text}
       </span>
+      {toast.action && <button className="app-toast-undo" onClick={() => toast.action!.run()}>{toast.action.label}</button>}
       {toast.undo && <button className="app-toast-undo" onClick={() => { toast.undo!(); }}>Undo</button>}
       <button className="app-toast-close" aria-label="Dismiss" onClick={onClose}><Icon name="close" size={14} /></button>
     </div>

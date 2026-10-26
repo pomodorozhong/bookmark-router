@@ -13,6 +13,7 @@ import type { FindBookmarkThumbnail } from "../use-thumbnails";
 import { Icon, IconButton, Kbd } from "./Icon";
 import type { Command } from "../domain/commands";
 import type { CopyContext } from "../copy-settings";
+import { importTypeId } from "../domain/agent-review";
 import { highlightedBookmarks, liveHighlight, noHighlight, readHighlightFade, writeHighlightFade, type Highlight } from "../domain/highlight";
 import { isWebUrl, statusLabel, type Bookmark, type Geometry, type Workspace } from "../domain/model";
 import {
@@ -52,7 +53,7 @@ function useMediaQuery(query: string) {
 }
 
 /** The main collection screen: triage bookmarks into groups beside the force-directed graph. */
-export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, onEdit, onImport, onTagTypes, onError, headerStart, headerEnd, onCopyContext, onThumbnail }: {
+export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia, toast, notify, highlightRequest, onEdit, onImport, onTagTypes, onError, headerStart, headerEnd, onCopyContext, onThumbnail }: {
   onCopyContext: (context: CopyContext | undefined) => void;
   /** Stores what a thumbnail lookup found for a bookmark, or that it failed. */
   onThumbnail: FindBookmarkThumbnail;
@@ -68,6 +69,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   /** The app's message toast, shown over the graph. */
   toast: ReactNode;
   notify: (text: string, undo?: () => void) => void;
+  /** Highlights this tag in place of the current highlight, such as an agent batch's tag after Apply. */
+  highlightRequest?: { tagId: string; seq: number };
   onEdit: (id: string) => void;
   onImport: () => void;
   onError: (message: string) => void;
@@ -138,6 +141,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const visibility = useMemo(() => graphVisibility(workspace, filter, tab, current ? [current.id] : []), [workspace, filter, tab, current]);
   // The tag highlight marks bookmarks without changing the filters, the tab, or what the graph shows.
   const [highlightChoice, setHighlight] = useState<Highlight>(noHighlight);
+  useEffect(() => { if (highlightRequest) setHighlight({ tagIds: [highlightRequest.tagId], mode: "any" }); }, [highlightRequest]);
   const [highlightPicker, setHighlightPicker] = useState(false);
   const [fadeRest, setFadeRest] = useState(readHighlightFade);
   const highlight = useMemo(() => liveHighlight(workspace, highlightChoice), [workspace, highlightChoice]);
@@ -162,6 +166,11 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
 
   // Reset per-collection state when switching collections.
   useEffect(() => { setSelection(undefined); setCurrentId(undefined); setFilter(emptyTriageFilter); setTab("todo"); }, [workspace.id]);
+  // Batch tags would add a hub per batch, so the graph hides their Import type by default, including when a batch first creates it.
+  const hasImportType = workspace.tagTypes.some((t) => t.id === importTypeId);
+  useEffect(() => {
+    if (hasImportType) setFilter((f) => f.hiddenTypeIds.includes(importTypeId) ? f : { ...f, hiddenTypeIds: [...f.hiddenTypeIds, importTypeId] });
+  }, [workspace.id, hasImportType]);
   // Frame the current bookmark with its groups after navigation, not after box selection.
   useEffect(() => {
     if (!frameRequest || !current) return;
@@ -400,7 +409,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             geometry={geometry}
             onGeometry={onGeometry}
             onImport={onImport}
-            onClearSearch={() => changeFilter(emptyTriageFilter)}
+            onClearSearch={() => changeFilter({ ...emptyTriageFilter, hiddenTypeIds: hasImportType ? [importTypeId] : [] })}
             onPinsChanged={setPinnedIds}
             loadMedia={loadMedia}
           />

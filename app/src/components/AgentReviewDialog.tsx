@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { batchTagMatch, hasGroup, reviewAgentProposal, type AgentProposal, type BatchTag, type ImportProposal, type ProposalField, type ProposalOverwrite, type ReviewProposal } from "../domain/agent-review";
+import { batchTagMatch, hasGroup, reviewAgentProposal, type AgentProposal, type ImportProposal, type ProposalField, type ProposalOverwrite, type ReviewProposal } from "../domain/agent-review";
 import { isWebUrl, statusLabel, type Asset, type Bookmark, type Workspace } from "../domain/model";
 import type { LoadMedia } from "./Cover";
 import { Dialog, DialogHeader } from "./Dialog";
@@ -76,92 +76,42 @@ function BatchPicker({ proposal, proposals, busy, onSelect }: { proposal: Review
   if (proposals.length < 2) return null;
   return <label className="agent-review-picker">Batch
     <select aria-label="Choose batch" value={proposal.id} disabled={busy} onChange={(event) => onSelect(event.target.value)}>
-      {proposals.map((batch) => <option key={batch.id} value={batch.id}>{batch.input.summary} · {stateLabels[batch.state]}</option>)}
+      {proposals.map((batch) => <option key={batch.id} value={batch.id}>{batch.input.summary || batch.batchTagName} · {stateLabels[batch.state]}</option>)}
     </select>
   </label>;
 }
 
-function BatchTagChip({ name, note }: { name: string; note: string }) {
-  return <span className="agent-review-batch-chip"><Icon name="tag" size={13} />{name}<small>{note}</small></span>;
-}
-/** The reviewer's optional tag for every bookmark in a batch. The draft lives here; the chosen tag lives on the proposal. */
-function BatchTagPanel({ value, additions, updates, newCollection, defaultName, reuses, applied, busy, onEditing, onChange }: {
-  value?: BatchTag;
-  /** Bookmarks the tag always covers. */
-  additions: number;
-  /** Titles of existing bookmarks the batch updates, which the tag covers only when chosen. */
-  updates: string[];
+const plural = (n: number) => `${n} ${n === 1 ? "bookmark" : "bookmarks"}`;
+/** The batch tag's line under the summary: a chip the reviewer can skip, or a dashed button that adds it back. Once applied, Highlight. */
+function BatchTagLine({ name, tagged, count, newCollection, applied, highlightable, busy, onTagged, onHighlight }: {
+  name: string;
+  tagged: boolean;
+  /** Bookmarks the tag covers. */
+  count: number;
   newCollection: boolean;
-  defaultName: string;
-  /** Names the existing tag a name would reuse, if any. */
-  reuses: (name: string) => string | undefined;
   applied: boolean;
+  /** Applied, and the tag still exists in the open collection. */
+  highlightable: boolean;
   busy: boolean;
-  onEditing: (editing: boolean) => void;
-  /** Returns an error message when the tag can't be staged. */
-  onChange: (value?: BatchTag) => string | undefined;
+  onTagged: (tagged: boolean) => void;
+  onHighlight?: () => void;
 }) {
-  const [draft, setDraft] = useState<BatchTag & { error?: string }>();
-  useEffect(() => { onEditing(Boolean(draft)); return () => onEditing(false); }, [draft, onEditing]);
-  // A batch with no additions can only tag the bookmarks it updates.
-  const scope = (v: BatchTag) => additions + (v.includeUpdates || !additions ? updates.length : 0);
-  const plural = (n: number) => `${n} ${n === 1 ? "bookmark" : "bookmarks"}`;
-  const intro = newCollection ? "Give every bookmark in the new collection one shared tag, so you can find this batch later." : "Give the bookmarks in this batch one shared tag, so you can find them among your other bookmarks later.";
-  if (applied && !value) return null;
-  if (draft && !applied) {
-    const name = draft.name.trim(), reused = name ? reuses(name) : undefined, count = scope(draft);
-    const save = () => {
-      if (!name) return setDraft({ ...draft, error: "Enter a tag name." });
-      const error = onChange({ name, includeUpdates: draft.includeUpdates || !additions });
-      setDraft(error ? { ...draft, error } : undefined);
-    };
-    return <section className="agent-review-batch" aria-labelledby="batch-tag-title">
-      <div className="agent-review-batch-heading"><h3 id="batch-tag-title"><Icon name="tag" size={15} />Batch tag</h3><p className="subtle">{intro}</p></div>
-      <label className="agent-review-batch-field">Tag name
-        <input type="text" value={draft.name} aria-describedby="batch-tag-hint" autoFocus disabled={busy}
-          onChange={(event) => setDraft({ ...draft, name: event.target.value, error: undefined })}
-          onKeyDown={(event) => { if (event.key === "Enter") save(); if (event.key === "Escape") { event.stopPropagation(); setDraft(undefined); } }} />
-      </label>
-      <p id="batch-tag-hint" className={`agent-review-batch-hint${draft.error ? " is-error" : reused ? " is-reuse" : ""}`} role={draft.error ? "alert" : undefined}>
-        {draft.error ?? (reused ? `Uses your existing tag ${reused}. No new tag is created.` : name ? "Creates a new plain tag (no tag type) when you apply." : "A plain tag with no tag type.")}
-      </p>
-      <div className="agent-review-batch-scope">
-        {newCollection ? <p><Icon name="check" size={14} />All {plural(additions)} in the new collection</p> : <>
-          {additions > 0 && <p><Icon name="check" size={14} />The {plural(additions)} this batch adds</p>}
-          {additions > 0 && updates.length > 0 && <label><input type="checkbox" checked={draft.includeUpdates} disabled={busy} onChange={(event) => setDraft({ ...draft, includeUpdates: event.target.checked })} />
-            <span>Also the {updates.length} existing {updates.length === 1 ? "bookmark" : "bookmarks"} this batch updates<span className="subtle">{updates.join(" · ")}</span></span></label>}
-          {!additions && <p><Icon name="check" size={14} />The {plural(updates.length)} this batch updates</p>}
-        </>}
-        <strong>Tags {plural(count)}</strong>
-      </div>
-      <div className="agent-review-batch-actions">
-        <button type="button" className="primary" disabled={busy} onClick={save}>Add to {plural(count)}</button>
-        <button type="button" disabled={busy} onClick={() => setDraft(undefined)}>Cancel</button>
-      </div>
-    </section>;
-  }
-  if (!value) return <section className="agent-review-batch" aria-labelledby="batch-tag-title">
-    <div className="agent-review-batch-row">
-      <div className="agent-review-batch-heading"><h3 id="batch-tag-title"><Icon name="tag" size={15} />Batch tag <span className="subtle">· optional</span></h3><p className="subtle">{intro}</p></div>
-      <button type="button" disabled={busy} onClick={() => setDraft({ name: defaultName, includeUpdates: false })}><Icon name="tag" size={15} />Add a batch tag</button>
+  const note = !applied
+    ? tagged && (newCollection ? `An Import tag on all ${plural(count)}, hidden in the graph, so you can find this batch later.` : `An Import tag on ${plural(count)}, hidden in the graph, so you can highlight this batch later.`)
+    : !tagged ? `Applied without a batch tag, so it can’t be highlighted.`
+    : newCollection ? `An Import tag on all ${plural(count)} in the new collection.`
+    : highlightable ? `Highlight marks these ${plural(count)} in the graph.` : "This batch was undone, so no bookmark carries this tag now.";
+  return <>
+    <div className="agent-review-tag-line">
+      {tagged ? <span className="agent-review-tag" title="Batch tag: an Import tag, hidden in the graph">
+        <Icon name="tag" size={13} />{name}
+        {!applied && <button type="button" aria-label="Skip the batch tag" disabled={busy} onClick={() => onTagged(false)}><Icon name="close" size={12} /></button>}
+      </span> : applied ? <span className="subtle">No batch tag</span>
+        : <button type="button" className="agent-review-tag is-add" disabled={busy} onClick={() => onTagged(true)}><Icon name="plus" size={13} />Batch tag</button>}
+      {applied && tagged && onHighlight && <button type="button" className="agent-review-highlight" disabled={!highlightable} onClick={onHighlight}><Icon name="scope" size={14} />Highlight</button>}
     </div>
-  </section>;
-  const count = scope(value);
-  return <section className="agent-review-batch is-set" aria-labelledby="batch-tag-title">
-    <div className="agent-review-batch-heading"><h3 id="batch-tag-title"><Icon name="tag" size={15} />Batch tag</h3>
-      <p className="subtle">{applied ? `Saved with the batch on ${plural(count)}.` : `Will be added to ${plural(count)} when you apply. Tags the agent proposed stay as they are.`}</p></div>
-    <div className="agent-review-batch-row">
-      <BatchTagChip name={value.name} note={reuses(value.name) ? "existing tag" : "new tag"} />
-      {!applied && <span className="agent-review-batch-actions">
-        <button type="button" disabled={busy} onClick={() => setDraft({ ...value })}>Change</button>
-        <button type="button" disabled={busy} onClick={() => onChange(undefined)}>Remove</button>
-      </span>}
-    </div>
-  </section>;
-}
-/** Suggests a batch tag name from the batch's summary and size. */
-function defaultBatchTagName(summary: string, count: number) {
-  return `${summary.length <= 40 ? summary : "Agent batch"} — ${count} ${count === 1 ? "link" : "links"}`;
+    {note && <p className="agent-review-tag-note">{note}</p>}
+  </>;
 }
 
 type ReviewProps = {
@@ -176,8 +126,10 @@ type ReviewProps = {
   onApplyAnyway: (reviewedRevision: number) => void;
   onApplyImport: () => void;
   onSetAside: () => void;
-  /** Stages the batch tag on the current proposal; returns an error message when it can't. */
-  onBatchTag: (value?: BatchTag) => string | undefined;
+  /** Skips the current proposal's batch tag or adds it back. */
+  onBatchTag: (tagged: boolean) => void;
+  /** Highlights an applied batch's tag in the graph. */
+  onHighlight: (tagId: string) => void;
   onSelect: (proposalId: string) => void;
   onClose: () => void;
 };
@@ -186,9 +138,8 @@ export function AgentReviewDialog(props: ReviewProps) {
   return proposal?.kind === "import" ? <ImportReview {...props} proposal={proposal} /> : <ChangeReview {...props} proposal={proposal} />;
 }
 
-function ChangeReview({ proposal, proposals, workspace, availability, busy, error, loadMedia, onApply, onApplyAnyway, onSetAside, onBatchTag, onSelect, onClose }: ReviewProps & { proposal?: AgentProposal }) {
+function ChangeReview({ proposal, proposals, workspace, availability, busy, error, loadMedia, onApply, onApplyAnyway, onSetAside, onBatchTag, onHighlight, onSelect, onClose }: ReviewProps & { proposal?: AgentProposal }) {
   const [confirmation, setConfirmation] = useState<{ proposalId: string; revision: number }>();
-  const [editingTag, setEditingTag] = useState(false);
   // Confirm only the proposal and saved values shown when the first click happened.
   useEffect(() => { setConfirmation(undefined); }, [proposal?.id, proposal?.state, workspace.id, workspace.revision, error]);
   let creationIndex = 0;
@@ -207,14 +158,13 @@ function ChangeReview({ proposal, proposals, workspace, availability, busy, erro
   const overwriteSummary = overwrites.length ? `${overwrites.length} newer ${overwrites.length === 1 ? "edit will" : "edits will"} be overwritten. Review the current values and their replacements below.` : "No newer edits will be overwritten. Changes outside this proposal keep their latest saved values.";
   const additions = proposal?.input.changes.filter((c) => c.kind === "create").length ?? 0;
   const updates = (proposal?.input.changes.length ?? 0) - additions;
-  const batchTag = proposal?.batchTag, tagSource = beforeWorkspace ?? workspace;
-  const reuses = (name: string) => {
-    const tag = batchTagMatch(tagSource, name);
-    return tag && `“${tag.name}” (${tagSource.tagTypes.find((t) => t.id === tag.typeId)?.name ?? "no tag type"})`;
-  };
+  const batchTag = proposal?.batchTag;
+  // Once applied, the batch tag is highlightable while it still exists in the open collection; Undo removes a tag the batch created.
+  const appliedTagId = proposal?.state === "applied" && batchTag ? batchTagMatch(proposal.preview, batchTag.name)?.id : undefined;
+  const highlightable = Boolean(appliedTagId && workspace.id === proposal?.input.collectionId && workspace.tags.some((t) => t.id === appliedTagId));
   return (
     <Dialog labelledBy="agent-review-title" className="agent-review-modal" onClose={() => { if (!busy) onClose(); }}>
-      <DialogHeader id="agent-review-title" label="Agent" title="Agent review" description={proposal?.input.summary ?? "Batch review before saving"} closeLabel="Close agent review" disabled={busy} onClose={onClose} />
+      <DialogHeader id="agent-review-title" label="Agent" title="Agent review" description={proposal ? proposal.input.summary || "No summary from the agent" : "Batch review before saving"} closeLabel="Close agent review" disabled={busy} onClose={onClose} />
       {proposal && <BatchPicker proposal={proposal} proposals={proposals} busy={busy} onSelect={(id) => { setConfirmation(undefined); onSelect(id); }} />}
       {error && <div className="alert" role="alert">{error}</div>}
       {!proposal ? (
@@ -225,12 +175,12 @@ function ChangeReview({ proposal, proposals, workspace, availability, busy, erro
       ) : (
         <>
           <p className="agent-review-summary" aria-live="polite"><span className="agent-review-state">{proposal.state === "set_aside" ? "Set aside" : stale ? "Stale" : stateLabels[proposal.state]}</span><span className="subtle">{[additions && `${additions} ${additions === 1 ? "addition" : "additions"}`, updates && `${updates} ${updates === 1 ? "update" : "updates"}`].filter(Boolean).join(" · ")} · {proposal.before.name}</span></p>
+          <BatchTagLine name={proposal.batchTagName} tagged={Boolean(batchTag)} count={additions || updates} newCollection={false} applied={proposal.state === "applied"}
+            highlightable={highlightable} busy={busy} onTagged={onBatchTag} onHighlight={appliedTagId ? () => onHighlight(appliedTagId) : undefined} />
           {stale && <div className="agent-review-warning" role="alert"><strong>The collection changed after this proposal.</strong><p>{review?.error ? "This batch could not be validated against the latest collection. Review the error below." : overwriteSummary}</p></div>}
           {review?.error && <div className="alert" role="alert">This batch cannot be applied: {review.error} {proposal.state === "set_aside" ? "Ask the agent for a fresh proposal." : "Set it aside and ask the agent for a fresh proposal."}</div>}
           {proposal.state === "applied" && <p role="status">The whole batch was saved. Close this review to use Undo. If you already undid it, this remains a record of the original application.</p>}
           {proposal.state === "set_aside" && <p role="status">Nothing saved. You can apply this batch later or review another batch.</p>}
-          <BatchTagPanel key={proposal.id} value={batchTag} additions={additions} updates={proposal.input.changes.flatMap((c) => c.kind === "update" ? [tagSource.bookmarks.find((b) => b.id === c.bookmarkId)?.title ?? c.bookmarkId] : [])}
-            newCollection={false} defaultName={defaultBatchTagName(proposal.input.summary, additions || updates)} reuses={reuses} applied={proposal.state === "applied"} busy={busy} onEditing={setEditingTag} onChange={onBatchTag} />
           {proposal.input.changes.map((change, index) => {
             const id = change.kind === "create" ? proposal.createdBookmarkIds[creationIndex++] : change.bookmarkId;
             const after = previewWorkspace!.bookmarks.find((b) => b.id === id)!;
@@ -243,7 +193,7 @@ function ChangeReview({ proposal, proposals, workspace, availability, busy, erro
                   <dt>URL</dt><dd>{after.url}</dd>
                   <dt>Description</dt><dd>{after.description || "None"}</dd>
                   <dt>Status</dt><dd>{fieldValue(after, "statusId", previewWorkspace!)}</dd>
-                  <dt>Add to</dt><dd>{(change.tagIds?.length || !batchTag) && groupNames(previewWorkspace!, change.tagIds ?? [])}{batchTag && change.tagIds?.length ? " " : null}{batchTag && <BatchTagChip name={batchTag.name} note="batch tag" />}</dd>
+                  <dt>Add to</dt><dd>{groupNames(previewWorkspace!, change.tagIds ?? [])}</dd>
                   {after.missingTitle && <><dt>Title</dt><dd>Uses the URL; marked as missing a title.</dd></>}
                 </dl>
               ) : (
@@ -253,7 +203,6 @@ function ChangeReview({ proposal, proposals, workspace, availability, busy, erro
                     return <FieldDiff key={field} field={field} before={before ?? original!} after={after} original={original!} originalWorkspace={proposal.before} currentWorkspace={beforeWorkspace!} previewWorkspace={previewWorkspace!} overwritten={overridden(id, field)} live={reviewable} loadMedia={loadMedia} />;
                   })}
                   {[...(change.addTagIds ?? []), ...(change.removeTagIds ?? [])].map((tagId) => <MembershipDiff key={tagId} bookmarkId={id} tagId={tagId} before={beforeWorkspace!} after={previewWorkspace!} overwritten={overridden(id, "membership", tagId)} />)}
-                  {batchTag?.includeUpdates && <p className="agent-review-batch-line">Adds the batch tag <BatchTagChip name={batchTag.name} note="batch tag" /></p>}
                   <p className="subtle">Fields and tags omitted from this proposal keep their current values.</p>
                 </>
               )}
@@ -273,12 +222,11 @@ function ChangeReview({ proposal, proposals, workspace, availability, busy, erro
         </div>}
         {error && <p className="agent-review-save-error" role="status">Not saved: {error}</p>}
         <div className="agent-review-actions">
-          {proposal?.state !== "set_aside" && <button disabled={busy} onClick={onSetAside}>Set aside</button>}{stale ? <button className={`agent-review-apply-anyway${confirming ? " is-confirming" : ""}`} aria-describedby={confirming ? "agent-apply-warning agent-confirm-reminder" : "agent-apply-warning"} disabled={busy || editingTag || !review?.values} onClick={() => {
+          {proposal?.state !== "set_aside" && <button disabled={busy} onClick={onSetAside}>Set aside</button>}{stale ? <button className={`agent-review-apply-anyway${confirming ? " is-confirming" : ""}`} aria-describedby={confirming ? "agent-apply-warning agent-confirm-reminder" : "agent-apply-warning"} disabled={busy || !review?.values} onClick={() => {
             if (confirming) onApplyAnyway(confirmation!.revision);
             else setConfirmation({ proposalId: proposal!.id, revision: workspace.revision });
-          }}>{busy ? "Saving batch…" : confirming ? overwrites.length ? "Confirm overwrite" : "Confirm apply" : "Apply anyway"}</button> : <button className="primary" disabled={busy || editingTag || !review?.values} onClick={onApply}>{busy ? "Saving batch…" : "Apply batch"}</button>}
+          }}>{busy ? "Saving batch…" : confirming ? overwrites.length ? "Confirm overwrite" : "Confirm apply" : "Apply anyway"}</button> : <button className="primary" disabled={busy || !review?.values} onClick={onApply}>{busy ? "Saving batch…" : "Apply batch"}</button>}
         </div>
-        {editingTag && <p className="agent-review-batch-pending" role="status">Finish or cancel the batch tag to apply.</p>}
         {confirming && <p className="agent-review-confirm-reminder" id="agent-confirm-reminder" role="status">{overwrites.length ? `Nothing saved yet. Confirming will overwrite ${overwrites.length} newer ${overwrites.length === 1 ? "edit" : "edits"} listed above.` : "Nothing saved yet. Confirming will save the whole batch; no newer edits will be overwritten."}</p>}
       </footer>}
     </Dialog>
@@ -293,7 +241,6 @@ function RowThumb({ url }: { url?: string }) {
 }
 function ImportReview({ proposal, proposals, busy, error, loadMedia, onApplyImport, onSetAside, onBatchTag, onSelect, onClose }: ReviewProps & { proposal: ImportProposal }) {
   const [tagFilter, setTagFilter] = useState<string>();
-  const [editingTag, setEditingTag] = useState(false);
   const [query, setQuery] = useState("");
   useEffect(() => { setTagFilter(undefined); setQuery(""); }, [proposal.id]);
   const { collection, bookmarkIds } = proposal.staged;
@@ -308,15 +255,13 @@ function ImportReview({ proposal, proposals, busy, error, loadMedia, onApplyImpo
   const reviewable = proposal.state !== "applied";
   return (
     <Dialog labelledBy="agent-review-title" className="agent-review-modal" onClose={() => { if (!busy) onClose(); }}>
-      <DialogHeader id="agent-review-title" label="Agent" title="Agent review" description={proposal.input.summary} closeLabel="Close agent review" disabled={busy} onClose={onClose} />
+      <DialogHeader id="agent-review-title" label="Agent" title="Agent review" description={proposal.input.summary || "No summary from the agent"} closeLabel="Close agent review" disabled={busy} onClose={onClose} />
       <BatchPicker proposal={proposal} proposals={proposals} busy={busy} onSelect={onSelect} />
       <p className="agent-review-summary" aria-live="polite"><span className="agent-review-state">{stateLabels[proposal.state]}</span><span className="subtle">New collection · {bookmarks.length} {bookmarks.length === 1 ? "addition" : "additions"}</span></p>
+      <BatchTagLine name={proposal.batchTagName} tagged={Boolean(proposal.batchTag)} count={bookmarks.length} newCollection applied={proposal.state === "applied"} highlightable={false} busy={busy} onTagged={onBatchTag} />
       {proposal.state === "set_aside" && <p role="status">Nothing saved. You can apply this import later from any collection in this tab.</p>}
       {proposal.state === "applied" && <p role="status">The whole import was saved as a new collection. Close this review to use Undo. If you already undid it, this remains a record of the original import.</p>}
       {error && <div className="alert" role="alert">Not saved: {error} No collection was created. Try Apply again, or set the import aside.</div>}
-      <BatchTagPanel key={proposal.id} value={proposal.batchTag && { name: proposal.batchTag.name, includeUpdates: false }} additions={proposal.input.bookmarks.length} updates={[]} newCollection
-        defaultName={defaultBatchTagName(proposal.input.summary, proposal.input.bookmarks.length)} applied={proposal.state === "applied"} busy={busy} onEditing={setEditingTag} onChange={onBatchTag}
-        reuses={(name) => { const tag = proposal.input.tags.find((t) => t.name.trim().toLowerCase() === name.trim().toLowerCase()); return tag && `“${tag.name}” from this import`; }} />
       <section className="import-review-target" aria-labelledby="import-review-name">
         <span className="eyebrow">Creates a new collection</span>
         <h3 id="import-review-name">{collection.name}</h3>
@@ -326,7 +271,7 @@ function ImportReview({ proposal, proposals, busy, error, loadMedia, onApplyImpo
           <div><dt>Tag links</dt><dd>{collection.memberships.length}</dd></div>
           <div><dt>Thumbnails</dt><dd>{thumbnails}</dd></div>
         </dl>
-        <p className="subtle">Every bookmark starts as {statusLabel(collection, "pending")}. Tags are plain tags with no type.</p>
+        <p className="subtle">Every bookmark starts as {statusLabel(collection, "pending")}. Tags are plain tags with no type{proposal.batchTag ? ", except the Import batch tag" : ""}.</p>
       </section>
       {tags.length > 0 && <>
         <div className="import-review-heading"><h3>Tags</h3><span className="subtle">Select a tag to see its bookmarks</span></div>
@@ -363,9 +308,8 @@ function ImportReview({ proposal, proposals, busy, error, loadMedia, onApplyImpo
         <p className="subtle import-review-footnote">Apply creates the collection and everything in it in one save, as one Undo action. Undo leaves the new collection empty.</p>
         <div className="agent-review-actions">
           {proposal.state !== "set_aside" && <button disabled={busy} onClick={onSetAside}>Set aside</button>}
-          <button className="primary" disabled={busy || editingTag} onClick={onApplyImport}>{busy ? "Creating collection…" : "Apply import"}</button>
+          <button className="primary" disabled={busy} onClick={onApplyImport}>{busy ? "Creating collection…" : "Apply import"}</button>
         </div>
-        {editingTag && <p className="agent-review-batch-pending" role="status">Finish or cancel the batch tag to apply.</p>}
       </footer>}
     </Dialog>
   );
