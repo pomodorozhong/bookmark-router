@@ -120,6 +120,9 @@ export interface SavedGraphSettings {
   showEmptyGroups: boolean;
   showUngrouped: boolean;
   highlight: { tagIds: string[]; mode: "any" | "all"; fade: boolean };
+  view: "tags" | "connections";
+  showTags: boolean;
+  contextTag?: string;
 }
 export interface SavedView {
   id: string;
@@ -185,10 +188,14 @@ export interface Workspace {
     copyPresets?: CopyPreset[];
   };
 }
-export interface Geometry {
-  workspaceId: string;
+export interface GraphLayout {
   positions: Record<string, { x: number; y: number; pinned: boolean }>;
   viewport?: { zoom: number; x: number; y: number; anchor?: "center" };
+}
+export interface Geometry extends GraphLayout {
+  workspaceId: string;
+  /** Independent layouts; absent on backups made before Connections existed. */
+  connections?: { direct?: GraphLayout; tags?: GraphLayout };
 }
 export interface Backup {
   format: "bookmark-tag";
@@ -518,6 +525,8 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
       if (!g || typeof g !== "object" || !["todo", "done", "dropped", "all"].includes(g.tab)
         || !ids(g.hiddenTypeIds, types) || !ids(g.hiddenBookmarkTagIds, tagIds)
         || typeof g.showEmptyGroups !== "boolean" || typeof g.showUngrouped !== "boolean"
+        || !["tags", "connections"].includes(g.view) || typeof g.showTags !== "boolean"
+        || (g.contextTag !== undefined && !tagIds.has(g.contextTag))
         || !g.highlight || !ids(g.highlight.tagIds, tagIds)
         || !["any", "all"].includes(g.highlight.mode) || typeof g.highlight.fade !== "boolean")
         fail("invalid saved graph settings");

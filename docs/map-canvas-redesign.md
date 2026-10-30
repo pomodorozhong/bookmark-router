@@ -1,6 +1,6 @@
 # Map canvas redesign
 
-The redesign for [#93](https://github.com/pomodorozhong/bookmark-router/issues/93): every control says what it acts on, and the graph gets the whole window. It was designed together with Untangle ([#90](https://github.com/pomodorozhong/bookmark-router/issues/90)) and ships first, without the Connections view. [Product behavior](product.md#current-behavior) describes the result; this page records the decisions behind it.
+The redesign for [#93](https://github.com/pomodorozhong/bookmark-router/issues/93): every control says what it acts on, and the graph gets the whole window. It was designed together with [Untangle](untangle.md) ([#90](https://github.com/pomodorozhong/bookmark-router/issues/90)), which shipped next on top of it. [Product behavior](product.md#current-behavior) describes the result; this page records the decisions behind it.
 
 ## Decisions
 

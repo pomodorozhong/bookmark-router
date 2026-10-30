@@ -3,6 +3,7 @@
 Updated October 30, 2026. Rounds 0–4 are approved and round 1.5 is skipped.
 
 - [Product](product.md): what the app is for, scope boundaries, and current behavior.
+- [Untangle](untangle.md): the Connections view, Best next ranking and its calculation, split preview, tag nodes, and verification canaries for #90.
 - [Map canvas redesign](map-canvas-redesign.md): the #93 redesign of the header, filter menus, tag visibility, Saved views and map canvas, its design decisions, and verification.
 - [Workflow](workflow.md): how each change works, working agreements, test data, and the verification recipe.
 - [WebMCP](webmcp.md): standalone agent-integration reference, including tools, selection copy/enrichment, remote image proposals with previews, stale-batch Apply anyway with explicit overwrite warnings, reversible Set aside with a retained-batch picker, complete client configuration, and verification.

@@ -155,7 +155,7 @@ export function FilterBar({ workspace, filter, tab, highlight, highlightCount, p
       <button className="view-delete" aria-label={`Delete saved view ${v.name}`} onClick={() => { void save({ type: "view.remove", id: v.id }, `Delete saved view: ${v.name}`).catch((e) => setError(String(e))); }}><Icon name="close" size={12} /></button>
     </div>)}
     {!workspace.views.length && <p className="subtle chip-empty">No saved views yet</p>}
-    <form className="view-save" title="Saves search, state, filters, tag visibility and highlights" onSubmit={(e) => { e.preventDefault(); void saveFilter(); }}><input aria-label="Saved view name" placeholder="Save current view as…" value={name} onChange={(e) => setName(e.target.value)} /><button type="submit" disabled={saving || !name.trim()}>Save</button></form>
+    <form className="view-save" title="Saves search, state, filters, tag visibility, highlights and graph view" onSubmit={(e) => { e.preventDefault(); void saveFilter(); }}><input aria-label="Saved view name" placeholder="Save current view as…" value={name} onChange={(e) => setName(e.target.value)} /><button type="submit" disabled={saving || !name.trim()}>Save</button></form>
     {error && <p className="chip-empty" role="alert">{error}</p>}
   </>;
   const hiddenTags = new Set([...filter.hiddenTagIds, ...filter.hiddenBookmarkTagIds]).size;

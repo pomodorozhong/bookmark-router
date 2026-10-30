@@ -1,4 +1,4 @@
-import { AutoAdaptLabel, ExtensionCategory, register, type AutoAdaptLabelOptions } from "@antv/g6";
+import { AutoAdaptLabel, ExtensionCategory, GraphEvent, register, type AutoAdaptLabelOptions } from "@antv/g6";
 
 type Element = { id: string; getShape(name: string): { getRenderBounds(): { intersects(other: unknown): boolean } } };
 type Detect = (elements: Element[]) => { show: Element[]; hide: Element[] };
@@ -6,6 +6,8 @@ type Detect = (elements: Element[]) => { show: Element[]; hide: Element[] };
 export interface FocusAdaptLabelOptions extends AutoAdaptLabelOptions {
   /** IDs whose labels always show, such as the hovered or selected node. */
   focusIds?: () => string[];
+  /** Retain existing label visibility during motion instead of repeating collision detection. */
+  paused?: () => boolean;
 }
 
 // G6's auto-adapt-label hides any label not fully inside the view, even the
@@ -14,7 +16,12 @@ export interface FocusAdaptLabelOptions extends AutoAdaptLabelOptions {
 class FocusAdaptLabel extends AutoAdaptLabel {
   constructor(context: ConstructorParameters<typeof AutoAdaptLabel>[0], options: FocusAdaptLabelOptions) {
     super(context, options);
-    const self = this as unknown as { detectLabelCollision: Detect };
+    const self = this as unknown as { detectLabelCollision: Detect; onToggleVisibility: (event: unknown) => void; onTransform: (event: unknown) => void };
+    const toggle = self.onToggleVisibility, transform = self.onTransform;
+    self.onToggleVisibility = (event) => { if (!options.paused?.()) toggle(event); };
+    context.graph.off(GraphEvent.AFTER_TRANSFORM, transform);
+    self.onTransform = (event) => { if (!options.paused?.()) transform(event); };
+    context.graph.on(GraphEvent.AFTER_TRANSFORM, self.onTransform);
     const detect = self.detectLabelCollision;
     self.detectLabelCollision = (elements) => {
       const ids = new Set(options.focusIds?.() ?? []);
