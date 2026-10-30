@@ -1,8 +1,9 @@
 # Documentation
 
-Updated October 14, 2026. Rounds 0–4 are approved and round 1.5 is skipped.
+Updated October 30, 2026. Rounds 0–4 are approved and round 1.5 is skipped.
 
 - [Product](product.md): what the app is for, scope boundaries, and current behavior.
+- [Map canvas redesign](map-canvas-redesign.md): the #93 redesign of the header, filter menus, tag visibility, Saved views and map canvas, its design decisions, and verification.
 - [Workflow](workflow.md): how each change works, working agreements, test data, and the verification recipe.
 - [WebMCP](webmcp.md): standalone agent-integration reference, including tools, selection copy/enrichment, remote image proposals with previews, stale-batch Apply anyway with explicit overwrite warnings, reversible Set aside with a retained-batch picker, complete client configuration, and verification.
 - [Claude setup](claude-setup.md): connecting Claude Code, Claude Desktop, and the in-app browser through the Chrome bridge or the local relay, the in-app browser limitation, and its control check.

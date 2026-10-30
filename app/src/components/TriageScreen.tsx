@@ -1,10 +1,13 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Dialog, DialogHeader } from "./Dialog";
+import { resetSearchAndState, type ViewSettings } from "../domain/saved-views";
 import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { CopyDialog, type CopyDialogScope, type CopyGroup, type CopyScope } from "./CopyDialog";
 import { StateHeading } from "./StateHeading";
 import { RecordEditor } from "./RecordEditor";
 import { TagView } from "./TagView";
 import { DetailBar } from "./DetailBar";
+import { uncovered, type Covered } from "./graph-placement";
 import { FilterBar } from "./FilterBar";
 import { HighlightBar, HighlightMenu } from "./HighlightControl";
 import { Cover, type LoadMedia } from "./Cover";
@@ -35,10 +38,8 @@ import {
 } from "../domain/triage";
 
 const relatedListLimit = 12;
-// At this width and below the queue and the panel share the area under the graph, as two tabs.
+// At this width and below the bookmark card becomes a bottom sheet and the queue strip sits under the header.
 const sharedPanelQuery = "(max-width: 820px)";
-// Up to this width an expanded queue floats over the graph as a drawer; above it, the queue is a column.
-const queueDrawerQuery = "(max-width: 1280px)";
 
 function useMediaQuery(query: string) {
   const [matches, setMatches] = useState(() => matchMedia(query).matches);
@@ -76,6 +77,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   onError: (message: string) => void;
 }) {
   const graphRef = useRef<GraphCanvasHandle>(null);
+  const [graphReady, setGraphReady] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [tab, setTab] = useState<TriageTab>("todo");
   const [filter, setFilter] = useState<TriageFilter>(emptyTriageFilter);
   // The box selection, in the clockwise order captured when it was drawn.
@@ -87,12 +90,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [tagPanel, setTagPanel] = useState<{ id: string; editing: boolean; back?: boolean }>();
   const [currentId, setCurrentId] = useState<string>();
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
-  // Above 820 px: the full queue list, or only its thumbnails when false.
-  const [queueOpen, setQueueOpen] = useState(() => !matchMedia(queueDrawerQuery).matches);
-  // At 820 px and below: which tab the area under the graph shows.
-  const [panelTab, setPanelTab] = useState<"queue" | "detail">("detail");
+  // The queue strip, or only its count when hidden (Q).
+  const [queueOpen, setQueueOpen] = useState(true);
   const shared = useMediaQuery(sharedPanelQuery);
-  const drawer = useMediaQuery(queueDrawerQuery) && !shared && queueOpen;
   const [groupQuery, setGroupQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   // The filter bar's More menu, holding Empty groups and Ungrouped bookmarks.
@@ -105,8 +105,52 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const [resetRequest, setResetRequest] = useState(0);
   const filterInput = useRef<HTMLInputElement>(null);
   const queueRef = useRef<HTMLElement>(null);
-  // The width of graph an open queue drawer covers (the graph's stage follows the queue), so picking a bookmark centres it beside the drawer.
-  const drawerCover = () => drawer ? (queueRef.current?.getBoundingClientRect().right ?? 0) - (queueRef.current?.nextElementSibling?.getBoundingClientRect().left ?? 0) : 0;
+  const headerRef = useRef<HTMLElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  // The header's height places the graph tools, card and phone strip below it, however its rows wrap.
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const observer = new ResizeObserver(() => setHeaderHeight(header.offsetHeight));
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+  // On phones the card is a bottom sheet that shrinks when nothing is picked; the map's bottom tools sit on its edge.
+  const [panelHeight, setPanelHeight] = useState<number>();
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const observer = new ResizeObserver(() => setPanelHeight(panel.offsetHeight));
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
+  // The progress line wraps on narrow desktops; the map legend above it sits on its measured height.
+  const progressRef = useRef<HTMLElement>(null);
+  const [progressHeight, setProgressHeight] = useState<number>();
+  useLayoutEffect(() => {
+    const progress = progressRef.current;
+    if (!progress) return;
+    const observer = new ResizeObserver(() => setProgressHeight(progress.offsetHeight));
+    observer.observe(progress);
+    return () => observer.disconnect();
+  }, []);
+  // The graph fills the screen under floating controls; framing centres in the part they leave uncovered.
+  const covered = (): Covered => {
+    const stage = stageRef.current?.getBoundingClientRect();
+    if (!stage) return uncovered;
+    const below = (el: Element | null) => el ? Math.max(0, el.getBoundingClientRect().bottom - stage.top) : 0;
+    const above = (el: Element | null) => el ? Math.max(0, stage.bottom - el.getBoundingClientRect().top) : 0;
+    const panel = panelRef.current?.getBoundingClientRect();
+    return {
+      left: 0,
+      right: !shared && panel?.width ? Math.max(0, stage.right - panel.left) : 0,
+      top: Math.max(below(headerRef.current), below(toolsRef.current), shared ? below(queueRef.current) : 0),
+      bottom: shared ? above(panelRef.current) : above(queueRef.current),
+    };
+  };
   const groupInput = useRef<HTMLInputElement>(null);
 
   const selectionTag = selection && workspace.tags.find((t) => t.id === selectionTagId);
@@ -126,7 +170,10 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     return () => onCopyContext(undefined);
   }, [workspace.id, selection, queue, current?.id, onCopyContext]);
   const groups = current ? groupsOf(workspace, current.id) : [];
-  const related = useMemo(() => (current ? [...relatedOf(workspace, current.id)].sort((a, b) => b[1].length - a[1].length) : []), [workspace, current]);
+  const related = useMemo(() => {
+    if (!current) return [];
+    return [...relatedOf(workspace, current.id)].sort((a, b) => b[1].length - a[1].length);
+  }, [workspace, current]);
   // Related bookmarks by state, keeping the shared-tag order inside each group; only the first few show.
   const relatedGroups = useMemo(() => {
     const byId = new Map(workspace.bookmarks.map((b) => [b.id, b]));
@@ -138,7 +185,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
     });
   }, [workspace, related]);
   const relatedVia = new Map(related);
-  const visibility = useMemo(() => graphVisibility(workspace, filter, tab, current ? [current.id] : []), [workspace, filter, tab, current]);
+  const visibility = useMemo(() => graphVisibility(workspace, filter, tab), [workspace, filter, tab]);
   // The tag highlight marks bookmarks without changing the filters, the tab, or what the graph shows.
   const [highlightChoice, setHighlight] = useState<Highlight>(noHighlight);
   useEffect(() => { if (highlightRequest) setHighlight({ tagIds: [highlightRequest.tagId], mode: "any" }); }, [highlightRequest]);
@@ -174,13 +221,13 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   // Frame the current bookmark with its groups after navigation, not after box selection.
   useEffect(() => {
     if (!frameRequest || !current) return;
-    graphRef.current?.frame([current.id, ...groups.map((g) => g.id)]);
+    if (!visibility.bookmarkIds.includes(current.id)) return;
+    graphRef.current?.frame([current.id, ...groups.filter((g) => !visibility.hiddenTagIds.includes(g.id)).map((g) => g.id)]);
   }, [frameRequest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function show(id: string | undefined, frame = true) {
     setCurrentId(id);
     setTagPanel(undefined);
-    setPanelTab(id ? "detail" : "queue");
     setGroupQuery("");
     setMenuOpen(false);
     if (frame) setFrameRequest(++frameToken.current);
@@ -258,10 +305,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   }
   // Runs after the graph has applied the new tab's visibility (child effects run first).
   useEffect(() => { if (resetRequest) graphRef.current?.resetPositions(); }, [resetRequest]);
-  function toggleQueue() {
-    if (shared) setPanelTab((t) => (t === "queue" ? "detail" : "queue"));
-    else setQueueOpen((v) => !v);
-  }
+  function toggleQueue() { setQueueOpen((v) => !v); }
   function openCopy(scope?: CopyScope) {
     setCopyGroup(undefined);
     setCopyScope(scope ?? (selection ? "selection" : "list"));
@@ -284,7 +328,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
       else if (key === "q") toggleQueue();
       else if (key === "c") openCopy();
       else if (key === "o" && current?.url && isWebUrl(current.url)) window.open(current.url, "_blank", "noopener,noreferrer");
-      else if (e.key === "Escape" && drawer) setQueueOpen(false);
       else if (e.key === "Escape" && tagPanel) setTagPanel(tagPanel.editing ? { ...tagPanel, editing: false } : undefined);
       else if (e.key === "Escape" && selection) setSelection(undefined);
       else if (e.key === "Escape" && current) show(undefined, false);
@@ -300,45 +343,57 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   });
 
   const position = current ? queue.findIndex((b) => b.id === current.id) : -1;
-  // In the phone layout the panel's bar starts with the Queue button, in place of tabs.
-  const sheetQueue = (
-    <button className="queue-toggle sheet-queue" aria-label="Queue" aria-expanded={false} title="Show the queue (Q)" onClick={toggleQueue}>
-      <Icon name="list" size={16} strokeWidth={2} /><span className="queue-count">{queue.length}</span><Kbd>Q</Kbd>
-    </button>
-  );
   const total = workspace.bookmarks.length || 1;
   const progressText = `${counts.done} done · ${counts.dropped} dropped · ${counts.todo} to triage`;
+  const settings: ViewSettings = { filter, tab, highlight, fadeRest };
+  function applySettings(next: ViewSettings) {
+    setFilter(next.filter); setTab(next.tab); setHighlight(next.highlight); setFadeRest(next.fadeRest);
+    writeHighlightFade(next.fadeRest); setSelection(undefined);
+    if (current && !triageQueue(workspace, { tab: next.tab, filter: next.filter }).some((b) => b.id === current.id)) show(undefined, false);
+  }
+  function resetSearchState() {
+    const next = resetSearchAndState(settings);
+    setFilter(next.filter); setTab(next.tab);
+    if (current && !triageQueue(workspace, { tab: next.tab, filter: next.filter, selection: selectionSet }).some((b) => b.id === current.id)) show(undefined, false);
+  }
+  // Arrangement controls sit directly in the graph tools.
+  const layoutControls = <>
+    <button className="tool-toggle" aria-pressed={filter.showEmptyGroups} title="Show tags with no shown bookmarks" onClick={() => changeFilter({ ...filter, showEmptyGroups: !filter.showEmptyGroups })}><Icon name="tag" size={14} /><span className="tool-label">Empty tags</span></button>
+    <button className="tool-action" aria-label="Re-layout" title="Re-layout" disabled={!graphReady} onClick={() => graphRef.current?.relayout()}><Icon name="layout" size={14} /><span className="tool-label">Re-layout</span></button>
+    <button className="tool-action" aria-label="Reset positions" title="Reset positions and clear pins" disabled={!graphReady} onClick={() => setConfirmReset(true)}><Icon name="refresh" size={14} /><span className="tool-label">Reset…</span></button>
+  </>;
   return (
-    <div className={`triage ${queueOpen ? "queue-open" : "queue-minimized"} ${panelTab === "queue" ? "panel-queue" : ""} ${current || panelTag ? "has-current" : ""}`}>
-      <header className="triage-header">
-        {headerStart}
-        <div className="triage-progress" aria-label="Triage progress" title={progressText}>
-          <div className="triage-bar" aria-hidden="true">
-            <span style={{ width: `${(counts.done / total) * 100}%`, background: "var(--color-accent)" }} />
-            <span style={{ width: `${(counts.dropped / total) * 100}%`, background: "var(--color-ink-faint)" }} />
+    <div className={`triage map-canvas ${queueOpen ? "queue-open" : "queue-minimized"} ${current || panelTag ? "has-current" : ""}`}
+      style={{ "--header-height": `${headerHeight}px`, ...(panelHeight !== undefined && { "--panel-height": `${panelHeight}px` }), ...(progressHeight !== undefined && { "--progress-height": `${progressHeight}px` }) } as CSSProperties}>
+      <header ref={headerRef} className="triage-header">
+        <div className="header-start float">{headerStart}</div>
+        <div className="scope-column float">
+          <div className="scope-bar">
+            <select className="bookmark-state" aria-label="Bookmark state" value={tab} onChange={(e) => changeTab(e.target.value as TriageTab)}>
+              <option value="todo">To triage {counts.todo}</option><option value="done">Done {counts.done}</option><option value="dropped">Dropped {counts.dropped}</option><option value="all">All {workspace.bookmarks.length}</option>
+            </select>
+            <label className={`filter-search filter-box global-search ${filter.text.trim() ? "searching" : ""}`}>
+              <Icon name="search" size={15} /><input ref={filterInput} type="search" aria-label="Search bookmarks and tags" placeholder="Search bookmarks and tags" title="Search (F)" value={filter.text}
+                onChange={(e) => changeFilter({ ...filter, text: e.target.value })} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); changeFilter({ ...filter, text: "" }); e.currentTarget.blur(); } }} />
+              {filter.text ? <button aria-label="Clear search" onClick={() => changeFilter({ ...filter, text: "" })}><Icon name="close" size={12} /></button> : <Kbd>F</Kbd>}
+            </label>
           </div>
-          <span className="triage-progress-text">{progressText}</span>
-          <span className="triage-percent">{Math.round(((counts.done + counts.dropped) / total) * 100)}%</span>
+          <FilterBar workspace={workspace} filter={filter} tab={tab} onChange={changeFilter} save={save} settings={settings} onTagTypes={onTagTypes}
+            onLoad={(next) => { applySettings(next); notify("Loaded bookmark and tag settings", () => applySettings(settings)); }}
+            onReset={resetSearchState} phone={shared} highlightCount={highlight.tagIds.length} onHighlight={() => setHighlightPicker(true)}
+            highlight={(back) => <HighlightMenu workspace={workspace} highlight={highlight} open={highlightPicker} onBack={back} onOpen={setHighlightPicker} onChange={setHighlight}
+              activeDetails={<HighlightBar workspace={workspace} highlight={highlight} shown={highlightShown.shown} hidden={highlightShown.hidden} fade={fadeRest} onChange={setHighlight} onFade={(fade) => { setFadeRest(fade); writeHighlightFade(fade); }} />} />} />
         </div>
-        <div className="segmented" role="tablist" aria-label="Queue">
-          {([["todo", `To triage ${counts.todo}`], ["done", `Done ${counts.done}`], ["dropped", `Dropped ${counts.dropped}`], ["all", "All"]] as const).map(([key, label]) => (
-            <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? "active" : ""} onClick={() => changeTab(key)}>{label}</button>
-          ))}
-        </div>
-        {headerEnd}
+        <div className="header-end float">{headerEnd}</div>
       </header>
       <div className="triage-body">
-        <nav ref={queueRef} className="triage-queue" aria-label="Bookmarks to triage">
-          {/* The Queue control heads the queue itself: the rail's top cell, or the start of the full list's bar. */}
+        <nav ref={queueRef} className="triage-queue float" aria-label="Bookmarks to triage">
+          {/* The strip's label: its count, Copy, and the selection it shows. */}
           <div className={`queue-bar ${selection ? "selection" : ""}`} role={selection ? "status" : undefined}>
-            <button className="queue-toggle" aria-label="Queue" aria-expanded={shared ? panelTab === "queue" : queueOpen} onClick={toggleQueue}
-              title={shared ? "Back to the bookmark" : queueOpen ? "Show only thumbnails (Q)" : "Show the full queue (Q)"}>
-              <Icon name="list" size={16} strokeWidth={2} />
+            <button className="queue-toggle" aria-label="Queue" aria-expanded={queueOpen} onClick={toggleQueue}
+              title={queueOpen ? "Hide the queue (Q)" : "Show the queue (Q)"}>
+              <span className="queue-bar-label">{selection ? (selectionTag ? <>in <span title={selectionTag.name}>{selectionTag.name}</span></> : "Selected") : tab === "all" ? "All" : stateLabels[tab]}</span>
               <span className="queue-count">{selection ? selection.length : queue.length}</span>
-              <span className={`queue-bar-label ${selectionTag ? "full" : ""}`}>
-                {selection ? <>{selectionTag ? <>in <span title={selectionTag.name}>{selectionTag.name}</span></> : "selected"}{queue.length !== selection.length ? ` · ${queue.length} here` : ""}</> : "in this list"}
-              </span>
-              <Icon className="queue-chevron" name="chevron-left" size={14} />
               <Kbd>Q</Kbd>
             </button>
             <span className="queue-bar-actions">
@@ -348,12 +403,13 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                 : <button onClick={() => openCopy("list")} disabled={!queue.length}><Icon name="copy" size={13} /> Copy…<Kbd>C</Kbd></button>}
             </span>
           </div>
+          <div className="queue-list">
           {queue.map((b) => {
             const warn = b.notes?.some((n) => /^(Link check|Possible duplicate)/.test(n.label));
             const decided = outcomeOf(b, workspace) !== "active";
-            const tagCount = workspace.memberships.filter((m) => m.bookmarkId === b.id).length;
             return (
-              <button key={b.id} className={`queue-item ${b.id === current?.id ? "current" : ""}`} aria-current={b.id === current?.id} title={!shared && !queueOpen ? b.title : undefined} onClick={() => show(b.id)}>
+              <button key={b.id} className={`queue-item ${b.id === current?.id ? "current" : ""}`} aria-current={b.id === current?.id}
+                title={b.title} onClick={() => show(b.id)}>
                 {/* The slot is kept without an image so titles line up. */}
                 <span className="queue-thumb"><Cover bookmark={b} load={loadMedia} className="" letterTile /></span>
                 <span className="queue-text">
@@ -362,36 +418,32 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                   {warn && <i className="warn-dot" title="Has a warning" />}
                   <span className="queue-domain">{domainOf(b.url) || "No URL"}</span>
                   {decided && <span className="queue-status">{statusLabel(workspace, b.statusId)}</span>}
-                  <span className="queue-groups" title={`${tagCount} ${tagCount === 1 ? "tag" : "tags"}`}>{tagCount}</span>
                 </span>
                 </span>
               </button>
             );
           })}
-          {!queue.length && <p className="queue-empty">{workspace.bookmarks.length ? "Nothing here. Try another tab or clear the filter." : "No bookmarks yet."}</p>}
-        </nav>
-        <div className="triage-stage">
-          <div className="triage-tools">
-            <FilterBar workspace={workspace} filter={filter} tab={tab} searchRef={filterInput} compact={shared} onChange={changeFilter} save={(c, label) => save(c, label)}
-              highlight={<HighlightMenu workspace={workspace} highlight={highlight} compact={shared} open={highlightPicker} onOpen={setHighlightPicker} onChange={setHighlight} />} />
-            <HighlightBar workspace={workspace} highlight={highlight} shown={highlightShown.shown} hidden={highlightShown.hidden} fade={fadeRest} onChange={setHighlight}
-              onFade={(fade) => { setFadeRest(fade); writeHighlightFade(fade); }} />
+          {!queue.length && <p className="queue-empty">{workspace.bookmarks.length ? "Nothing here. Try another state or clear the filter." : "No bookmarks yet."}</p>}
           </div>
+        </nav>
+        <div ref={stageRef} className="triage-stage">
+          <div ref={toolsRef} className="triage-tools float">
+            <div className="graph-controls" role="region" aria-label="Graph controls">{layoutControls}</div>
+          </div>
+          <div className="triage-graph">
           {toast}
           <GraphCanvas
             ref={graphRef}
-            coveredLeft={drawerCover}
+            covered={covered}
             workspace={workspace}
             selected={current?.id}
             onSelect={(id) => {
-              // Tapping the graph puts a queue drawer away; tapping empty space does nothing else.
-              if (drawer) { setQueueOpen(false); if (!id) return; }
+              // Tapping empty space clears the current bookmark.
               if (!id) show(undefined, false);
               else if (workspace.bookmarks.some((b) => b.id === id)) show(id);
               else {
                 boxSelect(workspace.memberships.filter((m) => m.tagId === id).map((m) => m.bookmarkId), false, id);
                 setTagPanel({ id, editing: false });
-                setPanelTab("detail");
               }
             }}
             query=""
@@ -402,9 +454,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             boxSelection={selectionSet}
             highlightIds={highlightIds}
             fadeRest={fadeRest}
-            onHighlight={shared ? () => setHighlightPicker(true) : undefined}
-            onCenter={current ? () => graphRef.current?.frame([current.id, ...groups.map((g) => g.id)]) : undefined}
-            compact={shared}
+            onCenter={current && visibility.bookmarkIds.includes(current.id) ? () => graphRef.current?.frame([current.id, ...groups.filter((g) => !visibility.hiddenTagIds.includes(g.id)).map((g) => g.id)]) : undefined}
+            summary={`${visibility.bookmarkIds.length} bookmarks`}
+            onReady={setGraphReady}
             onBoxSelect={boxSelect}
             geometry={geometry}
             onGeometry={onGeometry}
@@ -413,8 +465,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             onPinsChanged={setPinnedIds}
             loadMedia={loadMedia}
           />
+          </div>
         </div>
-        <aside className="triage-panel" aria-label="Current bookmark">
+        <aside ref={panelRef} className="triage-panel float" aria-label="Current bookmark">
           {panelTag ? (
             tagPanel!.editing
               ? <div className="triage-detail">
@@ -423,15 +476,14 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                 </div>
               : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
                     onCopy={() => openCopy("selection")} onCopyGroup={openCopyGroup} onEdit={() => setTagPanel({ ...tagPanel!, editing: true })}
-                    start={<>{sheetQueue}{tagPanel!.back && current && (
+                    start={<>{tagPanel!.back && current && (
                       <button className="text-button tag-back" onClick={() => setTagPanel(undefined)}><Icon name="chevron-left" size={14} /> Back<span className="tag-back-rest"> to the bookmark</span></button>
                     )}</>}
-                    pin={<PinButton pinned={pinnedIds.includes(panelTag.id)} onToggle={(on) => graphRef.current?.setPinned(panelTag.id, on)} />} onClose={() => setTagPanel(undefined)} />
+                    pin={<PinButton disabled={!graphReady} pinned={pinnedIds.includes(panelTag.id)} onToggle={(on) => graphRef.current?.setPinned(panelTag.id, on)} />} onClose={() => setTagPanel(undefined)} />
           ) : current ? (
             <>
               <DetailBar
                 start={<>
-                  {sheetQueue}
                   <IconButton label="Previous in the queue (K)" icon="chevron-left" size={16} shortcut="K" onClick={() => move(-1)} />
                   <IconButton label="Next in the queue (J)" icon="chevron-right" size={16} shortcut="J" onClick={() => move(1)} />
                   {position >= 0 && <span className="detail-position">{position + 1} of {queue.length}</span>}
@@ -439,7 +491,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                 closeLabel="Clear current bookmark (Esc)" closeShortcut="Esc" onClose={() => show(undefined, false)}>
                 <IconButton label="Copy" icon="copy" size={16} onClick={() => openCopy("current")} />
                 <IconButton label="Edit" icon="edit" size={16} onClick={() => onEdit(current.id)} />
-                <PinButton pinned={pinnedIds.includes(current.id)} onToggle={(on) => graphRef.current?.setPinned(current.id, on)} />
+                <PinButton disabled={!graphReady} pinned={pinnedIds.includes(current.id)} onToggle={(on) => graphRef.current?.setPinned(current.id, on)} />
               </DetailBar>
               <div className="triage-detail">
                 <div className="triage-top">
@@ -473,7 +525,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                         <div key={t.id} className={`triage-group ${peek ? "peek" : ""}`}>
                           <i className="swatch" style={{ background: typeColor(t.typeId) }} />
                           <div>
-                            <button className="group-name" title={`Open ${t.name}`} onClick={() => { setTagPanel({ id: t.id, editing: false, back: true }); setPanelTab("detail"); }}>{t.name}</button><span className="group-type" title={peek ? `${typeName(t.typeId)} is hidden in the filter` : undefined}>{typeName(t.typeId)}{peek && " · hidden"}</span>
+                            <button className="group-name" title={`Open ${t.name}`} onClick={() => setTagPanel({ id: t.id, editing: false, back: true })}>{t.name}</button><span className="group-type" title={peek ? `${typeName(t.typeId)} is hidden in the filter` : undefined}>{typeName(t.typeId)}{peek && " · hidden"}</span>
                             {why && <p className="group-why">{why}</p>}
                           </div>
                           <IconButton label={`Remove tag ${t.name}`} icon="close" size={14} disabled={busy} onClick={() => link(t.id, false)} />
@@ -532,14 +584,16 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                             <button key={b.id} onClick={() => show(b.id)}>
                               <span className="related-title">{b.title}</span>
                               {/* With one tag every related bookmark comes through it, so naming it adds nothing. */}
-                              {groups.length > 1 && <span className="related-via">via {viaTag?.name}{via.length > 1 ? ` +${via.length - 1}` : ""}</span>}
+                              {groups.length > 1 && <span className="related-via" title={`Shared tags: ${via.map((id) => workspace.tags.find((t) => t.id === id)?.name).join(", ")}`}>
+                                via {viaTag?.name}{via.length > 1 ? ` +${via.length - 1}` : ""}
+                              </span>}
                             </button>
                           );
                         })}
                       </Fragment>
                     ))}
                     {!related.length && <p className="subtle">Shares no tag with another bookmark.</p>}
-                    {related.length > relatedListLimit && <p className="subtle">and {related.length - relatedListLimit} more, highlighted in the graph</p>}
+                    {related.length > relatedListLimit && <p className="subtle">and {related.length - relatedListLimit} more related bookmarks</p>}
                   </div>
                 </section>
               </div>
@@ -559,6 +613,14 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
           )}
         </aside>
       </div>
+      <footer ref={progressRef} className="collection-progress" aria-label="Collection progress">
+        <span>{counts.done + counts.dropped}/{workspace.bookmarks.length} processed · {workspace.bookmarks.length ? Math.round(((counts.done + counts.dropped) / total) * 100) : 0}%</span>
+        <div className="triage-bar" aria-hidden="true"><span style={{ width: `${counts.done / total * 100}%`, background: "var(--color-accent)" }} /><span style={{ width: `${counts.dropped / total * 100}%`, background: "var(--color-ink-faint)" }} /></div><span>{progressText}</span>
+      </footer>
+      {confirmReset && <Dialog labelledBy="reset-title" className="prompt-modal" onClose={() => setConfirmReset(false)}>
+        <DialogHeader id="reset-title" label="Graph" title="Reset positions?" onClose={() => setConfirmReset(false)} /><p>Every bookmark and tag goes back to an automatic place, and all pins are cleared.</p>
+        <footer><button onClick={() => setConfirmReset(false)}>Cancel</button><button className="danger" onClick={() => { setConfirmReset(false); graphRef.current?.resetPositions({ clearPins: true }); }}>Reset positions</button></footer>
+      </Dialog>}
       {copyScope && (
         <CopyDialog
           workspace={workspace}
@@ -578,7 +640,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
 }
 
 /** Pins a node where it sits in the graph, so layouts leave it there. */
-function PinButton({ pinned, onToggle }: { pinned: boolean; onToggle: (pinned: boolean) => void }) {
-  return <IconButton label={pinned ? "Unpin" : "Pin"} icon="pin" size={16} aria-pressed={pinned}
+function PinButton({ pinned, disabled, onToggle }: { pinned: boolean; disabled?: boolean; onToggle: (pinned: boolean) => void }) {
+  return <IconButton disabled={disabled} label={pinned ? "Unpin" : "Pin"} icon="pin" size={16} aria-pressed={pinned}
     title={pinned ? "Unpin: let the layout move it again" : "Pin: keep it where it is in the graph"} onClick={() => onToggle(!pinned)} />;
 }

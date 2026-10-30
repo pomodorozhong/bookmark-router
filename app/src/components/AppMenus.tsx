@@ -16,7 +16,7 @@ export function Logo({ size = 22 }: { size?: number }) {
 }
 
 // A button that opens a menu; closes on outside click, Escape, or choosing an item.
-function MenuButton({ label, button, className = "", align = "start", children }: {
+export function MenuButton({ label, button, className = "", align = "start", children }: {
   label: string;
   button: ReactNode;
   className?: string;
@@ -78,7 +78,7 @@ export function CollectionMenu({ workspace, collections, onOpen, onNew, onDelete
         <>
           <div className="menu-heading">Collections</div>
           {collections.map((w) => (
-            <div key={w.id} className="menu-row">
+            <div key={w.id} className="menu-row" title={w.name}>
               <Item current={w.id === workspace.id} onSelect={() => { close(); onOpen(w); }}
                 meta={<span title="Bookmarks · tags">{w.bookmarks.length} · {w.tags.length}</span>}>{w.name}</Item>
               <button type="button" role="menuitem" className="menu-row-delete" aria-label={`Delete ${w.name}…`} title={`Delete ${w.name}…`}
@@ -115,27 +115,20 @@ export function AgentMenu({ pending, busy, onReview, localAgentEnabled, localAge
   const status = localAgentCopy[localAgentStatus];
   return (
     <div className="agent-control">
-      <button className="agent-review-entry" disabled={busy} onClick={onReview} aria-label={`Agent review${pending ? ", 1 batch awaiting review" : ""}`}>
-        <Icon name="bot" size={16} /><span className="agent-review-label">Agent<span className="agent-review-rest"> review</span></span>{pending && <span className="agent-review-count" aria-hidden="true">1</span>}
-      </button>
-      <MenuButton label="Agent connection" align="end" className="agent-menu-root"
-        button={<><Icon className="agent-chevron" name="chevron-down" size={15} /><Icon className="agent-bot" name="bot" size={17} />{pending && <span className="agent-dot" aria-hidden="true" />}</>}>
+      <MenuButton label={`Agent${pending ? ", 1 batch awaiting review" : ""}`} align="end" className="agent-menu-root"
+        button={<><Icon name="bot" size={17} />{pending && <span className="agent-dot" aria-hidden="true" />}</>}>
         {(close) => (
           <>
-            {/* In the phone layout this menu is the only Agent button, so it opens the review too. */}
+            {/* This menu is the only Agent button, so it opens the review too. */}
             <button type="button" role="menuitem" className="agent-menu-review" disabled={busy} onClick={() => { close(); onReview(); }}>
               <span className="menu-icon"><Icon name="bot" size={15} /></span>
               <span className="menu-label">Agent review</span>
               {pending && <span className="menu-meta">1 batch waiting</span>}
             </button>
-            <div className="connection-menu-heading">
-              <div className="menu-heading">Agent connection</div>
-              <p>Expose this collection to a local MCP agent.</p>
-            </div>
+            <div className="menu-heading">Agent connection</div>
             <label className="connection-toggle">
               <span className="connection-toggle-text">
                 <strong>Connect to a local agent</strong>
-                <small>Uses a loopback relay on this device.</small>
               </span>
               <span className={`connection-state status-${localAgentStatus}`} role="status" aria-live="polite">{status.state}</span>
               <span className={`connection-switch ${localAgentEnabled ? "is-on" : ""}`}>
@@ -149,7 +142,7 @@ export function AgentMenu({ pending, busy, onReview, localAgentEnabled, localAge
                 <span><strong>{status.card.title}</strong><small>{status.card.detail}</small></span>
               </div>
             )}
-            <p className="connection-menu-note">The relay stays on 127.0.0.1. Nothing is sent until an agent calls one of the app’s tools.</p>
+            <p className="menu-note">Stays on this device (127.0.0.1).</p>
           </>
         )}
       </MenuButton>

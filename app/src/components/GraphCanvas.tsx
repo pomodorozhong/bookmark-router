@@ -1,9 +1,9 @@
 import { bookmarkImageMinZoom, bookmarkLabelMinZoom } from "./graph-labels";
-import { placeNear, type Point } from "./graph-placement";
+import { placeNear, uncovered, type Covered, type Point } from "./graph-placement";
 import "./focus-adapt-label";
 import "./tag-node";
 import { isTagStyle } from "./tag-shapes";
-import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import {
   CanvasEvent,
   Graph,
@@ -23,11 +23,11 @@ import {
   type Simulation,
 } from "d3-force";
 import { appearanceFor, type Appearance, type Bookmark, type Geometry, type Workspace } from "../domain/model";
-import { Icon, IconButton } from "./Icon";
-import { Dialog, DialogHeader } from "./Dialog";
+import { IconButton } from "./Icon";
 import { displayImage } from "../domain/thumbnails";
 export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
+  relayout(): void;
   /** Zoom and center so these nodes, with room for titles, fill the view. */
   frame(ids: string[]): void;
   /** Zoom out until every visible node fits. */
@@ -101,7 +101,7 @@ const noTags: string[] = [];
 
 export function GraphCanvas({
   ref,
-  coveredLeft,
+  covered,
   onPinsChanged,
   workspace,
   selected,
@@ -113,28 +113,26 @@ export function GraphCanvas({
   peekTagIds = noTags,
   geometry,
   onGeometry,
-  onImport, onClearSearch, onShowList,
+  onImport, onClearSearch, onShowList, onReady,
   loadMedia,
   boxSelection,
   highlightIds,
   fadeRest = false,
-  onHighlight,
   onBoxSelect,
   onCenter,
-  compact = false,
+  summary,
 }: {
+  /** A short line about what the graph shows, beside the framing tools once it is ready. */
+  summary?: string;
   /** Frames the current bookmark; the Center button is disabled without it. */
   onCenter?: () => void;
-  /** The phone layout: the bottom tools fold into one View menu in the top corner. */
-  compact?: boolean;
+  onReady?: (ready: boolean) => void;
   /** Bookmarks in the current box selection. */
   boxSelection?: ReadonlySet<string>;
   /** Bookmarks the tag highlight matches: ringed with a wide glow, without changing what is shown. */
   highlightIds?: ReadonlySet<string>;
   /** Fades bookmarks the highlight doesn't match. */
   fadeRest?: boolean;
-  /** Opens the highlight picker from the phone layout's View menu. */
-  onHighlight?: () => void;
   /** Called when a box is drawn on empty canvas; `adding` when Shift was held. */
   onBoxSelect?: (ids: string[], adding: boolean) => void;
   loadMedia?: (id: string) => Promise<{ blob: Blob } | undefined>;
@@ -142,8 +140,8 @@ export function GraphCanvas({
   onClearSearch: () => void;
   onShowList?: () => void;
   ref?: Ref<GraphCanvasHandle>;
-  /** How many pixels at the graph's left edge something covers, such as the queue drawer; framing centres in the rest. */
-  coveredLeft?: () => number;
+  /** How many pixels at each graph edge floating controls cover; framing centres in the rest. */
+  covered?: () => Covered;
   onPinsChanged: (ids: string[]) => void;
   workspace: Workspace;
   selected?: string;
@@ -165,8 +163,8 @@ export function GraphCanvas({
   onSelectRef.current = onSelect;
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
-  const coveredLeftRef = useRef(coveredLeft);
-  coveredLeftRef.current = coveredLeft;
+  const coveredRef = useRef(covered);
+  coveredRef.current = covered;
   type ForceNode = SimulationNodeDatum & { id: string };
   const simulation = useRef<
       Simulation<ForceNode, SimulationLinkDatum<ForceNode>> | undefined
@@ -353,10 +351,12 @@ export function GraphCanvas({
       if (!points.length) return;
       autoFit.current = false;
       const xs = points.map((p) => p[0]), ys = points.map((p) => p[1]);
-      const [fullWidth, height] = g.getSize();
-      // Frame in the part of the graph left uncovered, such as beside the queue drawer.
-      const covered = Math.min(Math.max(coveredLeftRef.current?.() ?? 0, 0), fullWidth / 2);
-      const width = fullWidth - covered;
+      const [fullWidth, fullHeight] = g.getSize();
+      // Frame in the part of the graph the floating card and queue leave uncovered.
+      const cover = coveredRef.current?.() ?? uncovered;
+      const left = Math.min(Math.max(cover.left, 0), fullWidth / 2), right = Math.min(Math.max(cover.right, 0), fullWidth / 2);
+      const top = Math.min(Math.max(cover.top, 0), fullHeight / 2), bottom = Math.min(Math.max(cover.bottom, 0), fullHeight / 2);
+      const width = fullWidth - left - right, height = fullHeight - top - bottom;
       const padX = 130, padY = 80; // screen room for titles around the outer nodes
       const spanX = Math.max(Math.max(...xs) - Math.min(...xs), 1), spanY = Math.max(Math.max(...ys) - Math.min(...ys), 1);
       const zoom = Math.max(0.15, Math.min(1.2, (width - 2 * padX) / spanX, (height - 2 * padY) / spanY));
@@ -364,10 +364,11 @@ export function GraphCanvas({
       void g.zoomTo(zoom, false)
         .then(() => {
           const [x, y] = g.getViewportByCanvas(center);
-          return g.translateBy([covered + width / 2 - x, height / 2 - y], { duration: 300 });
+          return g.translateBy([left + width / 2 - x, top + height / 2 - y], { duration: 300 });
         })
         .catch((e) => setError(String(e)));
     },
+    relayout: () => { simulation.current?.alpha(1).restart(); },
     resetPositions,
     positionOf(id) {
       const g = graph.current;
@@ -461,22 +462,7 @@ export function GraphCanvas({
     [ready, setReady] = useState(false),
     [status, setStatus] = useState("Placing your collection…"),
     [retry, setRetry] = useState(0),
-    [zoom, setZoom] = useState(1),
-    [layoutOpen, setLayoutOpen] = useState(false),
-    [confirmReset, setConfirmReset] = useState(false);
-  useEffect(() => {
-    const closeMenus = (event: KeyboardEvent | PointerEvent) => {
-      const shell = container.current?.parentElement;
-      if (!shell) return;
-      if (event instanceof KeyboardEvent && event.key !== "Escape") return;
-      const target = event.target as Element;
-      if (event instanceof KeyboardEvent || !target.closest(".layout-menu")) setLayoutOpen(false);
-      if (event instanceof KeyboardEvent || !target.closest(".help-menu")) shell.querySelector(".help-menu")?.removeAttribute("open");
-    };
-    document.addEventListener("keydown", closeMenus);
-    document.addEventListener("pointerdown", closeMenus);
-    return () => { document.removeEventListener("keydown", closeMenus); document.removeEventListener("pointerdown", closeMenus); };
-  }, []);
+    [zoom, setZoom] = useState(1);
   useEffect(() => {
     if (!container.current) return;
     let canceled = false,
@@ -1134,17 +1120,9 @@ export function GraphCanvas({
       setError(String(e));
     }
   }
+  useEffect(() => { onReady?.(ready); return () => onReady?.(false); }, [ready, onReady]);
   const zoomOut = () => void action((g) => g.zoomBy(0.8, false));
   const zoomIn = () => void action((g) => g.zoomBy(1.25, false));
-  // The layout actions, in the Layout menu or at the end of the phone layout's View menu.
-  const layoutItems = <>
-    <button onClick={() => { setLayoutOpen(false); simulation.current?.alpha(1).restart(); }}>
-      <Icon name="refresh" size={15} /> Re-layout
-    </button>
-    <button onClick={() => { setLayoutOpen(false); setConfirmReset(true); }}>
-      <Icon name="refresh" size={15} /> Reset positions…
-    </button>
-  </>;
   return (
     <div className="canvas-shell">
 
@@ -1174,71 +1152,25 @@ export function GraphCanvas({
       )}
       <div className="canvas-bottom">
         <div className="canvas-status">
-          {!ready && <span className="subtle" role="status">{status}</span>}
+          {!ready ? <span className="subtle" role="status">{status}</span> : summary && <span className="subtle graph-summary" aria-live="polite">{summary}</span>}
         </div>
-        {!compact && (
-          <div className="canvas-tools">
-            <div className="layout-menu">
-              <button
-                className="tool-button"
-                aria-expanded={layoutOpen}
-                disabled={!ready}
-                onClick={() => setLayoutOpen((v) => !v)}
-              >
-                <Icon name="layout" size={15} /> <span>Layout</span><Icon name="chevron-down" size={13} />
-              </button>
-              {layoutOpen && <div className="layout-menu-popover">{layoutItems}</div>}
-            </div>
-            <div className="tool-group">
-              <IconButton label="Center on the current bookmark" icon="scope" disabled={!onCenter} onClick={onCenter} />
-              <IconButton
-                label="Whole collection"
-                icon="fit"
-                disabled={!ready}
-                onClick={() => void action(fitWhole)}
-              />
-            </div>
-            <div className="tool-group">
-              <IconButton label="Zoom out" icon="zoom-out" disabled={!ready} onClick={zoomOut} />
-              <span className="zoom-value">{Math.round(zoom * 100)}%</span>
-              <IconButton label="Zoom in" icon="zoom-in" disabled={!ready} onClick={zoomIn} />
-            </div>
+        <div className="canvas-tools">
+          <div className="tool-group">
+            <IconButton label="Center on the current bookmark" icon="scope" disabled={!onCenter} onClick={onCenter} />
+            <IconButton
+              label="Whole collection"
+              icon="fit"
+              disabled={!ready}
+              onClick={() => void action(fitWhole)}
+            />
           </div>
-        )}
-      </div>
-      {compact && (
-        <div className="canvas-view layout-menu">
-          <button className="tool-button view-button" aria-label="View" title="View" aria-haspopup="menu" aria-expanded={layoutOpen} disabled={!ready} onClick={() => setLayoutOpen((v) => !v)}>
-            <Icon name="layout" size={17} />
-          </button>
-          {layoutOpen && (
-            <div className="layout-menu-popover view-menu" role="menu" aria-label="View">
-              {/* One row of view tools keeps the menu short enough for a phone's graph strip. */}
-              <div className="view-zoom">
-                <IconButton label="Center on the current bookmark" icon="scope" disabled={!onCenter} onClick={() => { setLayoutOpen(false); onCenter?.(); }} />
-                <IconButton label="Whole collection" icon="fit" onClick={() => { setLayoutOpen(false); void action(fitWhole); }} />
-                <span className="view-zoom-gap" />
-                <IconButton label="Zoom out" icon="zoom-out" onClick={zoomOut} />
-                <span className="zoom-value">{Math.round(zoom * 100)}%</span>
-                <IconButton label="Zoom in" icon="zoom-in" onClick={zoomIn} />
-              </div>
-              {onHighlight && <><hr /><button role="menuitem" onClick={() => { setLayoutOpen(false); onHighlight(); }}><Icon name="tag" size={15} /> Highlight by tag…</button></>}
-              <hr />
-              {layoutItems}
-            </div>
-          )}
+          <div className="tool-group">
+            <IconButton label="Zoom out" icon="zoom-out" disabled={!ready} onClick={zoomOut} />
+            <span className="zoom-value">{Math.round(zoom * 100)}%</span>
+            <IconButton label="Zoom in" icon="zoom-in" disabled={!ready} onClick={zoomIn} />
+          </div>
         </div>
-      )}
-      {confirmReset && (
-        <Dialog labelledBy="reset-title" className="prompt-modal" onClose={() => setConfirmReset(false)}>
-          <DialogHeader id="reset-title" label="Graph" title="Reset positions?" onClose={() => setConfirmReset(false)} />
-          <p>Every bookmark and tag goes back to an automatic place, and all pins are cleared.</p>
-          <footer>
-            <button onClick={() => setConfirmReset(false)}>Cancel</button>
-            <button className="danger" onClick={() => { setConfirmReset(false); resetPositions({ clearPins: true }); }}>Reset positions</button>
-          </footer>
-        </Dialog>
-      )}
+      </div>
     </div>
   );
 }

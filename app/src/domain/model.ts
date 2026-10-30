@@ -112,12 +112,22 @@ export type Filter =
   | { op: "warning" }
   | { op: "batch"; id: string }
   | { op: "same-tag"; name?: string; typeId?: string; statusId?: string };
+/** Optional on legacy views: those load only their original filter/tag fields. */
+export interface SavedGraphSettings {
+  tab: "todo" | "done" | "dropped" | "all";
+  hiddenTypeIds: string[];
+  hiddenBookmarkTagIds: string[];
+  showEmptyGroups: boolean;
+  showUngrouped: boolean;
+  highlight: { tagIds: string[]; mode: "any" | "all"; fade: boolean };
+}
 export interface SavedView {
   id: string;
   name: string;
   filter: Filter;
   sort: "title" | "createdAt" | "status";
   hiddenTagIds: string[];
+  graph?: SavedGraphSettings;
 }
 export type CopyField =
   | "title"
@@ -501,6 +511,17 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
       view.hiddenTagIds.some((id) => !tagIds.has(id))
     )
       fail("invalid saved view");
+    if (view.graph !== undefined) {
+      const g = view.graph;
+      const ids = (value: unknown, known: Set<string>) => Array.isArray(value)
+        && value.every((id) => typeof id === "string" && known.has(id)) && new Set(value).size === value.length;
+      if (!g || typeof g !== "object" || !["todo", "done", "dropped", "all"].includes(g.tab)
+        || !ids(g.hiddenTypeIds, types) || !ids(g.hiddenBookmarkTagIds, tagIds)
+        || typeof g.showEmptyGroups !== "boolean" || typeof g.showUngrouped !== "boolean"
+        || !g.highlight || !ids(g.highlight.tagIds, tagIds)
+        || !["any", "all"].includes(g.highlight.mode) || typeof g.highlight.fade !== "boolean")
+        fail("invalid saved graph settings");
+    }
     checkFilter(view.filter);
   }
   for (const batch of w.batches) {
