@@ -1,4 +1,5 @@
 import Papa from "papaparse";
+import { validateGraphLayout } from "./geometry";
 import { parse } from "parse5";
 import type { DefaultTreeAdapterMap } from "parse5";
 import {
@@ -248,23 +249,13 @@ export function parseImport(
       !backup.geometry.positions
     )
       throw new Error("Invalid backup geometry.");
-    for (const pos of Object.values(backup.geometry.positions))
-      if (
-        !Number.isFinite(pos.x) ||
-        !Number.isFinite(pos.y) ||
-        typeof pos.pinned !== "boolean"
-      )
-        throw new Error("Invalid node position.");
-    const v = backup.geometry.viewport;
-    if (
-      v &&
-      (!Number.isFinite(v.zoom) ||
-        v.zoom < 0.15 ||
-        v.zoom > 4 ||
-        !Number.isFinite(v.x) ||
-        !Number.isFinite(v.y))
-    )
-      throw new Error("Invalid viewport.");
+    validateGraphLayout(backup.geometry);
+    const connections = backup.geometry.connections;
+    if (connections !== undefined) {
+      if (!connections || typeof connections !== "object" || Array.isArray(connections)) throw new Error("Invalid connection geometry.");
+      for (const layout of [connections.direct, connections.tags])
+        if (layout !== undefined) validateGraphLayout(layout);
+    }
   }
   return {
     format: resolved,

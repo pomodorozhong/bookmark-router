@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import "fake-indexeddb/auto";
 import { emptyWorkspace, validateWorkspace, type SavedView, type Workspace } from "../src/domain/model";
 import { emptyTriageFilter, compileRules, readRules, graphVisibility, triageQueue, ruleValueCounts, tagVisible } from "../src/domain/triage";
+import { connectionGraph, rankConnections, traceConnections } from "../src/domain/connections";
 import { saveView, loadView, resetSearchAndState, type ViewSettings } from "../src/domain/saved-views";
 import { WorkspaceStore } from "../src/domain/storage";
 import { makeBackup, prepareRestore } from "../src/domain/backup";
@@ -17,20 +18,25 @@ function fixture(): Workspace {
   return w;
 }
 const ids = (records: { id: string }[]) => records.map((r) => r.id);
-const base = (): ViewSettings => ({ filter: structuredClone(emptyTriageFilter), tab: "all", highlight: { tagIds: [], mode: "any" }, fadeRest: true });
+const base = (): ViewSettings => ({ filter: structuredClone(emptyTriageFilter), tab: "all", highlight: { tagIds: [], mode: "any" }, fadeRest: true, view: "tags", showTags: false, contextTag: undefined });
 
-test("type hiding removes only its tags, while Show cannot override the type", () => {
+test("type hiding removes only its tags and supplied links, while Show cannot override the type", () => {
   const w = fixture(), filter = { ...emptyTriageFilter, hiddenTypeIds: ["topic"] };
   assert.deepEqual(ids(triageQueue(w, { tab: "all", filter })), ["one", "two", "three", "loose"]);
   assert.deepEqual(graphVisibility(w, filter).hiddenTagIds, ["a", "b"]);
+  const g = connectionGraph(w, { tab: "all", filter });
+  assert.deepEqual(g.edges.map((e) => [e.source, e.target, e.sharedTagIds]), [["one", "three", ["c"]]]);
   assert.equal(tagVisible(w.tags[0], filter), false);
   assert.deepEqual(ids(triageQueue(w, { tab: "all", filter: { ...filter, showUngrouped: false } })), ["one", "three"]);
 });
 
-test("Hide tag keeps members eligible and only hides the tag", () => {
+test("Hide tag keeps members eligible and only removes links the tag supplies", () => {
   const w = fixture(), filter = { ...emptyTriageFilter, hiddenTagIds: ["a"] };
   assert.deepEqual(ids(triageQueue(w, { tab: "all", filter })), ids(w.bookmarks));
   assert.deepEqual(graphVisibility(w, filter, "all", ["two"]).hiddenTagIds, ["a"]);
+  const g = connectionGraph(w, { tab: "all", filter });
+  assert.equal(g.members.has("a"), false);
+  assert.deepEqual(g.edges.flatMap((e) => e.sharedTagIds).sort(), ["b", "c"]);
   // Bookmarks with memberships only in a hidden tag count as untagged for inclusion.
   assert.deepEqual(ids(triageQueue(w, { tab: "all", filter: { ...filter, hiddenTagIds: ["a", "b"], showUngrouped: false } })), ["one", "three"]);
 });
@@ -40,6 +46,10 @@ test("Hide tag + bookmarks excludes overlapping members everywhere, and several 
   const before = structuredClone(w);
   assert.deepEqual(ids(triageQueue(w, { tab: "all", filter, selection: new Set(["one", "two", "three", "loose"]) })), ["three", "loose"]);
   assert.deepEqual(graphVisibility(w, filter, "all", ["one"]).bookmarkIds, ["three", "loose"]);
+  const g = connectionGraph(w, { tab: "all", filter });
+  assert.deepEqual(ids(g.bookmarks), ["three", "loose"]);
+  assert.deepEqual(rankConnections(g).map((c) => c.id).sort(), ["loose", "three"]);
+  assert.equal(traceConnections(g, "one").size, 0);
   const countFilter = { ...filter, rules: [{ kind: "status" as const, values: [], not: false }] };
   assert.equal(ruleValueCounts(w, countFilter, "all", 0).get("pending"), 2);
   assert.deepEqual(ids(triageQueue(w, { tab: "all", filter: { ...filter, hiddenBookmarkTagIds: ["a", "b"] } })), ["loose"]);
@@ -57,7 +67,7 @@ test("tag-type bookmark rules use OR values, AND with other rules, Not, and roun
 });
 
 test("combined Saved views round trip all settings and allow an unfiltered baseline", () => {
-  const w = fixture(), current: ViewSettings = { ...base(), tab: "done", highlight: { tagIds: ["a", "b"], mode: "all" }, fadeRest: false,
+  const w = fixture(), current: ViewSettings = { ...base(), tab: "done", view: "connections", showTags: true, contextTag: "c", highlight: { tagIds: ["a", "b"], mode: "all" }, fadeRest: false,
     filter: { ...emptyTriageFilter, text: "one", rules: [{ kind: "tag-type", values: ["issue"], not: false }], hiddenTypeIds: ["topic"], hiddenTagIds: ["a"], hiddenBookmarkTagIds: ["a"], showEmptyGroups: false, showUngrouped: false } };
   const saved = saveView("Both targets", current); w.views.push(saved); validateWorkspace(w);
   assert.deepEqual(loadView(saved, base()), current);
@@ -71,7 +81,7 @@ test("combined Saved views round trip all settings and allow an unfiltered basel
 test("legacy views and backups keep absent settings, while restoring their original filter and hidden tags", async () => {
   const w = fixture(), legacy: SavedView = { id: "old", name: "Old", filter: compileRules([], "one"), hiddenTagIds: ["a"], sort: "title" };
   w.views.push(legacy); validateWorkspace(w);
-  const current = { ...base(), tab: "dropped" as const, highlight: { tagIds: ["c"], mode: "all" as const }, filter: { ...emptyTriageFilter, hiddenTypeIds: ["topic"], hiddenBookmarkTagIds: ["b"] } };
+  const current = { ...base(), tab: "dropped" as const, view: "connections" as const, showTags: true, highlight: { tagIds: ["c"], mode: "all" as const }, filter: { ...emptyTriageFilter, hiddenTypeIds: ["topic"], hiddenBookmarkTagIds: ["b"] } };
   const backup = await makeBackup(w, []), restored = prepareRestore(backup).workspace;
   assert.deepEqual(loadView(restored.views[0], current), { ...current, filter: { ...current.filter, text: "one", hiddenTagIds: ["a"] } });
 });
@@ -104,7 +114,7 @@ test("invalid new Saved settings fail atomically without changing content or Und
   const w = fixture(), store = new WorkspaceStore(crypto.randomUUID()); await store.create(w);
   try {
     const original = saveView("Valid", base());
-    for (const patch of [{ hiddenTypeIds: ["missing"] }, { hiddenBookmarkTagIds: ["missing"] }, { highlight: { tagIds: ["missing"], mode: "any", fade: true } }, { tab: "unknown" }]) {
+    for (const patch of [{ hiddenTypeIds: ["missing"] }, { hiddenBookmarkTagIds: ["missing"] }, { highlight: { tagIds: ["missing"], mode: "any", fade: true } }, { tab: "unknown" }, { showTags: "yes" }, { contextTag: "missing" }]) {
       const view = structuredClone(original); Object.assign(view.graph!, patch);
       await assert.rejects(store.command(w.id, 0, { type: "view.upsert", view }), /invalid saved graph settings/);
       assert.deepEqual(await store.get(w.id), w); assert.equal(await store.nextUndo(w.id), undefined);
