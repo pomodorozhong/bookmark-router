@@ -1,79 +1,79 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
-import { Icon, Kbd } from "./Icon";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type MouseEvent } from "react";
+import { Icon } from "./Icon";
 import type { Command } from "../domain/commands";
-import type { SavedView, Workspace } from "../domain/model";
-import { compileRules, readRules, ruleKinds, ruleOptions, ruleValueCounts, type Rule, type TriageFilter, type TriageTab } from "../domain/triage";
+import type { Workspace } from "../domain/model";
+import { loadView, saveView, type ViewSettings } from "../domain/saved-views";
+import { readRules, ruleKinds, ruleOptions, ruleValueCounts, type Rule, type TriageFilter, type TriageTab } from "../domain/triage";
 
-type Open = { what: "show" | "filters" | "saved" | "sheet" } | { what: "edit"; index: number } | undefined;
+type Menu = "bookmarks" | "tags" | "views" | "all";
+type Panel = "types" | "tags" | "filters" | "saved";
+/** An open menu, the panel picked from it, and the filter rule being edited in that panel. */
+type Open = { menu: Menu; panel?: Panel; edit?: number } | undefined;
 
-/**
- * The graph's filter controls: search, Show, and Filters joined in one group, then Saved filters.
- * Filters holds the chips: its menu lists the ones that are on and adds new ones; a chip opens its values.
- * In the phone layout (compact) Show, Filters and Saved filters share one sheet behind a single Filters button.
- */
-export function FilterBar({ workspace, filter, tab, searchRef, compact = false, highlight, onChange, save }: {
+/** Labeled Bookmarks, Tags and Views menus; on phones one Filters menu holds all three. */
+export function FilterBar({ workspace, filter, tab, highlight, highlightCount, phone, settings, onHighlight, onLoad, onReset, onTagTypes, onChange, save }: {
   workspace: Workspace;
   filter: TriageFilter;
   tab: TriageTab;
-  searchRef: RefObject<HTMLInputElement | null>;
-  compact?: boolean;
-  /** The highlight's segment, last in the joined box; in the phone layout, its picker. */
-  highlight?: ReactNode;
+  /** The highlight picker, opened from the Bookmarks menu and placed under it; `back` reopens that menu. */
+  highlight: (back: () => void) => ReactNode;
+  highlightCount: number;
+  phone: boolean;
+  settings: ViewSettings;
+  onHighlight: () => void;
+  onLoad: (next: ViewSettings) => void;
+  onReset: () => void;
+  onTagTypes: () => void;
   onChange: (next: TriageFilter) => void;
   save: (command: Command, label?: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState<Open>();
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(0);
   const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const highlightFrom = useRef<Menu>("bookmarks");
   const setRules = (rules: Rule[]) => onChange({ ...filter, rules });
   const dropEmpty = () => { if (filter.rules.some((r) => !r.values.length)) setRules(filter.rules.filter((r) => r.values.length)); };
-  // Closing drops a chip if nothing was picked in it.
-  function close() {
-    setOpen(undefined);
-    setQuery("");
-    dropEmpty();
+  function close(focus = false) {
+    setOpen(undefined); setQuery(""); dropEmpty();
+    if (focus) trigger.current?.focus();
   }
-  function toggle(what: "show" | "filters" | "saved" | "sheet") {
-    if (open?.what === what || ((what === "filters" || what === "sheet") && open?.what === "edit")) close();
-    else { dropEmpty(); setQuery(""); setOpen({ what }); }
+  function toggle(menu: Menu, event: MouseEvent<HTMLButtonElement>) {
+    trigger.current = event.currentTarget;
+    if (open?.menu === menu) close();
+    else { dropEmpty(); setQuery(""); setPage(0); setError(""); setOpen({ menu }); }
   }
+  const pick = (panel: Panel) => { setQuery(""); setPage(0); setError(""); setOpen(open && { menu: open.menu, panel }); };
   useEffect(() => {
     if (!open) return;
-    // The highlight's picker shares this bar but is its own menu, so opening it closes these.
     const outside = (e: PointerEvent) => { if (!root.current?.contains(e.target as Node) || (e.target as Element).closest?.(".highlight-anchor")) close(); };
-    // Esc closes the menu only, before the triage screen's own Esc handling sees it.
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopImmediatePropagation(); e.preventDefault(); close(true); } };
     document.addEventListener("pointerdown", outside);
-    document.addEventListener("keydown", key);
-    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", key); };
+    window.addEventListener("keydown", key, true);
+    return () => { document.removeEventListener("pointerdown", outside); window.removeEventListener("keydown", key, true); };
   });
-
   const label = (kind: Rule["kind"]) => ruleKinds.find((k) => k.kind === kind)!.label;
   const names = (rule: Rule) => {
     const options = ruleOptions(workspace, rule.kind);
     return rule.values.map((v) => options.find((o) => o.value === v)?.label ?? v).join(" or ");
   };
-  const editing = open?.what === "edit" ? open.index : undefined;
-  const counts = useMemo(
-    () => (editing !== undefined && filter.rules[editing] ? ruleValueCounts(workspace, filter, tab, editing) : undefined),
-    [editing, workspace, filter, tab],
-  );
+  const editing = open?.edit;
+  const counts = useMemo(() => editing !== undefined && filter.rules[editing] ? ruleValueCounts(workspace, filter, tab, editing) : undefined, [editing, workspace, filter, tab]);
   const on = filter.rules.filter((r) => r.values.length).length;
-  const hidden = filter.hiddenTypeIds.length + (filter.showEmptyGroups ? 0 : 1) + (filter.showUngrouped ? 0 : 1);
-  const canSave = Boolean(on || filter.text.trim());
   async function saveFilter() {
-    const n = name.trim();
-    if (!n || !canSave) return;
-    const view: SavedView = { id: crypto.randomUUID(), name: n, filter: compileRules(filter.rules, filter.text), sort: "title", hiddenTagIds: [] };
-    await save({ type: "view.upsert", view }, `Save filter: ${n}`);
-    setName("");
-    setOpen(undefined);
+    if (!name.trim() || saving) return;
+    setSaving(true); setError("");
+    try { await save({ type: "view.upsert", view: saveView(name.trim(), settings) }, `Save view: ${name.trim()}`); setName(""); close(true); }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setSaving(false); }
   }
-
   const chip = (rule: Rule, i: number) => (
     <span key={i} className={`filter-chip ${rule.not ? "not" : ""}`}>
-      <button className="filter-chip-body" title={`${rule.not ? "Not " : ""}${label(rule.kind)}: ${names(rule)}`} onClick={() => { setQuery(""); setOpen({ what: "edit", index: i }); }}>
+      <button className="filter-chip-body" title={`${rule.not ? "Not " : ""}${label(rule.kind)}: ${names(rule)}`} onClick={() => { setQuery(""); setOpen(open && { ...open, edit: i }); }}>
         {rule.not && "Not "}<b>{label(rule.kind)}:</b> {names(rule) || "pick…"}
       </button>
       <button className="filter-chip-x" aria-label={`Remove ${label(rule.kind)} filter`} onClick={() => setRules(filter.rules.filter((_, j) => j !== i))}>
@@ -88,8 +88,8 @@ export function FilterBar({ workspace, filter, tab, searchRef, compact = false, 
     const q = query.trim().toLowerCase();
     const shown = options.filter((o) => !q || o.label.toLowerCase().includes(q));
     return (
-      <div className={`chip-popover ${compact ? "filter-sheet" : ""}`} role="dialog" aria-label={`${label(rule.kind)} filter`}>
-        <button className="chip-back" onClick={() => { dropEmpty(); setQuery(""); setOpen({ what: compact ? "sheet" : "filters" }); }}>
+      <div className="chip-popover" role="dialog" aria-label={`${label(rule.kind)} filter`}>
+        <button className="chip-back" onClick={() => { dropEmpty(); setQuery(""); setOpen(open && { menu: open.menu, panel: "filters" }); }}>
           <Icon name="chevron-left" size={14} /> {label(rule.kind)}
         </button>
         {options.length > 8 && (
@@ -116,137 +116,93 @@ export function FilterBar({ workspace, filter, tab, searchRef, compact = false, 
     );
   }
 
-  // Each menu's contents, shown in its own popover or, in the phone layout, all in one sheet.
-  const showPanel = <>
-    <h4>Tag types</h4>
-    {workspace.tagTypes.map((type) => (
-      <label key={type.id} className="chip-option">
-        <input type="checkbox" checked={!filter.hiddenTypeIds.includes(type.id)}
-          onChange={(e) => onChange({ ...filter, hiddenTypeIds: e.target.checked ? filter.hiddenTypeIds.filter((id) => id !== type.id) : [...filter.hiddenTypeIds, type.id] })} />
-        <i className="swatch" style={{ background: type.appearance.color }} /><span>{type.name}</span>
-      </label>
-    ))}
-    <h4 className="chip-divided">Also show</h4>
-    <label className="filter-check">
-      <input type="checkbox" checked={filter.showEmptyGroups} onChange={(e) => onChange({ ...filter, showEmptyGroups: e.target.checked })} />
-      <span>Empty tags</span><small>Tags with no shown bookmark</small>
-    </label>
-    <label className="filter-check">
-      <input type="checkbox" checked={filter.showUngrouped} onChange={(e) => onChange({ ...filter, showUngrouped: e.target.checked })} />
-      <span>Untagged bookmarks</span><small>Bookmarks with no shown tag</small>
-    </label>
+
+  const typesPanel = <>
+    {workspace.tagTypes.map((type) => <label key={type.id} className="chip-option">
+      <input type="checkbox" checked={!filter.hiddenTypeIds.includes(type.id)} onChange={(e) => onChange({ ...filter, hiddenTypeIds: e.target.checked ? filter.hiddenTypeIds.filter((id) => id !== type.id) : [...filter.hiddenTypeIds, type.id] })} />
+      <i className="swatch" style={{ background: type.appearance.color }} /><span>{type.name}</span>
+    </label>)}
+    {!workspace.tagTypes.length && <p className="subtle chip-empty">None yet</p>}
+  </>;
+  const q = query.trim().toLowerCase();
+  const tags = workspace.tags.filter((t) => `${t.name} ${workspace.tagTypes.find((type) => type.id === t.typeId)?.name ?? ""}`.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name));
+  const pages = Math.max(1, Math.ceil(tags.length / 6)), tagPage = Math.min(page, pages - 1);
+  const tagsPanel = <>
+    <input className="chip-search" autoFocus aria-label="Find visibility tag" placeholder="Find a tag or type…" value={query} onChange={(e) => { setQuery(e.target.value); setPage(0); }} />
+    <div className="tag-visibility-options">
+      {tags.slice(tagPage * 6, tagPage * 6 + 6).map((tag) => <label key={tag.id} className="tag-visibility-option">
+        <span title={tag.name}>{tag.name}{(tag.typeId && workspace.tagTypes.some((t) => t.id === tag.typeId)) && <small>{workspace.tagTypes.find((t) => t.id === tag.typeId)!.name}{filter.hiddenTypeIds.includes(tag.typeId) ? " · hidden" : ""}</small>}</span>
+        <select aria-label={`Visibility for ${tag.name} (${workspace.tagTypes.find((t) => t.id === tag.typeId)?.name ?? "No type"})`} value={filter.hiddenBookmarkTagIds.includes(tag.id) ? "bookmarks" : filter.hiddenTagIds.includes(tag.id) ? "hide" : "show"}
+          onChange={(e) => onChange({ ...filter, hiddenTagIds: [...filter.hiddenTagIds.filter((id) => id !== tag.id), ...(e.target.value === "show" ? [] : [tag.id])],
+            hiddenBookmarkTagIds: [...filter.hiddenBookmarkTagIds.filter((id) => id !== tag.id), ...(e.target.value === "bookmarks" ? [tag.id] : [])] })}>
+          <option value="show">Show</option><option value="hide">Hide tag</option><option value="bookmarks">Hide tag + bookmarks</option>
+        </select>
+      </label>)}
+      {!tags.length && <p className="subtle chip-empty">{workspace.tags.length ? "No matching tags." : "No tags yet."}</p>}
+    </div>
+    {pages > 1 && <div className="tag-pages"><button disabled={!tagPage} onClick={() => setPage(tagPage - 1)}>Previous</button><span>{tagPage + 1} / {pages}</span><button disabled={tagPage === pages - 1} onClick={() => setPage(tagPage + 1)}>Next</button></div>}
   </>;
   const filtersPanel = <>
-    {filter.rules.length > 0 && <>
-      <h4>On now</h4>
-      <div className="chip-list">{filter.rules.map(chip)}</div>
-      <button className="chip-menu-item chip-clear" onClick={() => setRules([])}>Clear all</button>
-    </>}
-    <h4 className={filter.rules.length ? "chip-divided" : ""}>Add a filter</h4>
-    {ruleKinds.map((k) => (
-      <button key={k.kind} className="chip-menu-item" onClick={() => {
-        setRules([...filter.rules, { kind: k.kind, values: [], not: false }]);
-        setQuery("");
-        setOpen({ what: "edit", index: filter.rules.length });
-      }}>
-        {k.label}<small>{ruleOptions(workspace, k.kind).length}</small>
-      </button>
-    ))}
+    <label className="chip-option" title="Include bookmarks with no visible tag"><input type="checkbox" checked={filter.showUngrouped} onChange={(e) => onChange({ ...filter, showUngrouped: e.target.checked })} /><span>Untagged bookmarks</span></label>
+    {filter.rules.length > 0 && <><h4 className="chip-divided">On now</h4><div className="chip-list">{filter.rules.map(chip)}</div><button className="chip-menu-item chip-clear" onClick={() => setRules([])}>Clear all</button></>}
+    <h4 className="chip-divided">Add a filter</h4>
+    {ruleKinds.map((k) => <button key={k.kind} className="chip-menu-item" onClick={() => { setRules([...filter.rules, { kind: k.kind, values: [], not: false }]); setQuery(""); setOpen(open && { ...open, edit: filter.rules.length }); }}>{k.label}<small>{ruleOptions(workspace, k.kind).length}</small></button>)}
   </>;
   const savedPanel = <>
-    <h4>Saved filters</h4>
-    {workspace.views.map((v) => {
-      const read = readRules(v.filter);
-      return (
-        <div key={v.id} className="view-row">
-          <button className="chip-menu-item" disabled={!read} title={read ? "Use these filters" : "Made with the old filter screen; it cannot be shown here"}
-            onClick={() => { if (!read) return; onChange({ ...filter, rules: read.rules, text: read.text }); setOpen(undefined); }}>
-            {v.name}
-          </button>
-          <button className="view-delete" aria-label={`Delete saved filter ${v.name}`} onClick={() => void save({ type: "view.remove", id: v.id }, `Delete saved filter: ${v.name}`)}>
-            <Icon name="close" size={12} />
-          </button>
-        </div>
-      );
-    })}
-    {!workspace.views.length && <p className="subtle chip-empty">No saved filters yet.</p>}
-    <form className="view-save" onSubmit={(e) => { e.preventDefault(); void saveFilter(); }}>
-      <input aria-label="Saved filter name" placeholder={canSave ? "Save current filters as…" : "Add a filter first"} disabled={!canSave} value={name} onChange={(e) => setName(e.target.value)} />
-      <button type="submit" disabled={!canSave || !name.trim()}>Save</button>
-    </form>
+    {workspace.views.map((v) => <div key={v.id} className="view-row">
+      <button className="chip-menu-item" disabled={!readRules(v.filter)} title={v.graph ? "Apply bookmark and tag settings together" : "Legacy view: applies its filter and hidden tags; preserves other settings"}
+        onClick={() => { const next = loadView(v, settings); if (next) { onLoad(next); close(true); } }}>{v.name}{!v.graph && <small>Legacy</small>}</button>
+      <button className="view-delete" aria-label={`Delete saved view ${v.name}`} onClick={() => { void save({ type: "view.remove", id: v.id }, `Delete saved view: ${v.name}`).catch((e) => setError(String(e))); }}><Icon name="close" size={12} /></button>
+    </div>)}
+    {!workspace.views.length && <p className="subtle chip-empty">No saved views yet</p>}
+    <form className="view-save" title="Saves search, state, filters, tag visibility and highlights" onSubmit={(e) => { e.preventDefault(); void saveFilter(); }}><input aria-label="Saved view name" placeholder="Save current view as…" value={name} onChange={(e) => setName(e.target.value)} /><button type="submit" disabled={saving || !name.trim()}>Save</button></form>
+    {error && <p className="chip-empty" role="alert">{error}</p>}
   </>;
-
-  if (compact) return (
-    <div className="filter-bar compact" ref={root}>
-      <label className={`filter-search filter-box ${filter.text.trim() ? "searching" : ""}`}>
-        <Icon name="search" size={15} />
-        <input ref={searchRef} type="search" aria-label="Search bookmarks and tags" placeholder="Search…" title="Search (F)" value={filter.text}
-          onChange={(e) => onChange({ ...filter, text: e.target.value })}
-          onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filter, text: "" }); e.currentTarget.blur(); } }} />
-      </label>
-      <button className={`filter-saved filter-sheet-button ${on || hidden ? "on" : ""}`} aria-expanded={open?.what === "sheet" || editing !== undefined} aria-haspopup="dialog" onClick={() => toggle("sheet")}>
-        <Icon name="filter" size={15} />Filters{on + hidden ? <span className="filter-count">{on + hidden}</span> : null}
-      </button>
-      {open?.what === "sheet" && (
-        <div className="chip-popover filter-sheet" role="dialog" aria-label="Filters">
-          {showPanel}
-          <div className="chip-divided" />
-          {filtersPanel}
-          <div className="chip-divided" />
-          {savedPanel}
-        </div>
-      )}
-      {editing !== undefined && filter.rules[editing] && editor(editing)}
-      {highlight}
-    </div>
-  );
-
-  return (
-    <div className="filter-bar" ref={root}>
-      <div className={`filter-joined ${filter.text.trim() ? "searching" : ""}`}>
-        <label className="filter-search">
-          <Icon name="filter" size={15} />
-          <input ref={searchRef} type="search" aria-label="Search bookmarks and tags" placeholder="Search…" title="Search (F)" value={filter.text}
-            onChange={(e) => onChange({ ...filter, text: e.target.value })}
-            onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filter, text: "" }); e.currentTarget.blur(); } }} />
-          <Kbd>F</Kbd>
-        </label>
-        <span className="filter-anchor">
-          <button className="filter-button" aria-expanded={open?.what === "show"} aria-haspopup="dialog" onClick={() => toggle("show")}>
-            <span className="filter-dots" aria-hidden="true">
-              {workspace.tagTypes.map((t) => <i key={t.id} className={filter.hiddenTypeIds.includes(t.id) ? "off" : ""} style={{ background: t.appearance.color }} />)}
-            </span>
-            Show{hidden ? <small>· {hidden} hidden</small> : null}<Icon name="chevron-down" size={13} />
-          </button>
-          {open?.what === "show" && (
-            <div className="chip-popover" role="dialog" aria-label="Show">
-              {showPanel}
-            </div>
-          )}
-        </span>
-        <span className="filter-anchor">
-          <button className={`filter-button ${on ? "on" : ""}`} aria-expanded={open?.what === "filters" || editing !== undefined} aria-haspopup="dialog" onClick={() => toggle("filters")}>
-            Filters{on ? ` · ${on}` : ""}<Icon name="chevron-down" size={13} />
-          </button>
-          {open?.what === "filters" && (
-            <div className="chip-popover" role="dialog" aria-label="Filters">
-              {filtersPanel}
-            </div>
-          )}
-          {editing !== undefined && filter.rules[editing] && editor(editing)}
-        </span>
-        {highlight}
-      </div>
-      <span className="filter-anchor">
-        <button className="filter-saved" aria-expanded={open?.what === "saved"} aria-haspopup="dialog" onClick={() => toggle("saved")}>
-          Saved filters <Icon name="chevron-down" size={13} />
-        </button>
-        {open?.what === "saved" && (
-          <div className="chip-popover" role="dialog" aria-label="Saved filters">
-            {savedPanel}
-          </div>
-        )}
-      </span>
-    </div>
-  );
+  const hiddenTags = new Set([...filter.hiddenTagIds, ...filter.hiddenBookmarkTagIds]).size;
+  const shownTypes = workspace.tagTypes.filter((t) => !filter.hiddenTypeIds.includes(t.id)).length;
+  const menuCounts = { bookmarks: on + highlightCount, tags: filter.hiddenTypeIds.length + hiddenTags, views: 0 };
+  const item = (icon: "filter" | "scope" | "tag" | "edit" | "download" | "refresh", text: string, note: string, onClick: () => void) =>
+    <button className="chip-menu-item rule-item" onClick={onClick}><Icon name={icon} size={15} /><span>{text}</span>{note && <small>{note}</small>}</button>;
+  const lists: Record<Exclude<Menu, "all">, ReactNode> = {
+    bookmarks: <>
+      {item("filter", "Filter bookmarks", on ? `${on} on` : "", () => pick("filters"))}
+      {item("scope", "Highlight bookmarks", highlightCount ? `${highlightCount} ${highlightCount === 1 ? "tag" : "tags"}` : "", () => { highlightFrom.current = open?.menu ?? "bookmarks"; close(); onHighlight(); })}
+    </>,
+    tags: <>
+      {item("filter", "Show tag types", workspace.tagTypes.length ? `${shownTypes} of ${workspace.tagTypes.length}` : "", () => pick("types"))}
+      {item("tag", "Hide single tags", hiddenTags ? `${hiddenTags} hidden` : "", () => pick("tags"))}
+      {item("edit", "Edit tag types", "", () => { close(); onTagTypes(); })}
+    </>,
+    views: <>
+      {item("download", "Saved views", workspace.views.length ? String(workspace.views.length) : "", () => pick("saved"))}
+      {item("refresh", "Reset search and state", "", () => { close(true); onReset(); })}
+    </>,
+  };
+  const titles = { bookmarks: "Bookmarks", tags: "Tags", views: "Views", all: "Filters" };
+  const panels = { types: typesPanel, tags: tagsPanel, filters: filtersPanel, saved: savedPanel };
+  const panelTitles = { types: "Show tag types", tags: "Hide single tags", filters: "Filter bookmarks", saved: "Saved views" };
+  const content = (menu: Menu) => {
+    if (editing !== undefined && filter.rules[editing]) return editor(editing);
+    if (open?.panel) return <div className={`chip-popover ${open.panel === "tags" ? "tag-visibility-menu" : ""}`} role="dialog" aria-label={titles[menu]}>
+      <button className="chip-back" onClick={() => { dropEmpty(); setQuery(""); setOpen({ menu }); }}><Icon name="chevron-left" size={14} /> {panelTitles[open.panel]}</button>
+      {panels[open.panel]}
+    </div>;
+    return <div className="chip-popover rule-menu" role="dialog" aria-label={titles[menu]}>
+      {menu === "all"
+        ? (["bookmarks", "tags", "views"] as const).map((m, i) => <div key={m} className="rule-section"><h4 className={i ? "chip-divided" : ""}>{titles[m]}</h4>{lists[m]}</div>)
+        : lists[menu]}
+    </div>;
+  };
+  const menuButton = (menu: Menu, icon: "bookmark" | "tag" | "filter" | undefined, count: number) => <span className="filter-anchor">
+    <button className={`filter-button rule-menu-button ${count ? "on" : ""}`} aria-expanded={open?.menu === menu} aria-haspopup="dialog" title={titles[menu]} onClick={(e) => toggle(menu, e)}>
+      {icon && <Icon name={icon} size={15} />}<span className="rule-menu-label">{titles[menu]}</span>{count > 0 && <span className="filter-count">{count}</span>}<Icon name="chevron-down" size={13} />
+    </button>
+    {open?.menu === menu && content(menu)}
+    {(menu === "bookmarks" || menu === "all") && highlight(() => setOpen({ menu: highlightFrom.current }))}
+  </span>;
+  return <div className={`filter-bar joined-rules ${phone ? "phone-rules" : ""}`} ref={root}>
+    {phone
+      ? menuButton("all", "filter", menuCounts.bookmarks + menuCounts.tags)
+      : <>{menuButton("bookmarks", "bookmark", menuCounts.bookmarks)}{menuButton("tags", "tag", menuCounts.tags)}{menuButton("views", undefined, 0)}</>}
+  </div>;
 }

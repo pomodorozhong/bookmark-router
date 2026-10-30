@@ -1,5 +1,9 @@
 export type Point = readonly [number, number];
 
+/** Screen pixels at each graph edge that floating controls cover; framing centres in the rest. */
+export type Covered = { left: number; right: number; top: number; bottom: number };
+export const uncovered: Covered = { left: 0, right: 0, top: 0, bottom: 0 };
+
 // Gives each unplaced node a start position among the linked nodes that
 // already have one, so new records begin near their tags instead of in a detached grid.
 // Nodes with no placed neighbor start around `center`. Order follows links, so

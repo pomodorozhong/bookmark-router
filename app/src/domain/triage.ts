@@ -5,20 +5,24 @@ export type TriageTab = "todo" | "done" | "dropped" | "all";
 export interface TriageFilter {
   text: string;
   hiddenTypeIds: string[];
+  /** Individual tag/edge hiding; never removes records or memberships. */
+  hiddenTagIds: string[];
+  /** Exclude the union of these tags' member bookmarks from every scoped surface. */
+  hiddenBookmarkTagIds: string[];
   /** Off hides groups that no shown bookmark belongs to. */
   showEmptyGroups: boolean;
-  /** Off hides bookmarks that are in no group of a shown type. */
+  /** Off hides bookmarks with no visible tag, even when they have hidden memberships. */
   showUngrouped: boolean;
   /** Filter chips; all must match. */
   rules: Rule[];
 }
-export const emptyTriageFilter: TriageFilter = { text: "", hiddenTypeIds: [], showEmptyGroups: true, showUngrouped: true, rules: [] };
+export const emptyTriageFilter: TriageFilter = { text: "", hiddenTypeIds: [], hiddenTagIds: [], hiddenBookmarkTagIds: [], showEmptyGroups: true, showUngrouped: true, rules: [] };
 
 // A filter chip: a bookmark matches when any of its values does, or, with `not`, when none does.
-export type RuleKind = "status" | "group" | "domain" | "has" | "import" | "added";
+export type RuleKind = "status" | "group" | "tag-type" | "domain" | "has" | "import" | "added";
 export interface Rule { kind: RuleKind; values: string[]; not: boolean }
 export const ruleKinds: Array<{ kind: RuleKind; label: string }> = [
-  { kind: "status", label: "Status" }, { kind: "group", label: "Group" }, { kind: "domain", label: "Domain" },
+  { kind: "status", label: "Status" }, { kind: "group", label: "Tag" }, { kind: "tag-type", label: "Tag type" }, { kind: "domain", label: "Domain" },
   { kind: "has", label: "Has" }, { kind: "import", label: "Import" }, { kind: "added", label: "Added" },
 ];
 const hasValues = ["image", "description", "warning", "no group"] as const;
@@ -33,6 +37,7 @@ function monthRange(month: string) {
 /** The values a chip of this kind can pick, with their labels. */
 export function ruleOptions(workspace: Workspace, kind: RuleKind): Array<{ value: string; label: string }> {
   if (kind === "status") return workspace.statuses.map((s) => ({ value: s.id, label: s.label }));
+  if (kind === "tag-type") return workspace.tagTypes.map((t) => ({ value: t.id, label: t.name }));
   if (kind === "group") return workspace.tags.map((t) => ({ value: t.id, label: t.name }));
   if (kind === "has") return hasValues.map((v) => ({ value: v, label: v }));
   if (kind === "import") return workspace.batches.map((b) => ({ value: b.id, label: `${b.source} · ${new Date(b.createdAt).toLocaleDateString()}` }));
@@ -61,6 +66,7 @@ export function compileRules(rules: Rule[], text = ""): Filter {
       ...rules.filter((r) => r.values.length).map((r): Filter => {
         const one: Filter = r.kind === "status" ? { op: "status", ids: r.values }
           : r.kind === "group" ? { op: "tags", ids: r.values, mode: "any" }
+          : r.kind === "tag-type" ? { op: "tag-type", ids: r.values }
           : r.values.length === 1 ? leaf(r.kind, r.values[0]) : { op: "any", rules: r.values.map((v) => leaf(r.kind, v)) };
         return r.not ? { op: "not", rule: one } : one;
       }),
@@ -69,6 +75,7 @@ export function compileRules(rules: Rule[], text = ""): Filter {
   };
 }
 function readLeaf(f: Filter): { kind: RuleKind; values: string[] } | undefined {
+  if (f.op === "tag-type") return { kind: "tag-type", values: f.ids };
   if (f.op === "status") return { kind: "status", values: f.ids };
   if (f.op === "tags" && f.mode !== "all") return { kind: "group", values: f.ids };
   if (f.op === "url" && f.mode === "host") return { kind: "domain", values: [f.value] };
@@ -135,17 +142,19 @@ export function matchesFilter(bookmark: Bookmark, workspace: Workspace, filter: 
   const q = filter.text.trim().toLowerCase();
   if (!q) return true;
   if (`${bookmark.title} ${bookmark.url ?? ""} ${bookmark.description}`.toLowerCase().includes(q)) return true;
-  return groupsOf(workspace, bookmark.id).some((t) => !filter.hiddenTypeIds.includes(t.typeId ?? "") && t.name.toLowerCase().includes(q));
+  return groupsOf(workspace, bookmark.id).some((t) => tagVisible(t, filter) && t.name.toLowerCase().includes(q));
 }
 
 const matchesRules = (bookmark: Bookmark, workspace: Workspace, filter: TriageFilter) =>
   !filter.rules.length || engineMatches(compileRules(filter.rules), bookmark, workspace);
 
 // Whether a bookmark passes the filter: its text matches, its chips match, and with
-// showUngrouped off, it belongs to a group of a shown type.
+// showUngrouped off, it belongs to a visible tag.
 function passesFilter(bookmark: Bookmark, workspace: Workspace, filter: TriageFilter): boolean {
-  return matchesFilter(bookmark, workspace, filter) && matchesRules(bookmark, workspace, filter)
-    && (filter.showUngrouped || groupsOf(workspace, bookmark.id).some((t) => !filter.hiddenTypeIds.includes(t.typeId ?? "")));
+  const tags = groupsOf(workspace, bookmark.id);
+  return !tags.some((t) => filter.hiddenBookmarkTagIds.includes(t.id))
+    && matchesFilter(bookmark, workspace, filter) && matchesRules(bookmark, workspace, filter)
+    && (filter.showUngrouped || tags.some((t) => tagVisible(t, filter)));
 }
 
 /** For a chip's menu: how many bookmarks in the tab each value would leave, with the other chips applied. */
@@ -161,31 +170,22 @@ export function ruleValueCounts(workspace: Workspace, filter: TriageFilter, tab:
   return counts;
 }
 
-// Bookmarks and groups the graph shows for a filter and queue tab. A group shows when its type
-// is visible and it has a shown bookmark, or its name matches (or, with
-// showEmptyGroups, it has no text filter to fail). The kept bookmarks always show, and
-// their groups of a hidden type peek: they show, with their bookmarks that pass the
-// text filter, chips, and tab, as peekTagIds.
-export function graphVisibility(workspace: Workspace, filter: TriageFilter, tab: TriageTab = "all", keepIds: string[] = []) {
-  const typeHidden = (t: Tag) => filter.hiddenTypeIds.includes(t.typeId ?? "");
-  const tagsOf = new Map<string, string[]>();
-  for (const m of workspace.memberships) tagsOf.set(m.bookmarkId, [...(tagsOf.get(m.bookmarkId) ?? []), m.tagId]);
-  const kept = new Set(keepIds.flatMap((id) => tagsOf.get(id) ?? []));
-  const peekTagIds = workspace.tags.filter((t) => typeHidden(t) && kept.has(t.id)).map((t) => t.id);
-  const peeking = new Set(peekTagIds);
-  const bookmarkIds = workspace.bookmarks
-    .filter((b) => keepIds.includes(b.id) || (inTab(b, workspace, tab) && (passesFilter(b, workspace, filter)
-      || ((tagsOf.get(b.id) ?? []).some((id) => peeking.has(id)) && matchesFilter(b, workspace, filter) && matchesRules(b, workspace, filter)))))
-    .map((b) => b.id);
+/** Type hiding wins over the per-tag Show choice. */
+export function tagVisible(tag: Tag, filter: TriageFilter): boolean {
+  return !filter.hiddenTypeIds.includes(tag.typeId ?? "")
+    && !filter.hiddenTagIds.includes(tag.id) && !filter.hiddenBookmarkTagIds.includes(tag.id);
+}
+
+/** Reading a record never expands scope or bypasses an explicit visibility rule. */
+export function graphVisibility(workspace: Workspace, filter: TriageFilter, tab: TriageTab = "all", _keepIds: string[] = []) {
+  const bookmarkIds = triageQueue(workspace, { filter, tab }).map((b) => b.id);
   const shown = new Set(bookmarkIds);
   const q = filter.text.trim().toLowerCase();
   const withShown = new Set(workspace.memberships.filter((m) => shown.has(m.bookmarkId)).map((m) => m.tagId));
-  const hiddenTagIds = workspace.tags
-    .filter((t) => !peeking.has(t.id) && (typeHidden(t)
-      || (!filter.showEmptyGroups && !withShown.has(t.id))
-      || (q && !t.name.toLowerCase().includes(q) && !withShown.has(t.id))))
-    .map((t) => t.id);
-  return { bookmarkIds, hiddenTagIds, peekTagIds };
+  const hiddenTagIds = workspace.tags.filter((t) => !tagVisible(t, filter)
+    || (!filter.showEmptyGroups && !withShown.has(t.id))
+    || (q && !t.name.toLowerCase().includes(q) && !withShown.has(t.id))).map((t) => t.id);
+  return { bookmarkIds, hiddenTagIds, peekTagIds: [] as string[] };
 }
 
 // A box selection is ordered clockwise around `center`, or its own center (screen
