@@ -45,7 +45,7 @@ Run this way, it lets you check that the page connects. The relay is a stdio MCP
 
 #### Connect the page
 
-Open the page, then turn on **Connect to a local agent** in the Agent connection menu.
+Open the page, then turn on **Connect to a local agent** in the Agent menu (the robot icon in the header).
 
 For a deployed page, replace the origin with its exact `https://…` origin. The relay listens on loopback port `9333` by default. The browser may ask for local-network access the first time; allow it only for the intended page and relay. The menu reports **Searching** until the relay accepts the page, then **Connected**. The page closes its tool WebSocket when the setting is turned off or the page unloads.
 
