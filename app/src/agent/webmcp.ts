@@ -2,6 +2,7 @@ import { AgentInputError, AgentReviewSession, inputObject, type ImportProposal, 
 import { DuplicateBookmarkError, ConflictError } from "../domain/commands";
 import { emptyTriageFilter, groupsOf, matchesFilter, reasonFor, ruleOptions, ruleKinds, compileRules, copyPresets, formatCopy, type Rule } from "../domain/triage";
 import { matchesFilter as matchesEngine } from "../domain/filters";
+import { hasImage } from "../domain/image-source";
 import type { Bookmark, Workspace } from "../domain/model";
 import type { CopyContext, CopyFormat, CopyScope } from "../copy-settings";
 
@@ -64,7 +65,7 @@ function bookmarkResult(b: Bookmark, w: Workspace) {
     ...(b.missingTitle || !b.title.trim() ? ["title"] : []),
     ...(!b.url?.trim() ? ["url"] : []),
     ...(!b.description.trim() ? ["description"] : []),
-    ...(!b.asset ? ["asset"] : []),
+    ...(!b.asset && !hasImage(b) ? ["asset"] : []),
   ];
   return { id: b.id, revision: b.revision, title: b.title, url: b.url ?? "", description: b.description, statusId: b.statusId, status: w.statuses.find((s) => s.id === b.statusId)?.label, missingTitle: Boolean(b.missingTitle), missingFields, createdAt: b.createdAt, updatedAt: b.updatedAt, notes: b.notes ?? [], asset: b.asset, groups: groupsOf(w, b.id).map((t) => ({ id: t.id, name: t.name, typeId: t.typeId, reason: reasonFor(b, t, w) })) };
 }

@@ -6,6 +6,7 @@ import { makeBackup, prepareRestore } from "./backup";
 import type { Backup } from "./model";
 import { ConflictError, applyCommand, type Command } from "./commands";
 import { commandLabel, restoreUndoSnapshot, type UndoEntry } from "./undo";
+import { sameImageSource } from "./image-source";
 import {
   validateWorkspace,
   type Asset,
@@ -268,7 +269,7 @@ export class WorkspaceStore {
       const stored = await tx.objectStore("workspaces").get(id);
       const bookmark = stored?.bookmarks.find((b) => b.id === bookmarkId);
       if (!stored || !bookmark) throw new ConflictError("The bookmark no longer exists.");
-      if (expectedSource && (bookmark.url !== expectedSource.url || JSON.stringify(bookmark.asset) !== JSON.stringify(expectedSource.asset)))
+      if (expectedSource && !sameImageSource(bookmark, expectedSource))
         throw new ConflictError("The bookmark's link or image changed during the lookup. Try again.");
       const previous = bookmark.thumbnail;
       // A failed retry must not erase an image that already works offline.
@@ -276,15 +277,20 @@ export class WorkspaceStore {
         await tx.done;
         return collectionContent(stored);
       }
+      // Captures are a cache, not content edits. Refresh every snapshot of this
+      // source so Undo cannot bring back a reference to a discarded capture.
+      const records = [stored, ...(stored._undoHistory ?? []).map((entry) => entry.before)]
+        .flatMap((workspace) => [...workspace.bookmarks, ...workspace.batches.flatMap((batch) => batch.beforeMerged)]);
+      for (const record of records)
+        if (record.id === bookmark.id && sameImageSource(record, bookmark)) record.thumbnail = structuredClone(thumbnail);
       if (previous && "blobId" in previous) {
-        const shared = [...stored.bookmarks, ...stored.batches.flatMap((batch) => batch.beforeMerged)].some((other) =>
+        const shared = records.some((other) =>
           (other.asset?.source === "local" && other.asset.blobId === previous.blobId)
-          || (other !== bookmark && other.thumbnail && "blobId" in other.thumbnail && other.thumbnail.blobId === previous.blobId));
+          || (other.thumbnail && "blobId" in other.thumbnail && other.thumbnail.blobId === previous.blobId));
         if (!shared) await tx.objectStore("media").delete(previous.blobId);
       }
       if ("blobId" in thumbnail && image)
         await tx.objectStore("media").put({ id: thumbnail.blobId, workspaceId: id, filename: "thumbnail.webp", mime: image.mime, blob: image.blob });
-      bookmark.thumbnail = thumbnail;
       validateWorkspace(collectionContent(stored));
       await tx.objectStore("workspaces").put(stored);
       await tx.done;

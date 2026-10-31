@@ -1,3 +1,4 @@
+import { sameImageSource } from "./image-source";
 import {
   validateWorkspace,
   storedUrlKey,
@@ -151,6 +152,10 @@ export function applyCommand(
       revision: record.revision + 1,
       updatedAt: now,
     });
+    if (command.type === "bookmark.patch") {
+      const before = source.bookmarks.find((b) => b.id === command.id)!;
+      if (!sameImageSource(before, record as Bookmark)) delete (record as Bookmark).thumbnail;
+    }
   } else if (command.type === "tag-type.patch") {
     const type = w.tagTypes.find((item) => item.id === command.id);
     if (!type) throw new ConflictError("Tag type no longer exists.");
@@ -353,6 +358,7 @@ export function applyCommand(
       )
         throw new Error("Uploaded media needs a local file reference.");
       bookmark.asset = assignment.asset;
+      if (!sameImageSource(source.bookmarks.find((b) => b.id === bookmark.id)!, bookmark)) delete bookmark.thumbnail;
       bookmark.revision++;
       bookmark.updatedAt = now;
     }

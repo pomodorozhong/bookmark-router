@@ -79,14 +79,15 @@ export function thumbnailPlan(bookmark: Bookmark): ThumbnailStep[] {
   const cover = bookmark.asset?.source === "remote" && bookmark.asset.kind === "image" ? bookmark.asset.url : undefined;
   const steps: ThumbnailStep[] = [];
   const noun = tweetId(bookmark.url) ? "post" : youtubeId(bookmark.url) ? "video" : "page";
+  // A supplied replacement is the first source to capture, including on social sites.
+  if (cover && repairImageUrl(cover))
+    steps.push({ source: "cover", service: "wsrv.nl", sends: "the current image link, then any image found, to resize them", label: "Current image via wsrv.nl" });
   if (youtubeId(bookmark.url))
     steps.push({ source: "youtube", service: "YouTube", sends: "the video ID, for its thumbnail", label: "YouTube thumbnail" });
   if (tweetId(bookmark.url))
     steps.push({ source: "fxtwitter", service: "FxTwitter", sends: "the post link, to find its photos or the author's current avatar", label: "X post via FxTwitter" });
   if (githubImage(bookmark.url))
     steps.push({ source: "github", service: "GitHub", sends: "the repository or profile name, for its card or avatar", label: "GitHub card" });
-  if (cover && repairImageUrl(cover))
-    steps.push({ source: "cover", service: "wsrv.nl", sends: "the current image link, then any image found, to resize them", label: "Current image via wsrv.nl" });
   if (page) {
     steps.push({ source: "microlink", service: "Microlink", sends: `the ${noun} link, to find its preview image`, label: "Microlink", usesMicrolink: true });
     steps.push({ source: "screenshot", service: "Raindrop", sends: `the ${noun} link, for a page screenshot`, label: "Raindrop screenshot" });

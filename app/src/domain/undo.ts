@@ -1,5 +1,6 @@
 import type { Command } from "./commands";
 import type { Workspace } from "./model";
+import { restoredThumbnail } from "./image-source";
 
 export interface UndoEntry {
   id: string;
@@ -33,9 +34,9 @@ export function restoreUndoSnapshot(before: Workspace, current: Workspace): Work
   const restored = structuredClone(before);
   restored.revision = current.revision + 1;
   const currentRecords = new Map([...current.bookmarks, ...current.tags].map((record) => [record.id, record]));
-  // Thumbnails aren't edits, so Undo keeps the ones stored since.
+  // New captures survive content Undo only when the restored source matches.
   for (const bookmark of restored.bookmarks) {
-    const thumbnail = current.bookmarks.find((b) => b.id === bookmark.id)?.thumbnail;
+    const thumbnail = restoredThumbnail(bookmark, current.bookmarks.find((b) => b.id === bookmark.id));
     if (thumbnail) bookmark.thumbnail = structuredClone(thumbnail);
     else delete bookmark.thumbnail;
   }

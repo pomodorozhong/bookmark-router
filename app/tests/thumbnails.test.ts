@@ -189,7 +189,7 @@ test("an import merge and its Undo keep the current thumbnail without a stale ba
   const preview = previewImport(parsed, guessMapping(parsed.headers), current, { delimiter: "|", commonTags: "", initialStatus: "Pending" });
   current = await store.import(w.id, { type: "import.commit", expectedRevision: current.revision, preview,
     decisions: preview.candidates.map((candidate) => ({ row: candidate.row, action: "merge" })), statusMapping: {}, typeMapping: {}, source: "Fixture" });
-  assert.equal(current.batches.at(-1)!.beforeMerged[0].thumbnail, undefined);
+  assert.deepEqual(current.batches.at(-1)!.beforeMerged[0].thumbnail, captured("first"));
   current = await store.setThumbnail(w.id, b.id, captured("second"), { mime: "image/webp", blob: new Blob(["second"]) });
   assert.equal(await store.media("first"), undefined);
   await store.backup(w.id);
