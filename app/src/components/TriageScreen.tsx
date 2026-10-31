@@ -4,7 +4,7 @@ import { resetSearchAndState, type ViewSettings } from "../domain/saved-views";
 import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { ConnectionsCanvas } from "./ConnectionsCanvas";
 import { ConnectionsControls } from "./ConnectionsControls";
-import { connectionGraph, rankConnections, splitOffCount, type ConnectionGraph } from "../domain/connections";
+import { connectionGraph, connectionTopologyKey, rankConnections, splitOffCount, type ConnectionGraph } from "../domain/connections";
 import { graphLayout, withGraphLayout, type GraphView } from "../domain/geometry";
 import { CopyDialog, type CopyDialogScope, type CopyGroup, type CopyScope } from "./CopyDialog";
 import { StateHeading } from "./StateHeading";
@@ -176,7 +176,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const connections = useMemo<ConnectionGraph>(() => view === "connections"
     ? connectionGraph(workspace, { tab, filter, selection: selectionSet })
     : { bookmarks: [], neighbors: new Map(), edges: [], members: new Map(), components: [] }, [workspace, tab, filter, selectionSet, view]);
-  const candidates = useMemo(() => view === "connections" ? rankConnections(connections) : [], [connections, view]);
+  const topology = connectionTopologyKey(connections);
+  const candidates = useMemo(() => view === "connections" ? rankConnections(connections) : [], [topology, view]);
   const ranking = useMemo(() => tab === "todo" ? candidates : [], [candidates, tab]);
   const splitImpacts = useMemo(() => new Map(candidates.map((c) => [c.id, splitOffCount(c)])), [candidates]);
   const queue = useMemo(() => {
@@ -192,7 +193,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   // Nothing is current until a bookmark is picked, so the whole graph shows unfaded.
   const current = workspace.bookmarks.find((b) => b.id === currentId);
   const candidate = ranking.find((c) => c.id === current?.id);
-  useEffect(() => { setNetworkMode("normal"); }, [current?.id, connections, view]);
+  useEffect(() => { setNetworkMode("normal"); }, [current?.id, topology, view]);
   useEffect(() => { if (contextTag && !connections.members.has(contextTag)) setContextTag(undefined); }, [connections, contextTag]);
   // Wait for a successful save and the committed collection before choosing a new recommendation.
   useEffect(() => {

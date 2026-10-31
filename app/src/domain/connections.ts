@@ -18,6 +18,14 @@ export interface Candidate {
   pieces: string[][];
 }
 
+/** All analysis/layout inputs, excluding record titles, images and edit metadata. */
+export function connectionTopologyKey(graph: ConnectionGraph): string {
+  return JSON.stringify([
+    graph.bookmarks.map((b) => [b.id, b.createdAt]).sort(([a], [b]) => a.localeCompare(b)),
+    [...graph.members].sort(([a], [b]) => a.localeCompare(b)),
+  ]);
+}
+
 /** Survivors split away from the largest remaining piece; processing the candidate does not count. */
 export function splitOffCount(candidate: Candidate): number {
   const sizes = candidate.pieces.map((piece) => piece.length);

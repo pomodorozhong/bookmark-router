@@ -1,11 +1,12 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from "react";
 import { CanvasEvent, Graph, GraphEvent, NodeEvent, type IElementEvent, type NodeData } from "@antv/g6";
 import { forceCollide } from "d3-force";
-import { connectionLinks, type Candidate, type ConnectionGraph } from "../domain/connections";
+import { connectionLinks, connectionTopologyKey, type Candidate, type ConnectionGraph } from "../domain/connections";
 import type { GraphLayout, Workspace } from "../domain/model";
 import type { GraphCanvasHandle } from "./GraphCanvas";
 import { arrangeConnections, connectionSimulation, movingConnectionIds, seedConnections, splitNodeSize, type ConnectionNode } from "./connections-layout";
 import { createDrawQueue } from "./connections-render";
+import { installTouchZoom } from "./touch-zoom";
 import type { Covered } from "./graph-placement";
 import { Icon, IconButton } from "./Icon";
 import "./tag-node";
@@ -45,6 +46,7 @@ function readColors(): Record<string, string> {
 
 /** Tag display changes presentation only. All tracing and impact overlays refer to the bookmark projection. */
 export function ConnectionsCanvas(props: Props) {
+  const topology = connectionTopologyKey(props.model);
   const container = useRef<HTMLDivElement>(null);
   const graph = useRef<Graph | undefined>(undefined);
   const latest = useRef(props); latest.current = props;
@@ -106,9 +108,6 @@ export function ConnectionsCanvas(props: Props) {
     const links = connectionLinks(props.model, props.showTags);
     const tagIds = new Set(props.showTags ? props.model.members.keys() : []);
     const ids = [...props.model.bookmarks.map((b) => b.id), ...tagIds];
-    const bookmarkById = new Map(props.model.bookmarks.map((b) => [b.id, b]));
-    const tagById = new Map(props.workspace.tags.map((t) => [t.id, t]));
-    const typeColors = new Map(props.workspace.tagTypes.map((t) => [t.id, t.appearance.color]));
     // Theme reads and style rebuilding stay off the force/drag frame path.
     let colors = readColors();
     const color = (role: string) => colors[role];
@@ -190,6 +189,9 @@ export function ConnectionsCanvas(props: Props) {
     const applyStyles = () => {
       if (!rendered || canceled) return;
       const p = latest.current, z = g.getZoom();
+      const bookmarkById = new Map(p.model.bookmarks.map((b) => [b.id, b]));
+      const tagById = new Map(p.workspace.tags.map((t) => [t.id, t]));
+      const typeColors = new Map(p.workspace.tagTypes.map((t) => [t.id, t.appearance.color]));
       const ownCluster = p.model.components.find((c) => c.includes(p.selected ?? ""));
       const nearby = new Set(ownCluster);
       const context = new Set(p.contextTag ? p.model.members.get(p.contextTag) : []);
@@ -308,6 +310,12 @@ export function ConnectionsCanvas(props: Props) {
       motionDirty = false; exactMotion = false; fitOnSettle = false; fitAfterDraw = false; saveAfterDraw = false;
       save();
     };
+    const surface = container.current;
+    const stopTouchZoom = installTouchZoom(surface, () => g.getZoom(), (scale, [x, y]) => {
+      if (!rendered || canceled) return;
+      const rect = surface.getBoundingClientRect();
+      void g.zoomTo(scale, false, [x - rect.left, y - rect.top]).catch(fail);
+    }, () => pauseMotion.current());
     const reduceMotion = () => { if (reducedMotion.matches) pauseMotion.current(); };
     reducedMotion.addEventListener("change", reduceMotion);
     const fit = async (requested = ids) => {
@@ -420,15 +428,16 @@ export function ConnectionsCanvas(props: Props) {
       simulation.stop().on("tick.connections", null).on("end.connections", null);
       if (transformTimer !== undefined) clearTimeout(transformTimer);
       observer.disconnect(); theme.disconnect(); scheme.removeEventListener("change", refreshColors);
+      stopTouchZoom();
       paint.current = () => {}; persist.current = () => {}; frame.current = () => {}; relayout.current = () => {}; pauseMotion.current = () => {};
       if (graph.current === g) graph.current = undefined;
       g.destroy();
     };
-  }, [props.model, props.showTags, retry]);
+  }, [topology, props.showTags, retry]);
 
   const inspecting = Boolean(props.preview);
   useEffect(() => { if (inspecting) pauseMotion.current(); }, [inspecting]);
-  useEffect(() => { paint.current(); }, [props.selected, props.preview, props.contextTag, props.highlightIds, props.fadeRest, props.boxSelection]);
+  useEffect(() => { paint.current(); }, [props.model, props.workspace, props.ranking, props.selected, props.preview, props.contextTag, props.highlightIds, props.fadeRest, props.boxSelection]);
 
   const hoveredBookmark = props.model.bookmarks.find((b) => b.id === hover);
   const hoveredTag = props.workspace.tags.find((t) => t.id === hover);

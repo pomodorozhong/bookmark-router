@@ -25,6 +25,7 @@ import {
 import { appearanceFor, type Appearance, type Bookmark, type Geometry, type Workspace } from "../domain/model";
 import { IconButton } from "./Icon";
 import { displayImage } from "../domain/thumbnails";
+import { installTouchZoom } from "./touch-zoom";
 export interface GraphCanvasHandle {
   setPinned(id: string, pinned: boolean): void;
   relayout(): void;
@@ -729,6 +730,7 @@ export function GraphCanvas({
       gestureZoom = undefined;
     };
     const userMoved = () => { autoFit.current = false; };
+    const stopTouchZoom = installTouchZoom(surface, () => g.getZoom(), (scale, [x, y]) => zoomAt(scale, x, y), userMoved);
     surface.addEventListener("pointerdown", userMoved);
     surface.addEventListener("wheel", userMoved, { passive: true });
     surface.addEventListener("wheel", pinchWheel, {
@@ -897,6 +899,7 @@ export function GraphCanvas({
       if (labelFrame !== undefined) cancelAnimationFrame(labelFrame);
       observer.disconnect();
       surface.removeEventListener("wheel", pinchWheel, true);
+      stopTouchZoom();
       surface.removeEventListener("pointerdown", userMoved);
       surface.removeEventListener("wheel", userMoved);
       surface.removeEventListener("gesturestart", gestureStart);
