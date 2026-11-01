@@ -283,18 +283,18 @@ export function GraphCanvas({
       // The 2px outline is centered on the edge; tucking the image 0.5px under
       // it fills the inner circle without a seam.
       const diameter = Number(node.style?.size ?? 25) - 1;
-      // The hovered or selected title is brought to the front with a backing, so
-      // neighboring nodes and edges cannot cover it.
+      // Accepted titles render above nodes with a backing; focused titles also
+      // retain their stronger color and collision priority.
       const focused = node.id === selectedRef.current || node.id === hovered.current;
       return {
       label: shown,
       labelPointerEvents: "none",
-      labelBackground: focused,
+      labelBackground: true,
       labelBackgroundFill: c.labelBackground,
       labelBackgroundOpacity: 0.96,
       labelBackgroundRadius: 3 / scale,
       labelBackgroundPointerEvents: "none",
-      labelPadding: focused ? [2 / scale, 4 / scale] : 0,
+      labelPadding: [2 / scale, 4 / scale],
       labelFill: focused ? c.labelStrong : c.label,
       icon: !!image,
       iconSrc: image as unknown as HTMLImageElement | undefined,
