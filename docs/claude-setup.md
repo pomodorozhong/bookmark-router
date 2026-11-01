@@ -48,10 +48,10 @@ The relay is a stdio MCP server, so Claude has to start it. Set `--widget-origin
 
 ### Claude Code
 
-Run this in the repository folder:
+Run `npm ci` in `app/` first. Then run this in the repository folder, replacing the example path with this checkout's absolute path. Starting the installed relay uses the patched dependencies in this repository's lockfile:
 
 ```bash
-claude mcp add -s local bookmark-tag-relay -- npx -y @mcp-b/webmcp-local-relay@6.0.2 --widget-origin https://pomodorozhong.github.io
+claude mcp add -s local bookmark-tag-relay -- node /absolute/path/to/bookmark-router/app/node_modules/@mcp-b/webmcp-local-relay/dist/cli.mjs --widget-origin https://pomodorozhong.github.io
 ```
 
 `local` scope applies only to Claude Code sessions started in that folder; `user` scope would add it to every session on this computer. Claude Code then starts the relay with each session and stops it when the session ends. To turn it off for a while, disable it in `/mcp`. To remove it, run this in the same folder:
@@ -62,12 +62,12 @@ claude mcp remove -s local bookmark-tag-relay
 
 ### Claude Desktop
 
-Merge this entry into `mcpServers` beside the [bridge entry](#chrome-bridge-in-claude-desktop), adjusting `npx` and `PATH` the same way:
+Merge this entry into `mcpServers` beside the [bridge entry](#chrome-bridge-in-claude-desktop), adjusting the Node executable and repository path for this machine:
 
 ```json
 "bookmark-tag-relay": {
-  "command": "/opt/homebrew/bin/npx",
-  "args": ["-y", "@mcp-b/webmcp-local-relay@6.0.2", "--widget-origin", "https://pomodorozhong.github.io"],
+  "command": "/opt/homebrew/bin/node",
+  "args": ["/absolute/path/to/bookmark-router/app/node_modules/@mcp-b/webmcp-local-relay/dist/cli.mjs", "--widget-origin", "https://pomodorozhong.github.io"],
   "env": { "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" }
 }
 ```
