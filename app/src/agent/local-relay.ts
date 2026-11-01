@@ -70,29 +70,35 @@ export function connectLocalRelay(context: WebMcpContext, signal: AbortSignal, o
   const origin = window.location.origin;
   const pageUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
 
-  const send = (message: unknown) => {
-    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+  const current = (connection: WebSocket | undefined) => !!connection && socket === connection && !stopped && !signal.aborted;
+  const send = (connection: WebSocket, message: unknown) => {
+    if (current(connection) && connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify(message));
   };
-  const sendTools = async () => {
-    if (!accepted) return;
+  const sendTools = async (connection: WebSocket) => {
+    if (!current(connection) || !accepted) return;
     if (!context.getTools) throw new Error("The local agent context cannot list tools.");
     const tools = await context.getTools();
     if (!Array.isArray(tools)) throw new Error("The local agent context returned an invalid tool list.");
-    send({ type: "tools/list", tools: tools.map((tool) => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, annotations: tool.annotations })) });
+    send(connection, { type: "tools/list", tools: tools.map((tool) => ({ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, annotations: tool.annotations })) });
   };
   const scheduleRetry = () => {
     if (stopped || retryTimer !== undefined) return;
     retryTimer = setTimeout(() => { retryTimer = undefined; connect(); }, relayReconnectDelay);
   };
-  const retryConnection = () => {
+  const retryConnection = (connection: WebSocket) => {
+    if (!current(connection)) return;
     closeSocket();
     onStatus("searching");
     scheduleRetry();
   };
   const closeSocket = () => {
-    socket?.close();
+    const closing = socket;
     socket = undefined;
     accepted = false;
+    if (closing) {
+      closing.onmessage = closing.onerror = closing.onclose = null;
+      closing.close();
+    }
     for (const invocation of invocations.values()) invocation.abort(Error("Relay connection closed"));
     invocations.clear();
   };
@@ -100,23 +106,24 @@ export function connectLocalRelay(context: WebMcpContext, signal: AbortSignal, o
     if (stopped || signal.aborted || socket) return;
     onStatus("searching");
     try {
-      socket = new WebSocket(`ws://127.0.0.1:${relayPort}`, ["webmcp-discovery.v1", "webmcp.v1"]);
-      socket.onmessage = (event) => {
+      const connection = socket = new WebSocket(`ws://127.0.0.1:${relayPort}`, ["webmcp-discovery.v1", "webmcp.v1"]);
+      connection.onmessage = (event) => {
+        if (!current(connection)) return;
         let message: unknown;
         try { message = JSON.parse(String(event.data)); } catch { return; }
         if (isRelayServerHello(message)) {
-          send({ type: "hello", tabId, origin, title: document.title, url: pageUrl });
+          send(connection, { type: "hello", tabId, origin, title: document.title, url: pageUrl });
           return;
         }
         if (!message || typeof message !== "object") return;
         const type = (message as { type?: unknown }).type;
         if (type === "hello/accepted") {
           accepted = true;
-          void sendTools().then(() => onStatus("connected")).catch(retryConnection);
+          void sendTools(connection).then(() => { if (current(connection)) onStatus("connected"); }).catch(() => retryConnection(connection));
         } else if (type === "hello/rejected") {
-          retryConnection();
+          retryConnection(connection);
         } else if (type === "ping") {
-          send({ type: "pong" });
+          send(connection, { type: "pong" });
         } else if (type === "cancel" && typeof (message as { callId?: unknown }).callId === "string") {
           invocations.get((message as { callId: string }).callId)?.abort(Error("Tool execution cancelled"));
         } else if (type === "invoke" && typeof (message as { callId?: unknown }).callId === "string" && typeof (message as { toolName?: unknown }).toolName === "string") {
@@ -128,23 +135,26 @@ export function connectLocalRelay(context: WebMcpContext, signal: AbortSignal, o
               if (!context.executeTool) throw new Error("The local agent context cannot execute tools.");
               const args = (message as { args?: unknown }).args;
               const result = await context.executeTool((message as { toolName: string }).toolName, args && typeof args === "object" ? args : {}, { signal: invocation.signal });
-              send({ type: "result", callId, result: relayResult(result) });
+              send(connection, { type: "result", callId, result: relayResult(result) });
             } catch (error) {
-              send({ type: "result", callId, result: { content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }], isError: true } });
+              send(connection, { type: "result", callId, result: { content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }], isError: true } });
             } finally {
-              invocations.delete(callId);
+              if (invocations.get(callId) === invocation) invocations.delete(callId);
             }
           })();
         }
       };
-      socket.onerror = retryConnection;
-      socket.onclose = () => { closeSocket(); onStatus("searching"); scheduleRetry(); };
+      connection.onerror = () => retryConnection(connection);
+      connection.onclose = () => retryConnection(connection);
     } catch {
       socket = undefined;
       scheduleRetry();
     }
   };
-  const toolsChanged = () => { void sendTools().catch(retryConnection); };
+  const toolsChanged = () => {
+    const connection = socket;
+    if (connection) void sendTools(connection).catch(() => retryConnection(connection));
+  };
   context.addEventListener?.("toolchange", toolsChanged);
   connect();
   const stop = () => {
