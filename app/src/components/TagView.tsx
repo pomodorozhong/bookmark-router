@@ -15,7 +15,7 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onCo
   workspace: Workspace;
   loadMedia: LoadMedia;
   onOpen: (bookmarkId: string) => void;
-  onCopy: () => void;
+  onCopy: (bookmarks: Bookmark[]) => void;
   /** Copy one state group, such as the tag's Done bookmarks. */
   onCopyGroup: (label: string, bookmarks: Bookmark[]) => void;
   onEdit: () => void;
@@ -31,10 +31,11 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onCo
   const rank = new Map(order?.map((id, i) => [id, i]));
   const bookmarks = workspace.bookmarks.filter((b) => ids.has(b.id))
     .sort((a, b) => (rank.get(a.id) ?? rank.size) - (rank.get(b.id) ?? rank.size));
+  const groups = groupByState(bookmarks, workspace);
   return (
     <>
       <DetailBar start={start} closeLabel="Close (Esc)" closeShortcut="Esc" onClose={onClose}>
-        <IconButton label="Copy…" icon="copy" size={16} disabled={!bookmarks.length} onClick={onCopy} />
+        <IconButton label="Copy…" icon="copy" size={16} disabled={!bookmarks.length} onClick={() => onCopy(groups.flatMap((group) => group.bookmarks))} />
         <IconButton label="Edit" icon="edit" size={16} onClick={onEdit} />
         {pin}
       </DetailBar>
@@ -51,7 +52,7 @@ export function TagView({ tag, workspace, order, loadMedia, onOpen, onCopy, onCo
         {tag.description?.trim() ? <Markdown text={tag.description} /> : <p className="subtle">No description.</p>}
         <section className="triage-section">
           <h3>Bookmarks ({bookmarks.length})</h3>
-          {groupByState(bookmarks, workspace).map((group) => (
+          {groups.map((group) => (
           <div key={group.tab} className="tag-view-list">
             <StateHeading tab={group.tab} count={group.bookmarks.length} onCopy={() => onCopyGroup(`${tag.name} · ${stateLabels[group.tab]}`, group.bookmarks)} />
             {group.bookmarks.map((b) => {

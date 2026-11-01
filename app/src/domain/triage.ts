@@ -80,7 +80,12 @@ function readLeaf(f: Filter): { kind: RuleKind; values: string[] } | undefined {
   if (f.op === "tags" && f.mode !== "all") return { kind: "group", values: f.ids };
   if (f.op === "url" && f.mode === "host") return { kind: "domain", values: [f.value] };
   if (f.op === "batch") return { kind: "import", values: [f.id] };
-  if (f.op === "date" && f.field === "createdAt" && f.from) return { kind: "added", values: [monthOf(f.from)] };
+  if (f.op === "date" && f.field === "createdAt" && f.from) {
+    const month = monthOf(f.from), range = monthRange(month);
+    if (Date.parse(f.from) === Date.parse(range.from) && f.to && Date.parse(f.to) === Date.parse(range.to))
+      return { kind: "added", values: [month] };
+    return undefined;
+  }
   if (f.op === "asset" && f.present && f.kind === "image") return { kind: "has", values: ["image"] };
   if (f.op === "not" && f.rule.op === "missing" && f.rule.field === "description") return { kind: "has", values: ["description"] };
   if (f.op === "warning") return { kind: "has", values: ["warning"] };
@@ -95,15 +100,18 @@ function readLeaf(f: Filter): { kind: RuleKind; values: string[] } | undefined {
 export function readRules(filter: Filter): { rules: Rule[]; text: string } | undefined {
   if (filter.op !== "all") return undefined;
   const rules: Rule[] = [];
-  let text = "";
+  let text: string | undefined;
   for (const f of filter.rules) {
-    if (f.op === "text") { text = f.value; continue; }
+    if (f.op === "text") {
+      if (text !== undefined) return undefined;
+      text = f.value; continue;
+    }
     const not = f.op === "not" && !(f.rule.op === "missing");
     const part = readLeaf(not && f.op === "not" ? f.rule : f);
-    if (!part) return undefined;
+    if (!part?.values.length) return undefined;
     rules.push({ ...part, not });
   }
-  return { rules, text };
+  return { rules, text: text ?? "" };
 }
 type Point = readonly [number, number];
 

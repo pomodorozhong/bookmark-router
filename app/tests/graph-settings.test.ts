@@ -8,6 +8,44 @@ import { saveView, loadView, resetSearchAndState, type ViewSettings } from "../s
 import { WorkspaceStore } from "../src/domain/storage";
 import { makeBackup, prepareRestore } from "../src/domain/backup";
 
+test("custom and cross-timezone saved date ranges are never rounded into month chips", async () => {
+  const w = fixture(), settings = base();
+  const original = { op: "all" as const, rules: [{ op: "date" as const, field: "createdAt" as const,
+    from: "2026-09-15T00:00:00.000Z", to: "2026-10-15T23:59:59.999Z" }] };
+  const saved: SavedView = { id: "custom-range", name: "Custom range", sort: "title", hiddenTagIds: [], filter: original };
+  w.views.push(saved); validateWorkspace(w);
+  assert.equal(readRules(original), undefined); assert.equal(loadView(saved, settings), undefined);
+  assert.deepEqual(saved.filter, original);
+  const restored = prepareRestore(await makeBackup(w, [])).workspace;
+  assert.deepEqual(restored.views[0].filter, original);
+  const exact = compileRules([{ kind: "added", values: ["2026-10"], not: false }]);
+  assert.deepEqual(readRules(exact), { text: "", rules: [{ kind: "added", values: ["2026-10"], not: false }] });
+  const shifted = structuredClone(exact);
+  if (shifted.op !== "all") assert.fail("Expected compiled rules");
+  const range = shifted.rules[0];
+  if (range.op !== "date") assert.fail("Expected monthly range");
+  range.from = new Date(Date.parse(range.from!) + 3600000).toISOString();
+  assert.equal(readRules(shifted), undefined);
+  assert.equal(readRules({ op: "all", rules: [{ op: "date", field: "createdAt", from: "2026-10-01T00:00:00Z" }] }), undefined);
+});
+
+test("saved filters that compact controls cannot represent never lose conditions", () => {
+  const w = fixture();
+  const filters: SavedView["filter"][] = [
+    { op: "all", rules: [{ op: "text", value: "one" }, { op: "text", value: "two" }] },
+    { op: "all", rules: [{ op: "status", ids: [] }] },
+    { op: "all", rules: [{ op: "tags", ids: [], mode: "any" }] },
+    { op: "all", rules: [{ op: "tag-type", ids: [] }] },
+  ];
+  for (const filter of filters) {
+    const view: SavedView = { id: "unsupported", name: "Legacy filter", sort: "title", hiddenTagIds: [], filter };
+    w.views = [view]; validateWorkspace(w);
+    const original = structuredClone(view);
+    assert.equal(loadView(view, base()), undefined);
+    assert.deepEqual(view, original);
+  }
+});
+
 function fixture(): Workspace {
   const w = emptyWorkspace();
   const meta = { revision: 0, createdAt: "2026-10-11T00:00:00.000Z", updatedAt: "2026-10-11T00:00:00.000Z" };

@@ -369,9 +369,9 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector("dialog[open]")) return;
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("dialog[open]")) return;
       const target = e.target as HTMLElement;
-      if (target.closest("input, textarea, select, [contenteditable]")) return;
+      if (target.closest('input, textarea, select, [contenteditable], [role="menu"], [role="dialog"]')) return;
       const key = e.key.toLowerCase();
       if (e.key === "/") { e.preventDefault(); groupInput.current?.focus(); }
       else if (key === "f") { e.preventDefault(); filterInput.current?.focus(); }
@@ -557,7 +557,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                     onClose={() => setTagPanel({ ...tagPanel!, editing: false })} />
                 </div>
               : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
-                    onCopy={() => openCopy("selection")} onCopyGroup={openCopyGroup} onEdit={() => setTagPanel({ ...tagPanel!, editing: true })}
+                    onCopy={(bookmarks) => openCopyGroup(panelTag.name, bookmarks)} onCopyGroup={openCopyGroup} onEdit={() => setTagPanel({ ...tagPanel!, editing: true })}
                     start={<>{tagPanel!.back && current && (
                       <button className="text-button tag-back" onClick={() => setTagPanel(undefined)}><Icon name="chevron-left" size={14} /> Back<span className="tag-back-rest"> to the bookmark</span></button>
                     )}</>}
