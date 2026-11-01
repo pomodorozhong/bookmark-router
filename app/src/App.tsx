@@ -658,15 +658,19 @@ export default function App() {
   }
   async function fileChanged(file?: File) {
     if (!file) return;
-    request.current++;
-    setBusy(false);
+    const id = ++request.current;
+    setBusy(true);
     try {
-      setText(await file.text());
+      const contents = await file.text();
+      if (id !== request.current) return;
+      setText(contents);
       setFilename(file.name);
       setFormat("auto");
       setError("");
     } catch {
-      setError("Unable to read this file.");
+      if (id === request.current) setError("Unable to read this file.");
+    } finally {
+      if (id === request.current) setBusy(false);
     }
   }
   if (!loaded)

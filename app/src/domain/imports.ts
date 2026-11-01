@@ -32,6 +32,8 @@ export const fields: Field[] = [
 export type Mapping = Record<Field, string>;
 export interface SourceRow {
   row: number;
+  /** Physical HTML line, independent of the unique import decision number. */
+  sourceLine?: number;
   values: Record<string, string>;
   errors: string[];
 }
@@ -43,6 +45,7 @@ export interface ParsedImport {
 }
 export interface Candidate {
   row: number;
+  sourceLine?: number;
   title: string;
   missingTitle: boolean;
   description: string;
@@ -166,8 +169,10 @@ export function parseImport(
           const attrs = Object.fromEntries(
             child.attrs.map((a) => [a.name, a.value]),
           );
+          const sourceLine = child.sourceCodeLocation?.startLine;
           recent = {
-            row: child.sourceCodeLocation?.startLine ?? rows.length + 1,
+            row: Math.max((rows.at(-1)?.row ?? 0) + 1, sourceLine ?? 1),
+            sourceLine,
             values: {
               title: textOf(child).trim(),
               url: attrs.href ?? "",
@@ -364,6 +369,7 @@ export function previewImport(
       ),
       tagType: get("tagType"),
     }, row.errors);
+    if (row.sourceLine !== undefined) candidate.sourceLine = row.sourceLine;
     const signature = JSON.stringify(row.values);
     if (signatures.has(signature))
       candidate.repeatedRow = signatures.get(signature);

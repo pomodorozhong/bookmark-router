@@ -118,7 +118,9 @@ export function applyCommand(
     const id = command.id ?? crypto.randomUUID();
     if (!id.trim() || [...w.bookmarks, ...w.tags].some((r) => r.id === id))
       throw new Error("Choose a new bookmark ID.");
-    const statusId = command.statusId ?? w.statuses.find((s) => s.label.toLowerCase() === "pending")?.id;
+    const statusId = command.statusId
+      ?? w.statuses.find((s) => s.id === "pending" && s.outcome === "active")?.id
+      ?? w.statuses.find((s) => s.label.toLowerCase() === "pending" && s.outcome === "active")?.id;
     if (!w.statuses.some((s) => s.id === statusId))
       throw new Error("Choose an existing status; this collection has no Pending default.");
     const tagIds = command.tagIds ?? [];

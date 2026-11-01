@@ -36,6 +36,16 @@ Imports, import history, and backup/restore are unchanged from Stage B. Backups 
 
 G6 is pinned to 5.1.1.
 
+## Import and restore validation
+
+HTML imports assign a unique decision number to every link, even when several links share a physical source line. The parser retains each original HTML line separately for diagnostics. Existing source-line numbers remain the decision numbers where possible.
+
+Restore validates rendering fields before creating a collection. Invalid descriptions, icons, names, status labels, timestamps, and media references are rejected atomically; version-2 backups and empty optional legacy fields remain supported.
+
+Reading an import file waits for its contents before enabling Read source. Selecting another file or typing new source text supersedes the earlier read, including any delayed error.
+
+Add bookmark recognizes the existing built-in To triage status by its stable identity after a label change. Explicit creation statuses retain their behavior. Choosing a default in a collection without that built-in status remains a separate enhancement.
+
 ## Current limitations
 
 Agent integration is implemented; all MCP setup, tool contracts, review behavior, and verification are in the standalone [WebMCP document](../docs/webmcp.md). Archive/unarchive and individual record deletion are not implemented. Add bookmark opens Import. Media-upload and bulk-status dialogs are frozen; backup/restore still supports existing local media. The compact UI does not expose the domain engine's distance, same-group, linked-tag-status, or nested filter rules.
