@@ -53,7 +53,10 @@ The resolver tries these layers in order, and the first image it stores wins. Ea
 5. **Agent proposal.** The existing WebMCP image proposal (see [WebMCP](webmcp.md#fill-missing-images)) stays a remote URL until the human applies it. After that, the resolver captures it like an imported cover. This is how the user's own fetcher, which uses a residential IP, covers the long tail.
 6. **Page screenshot** from `rdl.ink/render/<encoded page URL>`. This is Raindrop's own endpoint and isn't documented. It returns a 1200×800 WebP, synchronously, in about 5 s when uncached.
 7. **Favicon** from Google (`www.google.com/s2/favicons?domain=<d>&sz=64`) through wsrv.nl. Google sends no CORS, but wsrv.nl adds it. An unknown domain gives a 404, so a missing icon is detectable. This is the right fallback for sites that block metadata fetches (Medium, Stack Overflow, npm) or have no og:image (Hacker News). DuckDuckGo (`icons.duckduckgo.com/ip3/<d>.ico`) behaves the same way and is the backup.
+
 8. **Letter tile.** If every step fails, the app generates a tile from the title or domain and records `thumbnail: { failedAt }`. Only a manual retry runs the resolver again.
+
+Threads (`threads.net` and `threads.com`, including their subdomains) stops after the supplied image and Microlink. Its screenshot can return HTTP 200 with only the loading logo; a favicon is also just the site logo. When neither real image can be fetched, lookup reports Not found instead of storing either substitute. The confirmation lists only the services that will be used. A failed retry preserves an already stored image, as it does for other sites.
 
 ## Services
 
@@ -127,9 +130,11 @@ Verified October 14, 2026:
 - Bulk network responses were simulated locally, without sending additional collection links outside the browser. Cancel sent nothing, the setting defaulted off, requests started roughly 250 ms apart, existing thumbnails stayed untouched, turning off stopped new requests and saves, and a zero-quota queue waited without storing failures and resumed when quota became available.
 - The compiled static build was served with `npm run preview -- --port 5202` and checked in another throwaway Chrome profile with two synthetic bookmarks. All external requests were intercepted locally. X and generic-page lookup, the Microlink counter, bundled thumbnail bytes, restore ID remapping, unchanged covers, and local-image reload passed; no online lookup requests ran before confirmation or after reload. Retry opening kept the same scroll position at 1440, 390, and 320 px, and Tab reached **Send and find**. Only compiled assets were loaded, with no development source modules or application backend.
 
+Verified November 1, 2026: Raindrop's screenshot of the public `https://www.threads.com/@threads` profile still returned only the loading logo. Regression tests cover failed image resizing, usable supplied and preview images, both Threads domains, the service disclosure, and exhausted quota; Threads lookup now reports failure when its real images are unavailable.
+
 **You try:**
 
 1. Find the thumbnail for **Retention and paid conversion over downloads**. Confirm the warning; the avatar should appear in the panel, queue, and graph without using Microlink.
-2. Find the thumbnail for **Five App Store submission tips**. Inspect the fallback steps and counter; current live services may supply the Threads screenshot instead of a preview of the post.
+2. Find the thumbnail for **Five App Store submission tips**. Inspect the fallback steps and counter; if the supplied image and Microlink preview cannot be fetched, the lookup reports failure instead of saving a Threads loading screen. A previously stored thumbnail is kept on failure.
 3. Reload, download a backup, and restore it into a new collection. Both thumbnails should remain, and the imported cover URLs in **Edit** should be unchanged.
 4. Enable **Find thumbnails online** from **More actions**, confirm, watch missing thumbnails fill in, then turn it off. Stored thumbnails should not be retried.

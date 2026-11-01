@@ -90,8 +90,13 @@ export function thumbnailPlan(bookmark: Bookmark): ThumbnailStep[] {
     steps.push({ source: "github", service: "GitHub", sends: "the repository or profile name, for its card or avatar", label: "GitHub card" });
   if (page) {
     steps.push({ source: "microlink", service: "Microlink", sends: `the ${noun} link, to find its preview image`, label: "Microlink", usesMicrolink: true });
-    steps.push({ source: "screenshot", service: "Raindrop", sends: `the ${noun} link, for a page screenshot`, label: "Raindrop screenshot" });
-    steps.push({ source: "favicon", service: "Google", sends: `the domain ${page.hostname.replace(/^www\./, "")}, for its icon`, label: "Google favicon" });
+    // Threads screenshots successfully return its loading logo, not the post.
+    // Require an actual supplied/preview image instead of saving that screen or
+    // the same site logo as a permanent substitute for the missing preview.
+    if (!/(^|\.)threads\.(net|com)\.?$/.test(page.hostname)) {
+      steps.push({ source: "screenshot", service: "Raindrop", sends: `the ${noun} link, for a page screenshot`, label: "Raindrop screenshot" });
+      steps.push({ source: "favicon", service: "Google", sends: `the domain ${page.hostname.replace(/^www\./, "")}, for its icon`, label: "Google favicon" });
+    }
   }
   return page ? steps : [];
 }
@@ -100,7 +105,8 @@ export function thumbnailPlan(bookmark: Bookmark): ThumbnailStep[] {
 export function thumbnailServices(bookmark: Bookmark): Array<Pick<ThumbnailStep, "service" | "sends" | "usesMicrolink">> {
   const steps = thumbnailPlan(bookmark);
   if (!steps.length) return steps;
-  const services = [...steps, { service: "DuckDuckGo", sends: "the domain, if Google has no icon" }];
+  const services = [...steps, ...(steps.some((step) => step.source === "favicon")
+    ? [{ service: "DuckDuckGo", sends: "the domain, if Google has no icon" }] : [])];
   if (steps.some((step) => step.source === "cover")) return services;
   // Every image found goes through wsrv.nl, so list it after the first step that can find one.
   const at = Math.max(1, steps.findIndex((step) => step.source === "microlink"));
