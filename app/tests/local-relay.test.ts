@@ -44,7 +44,7 @@ function relayHarness(t: TestContext, host: Partial<WebMcpContext> = {}) {
     static OPEN = 1;
     readyState = 1;
     closed = false;
-    sent: Array<{ type: string; callId?: string }> = [];
+    sent: Array<{ type: string; callId?: string; tabId?: string }> = [];
     onmessage: ((event: { data: string }) => void) | null = null;
     onerror: (() => void) | null = null;
     onclose: (() => void) | null = null;
@@ -67,6 +67,33 @@ function relayHarness(t: TestContext, host: Partial<WebMcpContext> = {}) {
   return { sockets, statuses, stop, reconnect() { const callback = retry; retry = undefined; assert.ok(callback); callback(); } };
 }
 const settle = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); };
+
+test("duplicated tabs have different relay IDs and reconnects keep the same ID", async (t) => {
+  const session = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+  Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: {
+    getItem: () => "copied-from-opener", setItem() {},
+  } });
+  t.after(() => {
+    if (session) Object.defineProperty(globalThis, "sessionStorage", session);
+    else Reflect.deleteProperty(globalThis, "sessionStorage");
+  });
+  const run = relayHarness(t), first = run.sockets[0];
+  first.receive({ type: "server-hello" });
+  const firstId = first.sent[0].tabId;
+  assert.ok(firstId);
+  first.onerror!();
+  run.reconnect();
+  run.sockets[1].receive({ type: "server-hello" });
+  assert.equal(run.sockets[1].sent[0].tabId, firstId);
+
+  // A second browser document loads its own module, with a copy of the opener's storage.
+  const duplicate = await import(new URL("../src/agent/local-relay.ts?duplicate", import.meta.url).href);
+  const stop = duplicate.connectLocalRelay({ registerTool() {} }, new AbortController().signal, () => {});
+  t.after(stop);
+  run.sockets[2].receive({ type: "server-hello" });
+  assert.ok(run.sockets[2].sent[0].tabId);
+  assert.notEqual(run.sockets[2].sent[0].tabId, firstId);
+});
 
 test("late close and error events cannot close a newer relay connection", (t) => {
   const run = relayHarness(t), first = run.sockets[0];

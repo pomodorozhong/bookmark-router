@@ -26,17 +26,9 @@ export async function installLocalAgentRuntime(): Promise<WebMcpContext> {
   return context;
 }
 
-function relayTabId(): string {
-  try {
-    const existing = sessionStorage.getItem("__webmcp_relay_tab_id");
-    if (existing) return existing;
-    const id = crypto.randomUUID();
-    sessionStorage.setItem("__webmcp_relay_tab_id", id);
-    return id;
-  } catch {
-    return `bookmark-tag-${Math.random().toString(36).slice(2)}`;
-  }
-}
+// Duplicated tabs copy sessionStorage. Keep this peer's identity in the page so
+// separate documents get separate tools and reconnecting this one keeps its ID.
+let pageRelayId: string | undefined;
 
 export function relayResult(value: unknown): unknown {
   let normalized = value;
@@ -66,7 +58,7 @@ export function connectLocalRelay(context: WebMcpContext, signal: AbortSignal, o
   let stopped = false;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   const invocations = new Map<string, AbortController>();
-  const tabId = relayTabId();
+  const tabId = pageRelayId ??= globalThis.crypto?.randomUUID?.() ?? `bookmark-tag-${Math.random().toString(36).slice(2)}`;
   const origin = window.location.origin;
   const pageUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
 
