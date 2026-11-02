@@ -369,22 +369,26 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || document.querySelector("dialog[open]")) return;
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open], [role="menu"], [role="dialog"]')) return;
       const target = e.target as HTMLElement;
-      if (target.closest('input, textarea, select, [contenteditable], [role="menu"], [role="dialog"]')) return;
+      if (target.closest("input, textarea, select, [contenteditable]")) return;
       const key = e.key.toLowerCase();
-      if (e.key === "/") { e.preventDefault(); groupInput.current?.focus(); }
+      if (e.key === "Escape" && panelTag && tagPanel) setTagPanel(tagPanel.editing ? { ...tagPanel, editing: false } : undefined);
+      // Queue navigation also closes the inline editor, discarding its draft.
+      else if (panelTag && tagPanel?.editing) return;
       else if (key === "f") { e.preventDefault(); filterInput.current?.focus(); }
       else if (e.key === "ArrowDown" || key === "j") { e.preventDefault(); move(1); }
       else if (e.key === "ArrowUp" || key === "k") { e.preventDefault(); move(-1); }
       else if (key === "q") toggleQueue();
       else if (key === "c") openCopy();
-      else if (key === "o" && current?.url && isWebUrl(current.url)) window.open(current.url, "_blank", "noopener,noreferrer");
       else if (e.key === "Escape" && networkMode !== "normal") setNetworkMode("normal");
       else if (e.key === "Escape" && contextTag) setContextTag(undefined);
-      else if (e.key === "Escape" && tagPanel) setTagPanel(tagPanel.editing ? { ...tagPanel, editing: false } : undefined);
       else if (e.key === "Escape" && selection) setSelection(undefined);
       else if (e.key === "Escape" && current) show(undefined, false);
+      // A tag card can retain a bookmark to go back to. Only its visible card owns these shortcuts.
+      else if (!current || panelTag) return;
+      else if (e.key === "/") groupInput.current?.focus();
+      else if (key === "o" && current.url && isWebUrl(current.url)) window.open(current.url, "_blank", "noopener,noreferrer");
       else if (key === "d") decide("done");
       else if (key === "x") decide("dropped");
       else if (key === "s") deselect();
