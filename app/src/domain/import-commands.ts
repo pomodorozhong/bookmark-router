@@ -212,14 +212,19 @@ export function undoImport(
   for (const id of revert) {
     const before = batch.beforeMerged.find((b) => b.id === id),
       index = w.bookmarks.findIndex((b) => b.id === id);
-    if (before && index >= 0)
+    if (before && index >= 0) {
+      const revision = w.bookmarks[index].revision + 1;
       w.bookmarks[index] = {
         ...before,
         thumbnail: restoredThumbnail(before, w.bookmarks[index]),
-        revision: w.bookmarks[index].revision + 1,
+        revision,
         updatedAt: new Date().toISOString(),
       };
-    else if (index >= 0) {
+      // A history entry that matched the pre-merge content still matches it after Undo.
+      for (const history of [...w.batches, ...(w.settings.statusHistory ?? [])]) {
+        if (history.afterRevisions[id] === before.revision) history.afterRevisions[id] = revision;
+      }
+    } else if (index >= 0) {
       w.bookmarks.splice(index, 1);
       removed.add(id);
     }
