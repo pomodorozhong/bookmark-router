@@ -19,6 +19,7 @@ import {
   type Geometry,
 } from "./domain/model";
 import { WorkspaceStore } from "./domain/storage";
+import { withGraphLayout } from "./domain/geometry";
 import { ConflictError, type Command } from "./domain/commands";
 import { undoConflicts } from "./domain/import-commands";
 import { RecordEditor } from "./components/RecordEditor";
@@ -131,6 +132,7 @@ export default function App() {
   const [agentError, setAgentError] = useState("");
   const agentApplying = useRef(false), switchingCollection = useRef(false);
   const navigationVersion = useRef(0);
+  const geometrySaveSequence = useRef(0);
   const copyContext = useRef<CopyContext | undefined>(undefined);
   const toastId = useRef(0);
   const notify = (text: string, undo?: () => void) => setToast({ id: ++toastId.current, text, undo });
@@ -1204,11 +1206,14 @@ export default function App() {
             workspace={workspace}
             onCopyContext={(context) => { copyContext.current = context; }}
             geometry={geometry}
-            onGeometry={(g) => {
-              const version = navigationVersion.current;
-              const active = () => !switchingCollection.current && version === navigationVersion.current && g.workspaceId === workspaceRef.current.id;
-              if (active()) setGeometry(g);
-              void store.saveGeometry(g).catch((e) => { if (active()) setError("Unable to save graph positions: " + String(e)); });
+            onGeometry={(view, layout) => {
+              const id = workspace.id, version = navigationVersion.current;
+              const active = () => !switchingCollection.current && version === navigationVersion.current && id === workspaceRef.current.id;
+              const sequence = active() ? ++geometrySaveSequence.current : undefined;
+              if (sequence !== undefined) setGeometry((g) => withGraphLayout(g, id, view, layout));
+              void store.saveGraphLayout(id, view, layout).then((merged) => {
+                if (active() && sequence === geometrySaveSequence.current) setGeometry(merged);
+              }).catch((e) => { if (active()) setError("Unable to save graph positions: " + String(e)); });
             }}
             save={save}
             loadMedia={loadReviewMedia}

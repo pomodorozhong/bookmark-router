@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import { commitImport, undoImport } from "./import-commands";
 import { collectionImportLabel, revalidateCollectionImport, type StagedCollectionImport } from "./collection-import";
+import { withGraphLayout, type GraphView } from "./geometry";
 import type { ImportCommitCommand } from "./imports";
 import { makeBackup, prepareRestore, type MediaRecord } from "./backup";
 import type { Backup } from "./model";
@@ -12,6 +13,7 @@ import {
   type Asset,
   type Bookmark,
   type Geometry,
+  type GraphLayout,
   type Thumbnail,
   type Workspace,
 } from "./model";
@@ -313,6 +315,15 @@ export class WorkspaceStore {
   }
   async saveGeometry(geometry: Geometry) {
     return (await this.database).put("geometry", geometry);
+  }
+  /** Merge only this canvas's arrangement into the latest geometry, including saves from other tabs. */
+  async saveGraphLayout(workspaceId: string, view: GraphView, layout: GraphLayout): Promise<Geometry> {
+    const tx = (await this.database).transaction("geometry", "readwrite");
+    const current = await tx.store.get(workspaceId);
+    const merged = withGraphLayout(current, workspaceId, view, layout);
+    await tx.store.put(merged);
+    await tx.done;
+    return merged;
   }
   async getGeometry(id: string) {
     return (await this.database).get("geometry", id);

@@ -5,7 +5,7 @@ import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { ConnectionsCanvas } from "./ConnectionsCanvas";
 import { ConnectionsControls } from "./ConnectionsControls";
 import { connectionGraph, connectionTopologyKey, rankConnections, splitOffCount, type ConnectionGraph } from "../domain/connections";
-import { graphLayout, withGraphLayout, type GraphView } from "../domain/geometry";
+import { graphLayout, type GraphView } from "../domain/geometry";
 import { CopyDialog, type CopyDialogScope, type CopyGroup, type CopyScope } from "./CopyDialog";
 import { StateHeading } from "./StateHeading";
 import { RecordEditor } from "./RecordEditor";
@@ -68,7 +68,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   headerEnd?: ReactNode;
   workspace: Workspace;
   geometry?: Geometry;
-  onGeometry: (geometry: Geometry) => void;
+  onGeometry: (view: GraphView, layout: GraphLayout) => void;
   save: (command: Command | Command[], label?: string) => Promise<void>;
   loadMedia: LoadMedia;
   /** The app's message toast, shown over the graph. */
@@ -90,12 +90,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const hoverPreview = useRef(false);
   const [contextTag, setContextTag] = useState<string>();
   const [advanceRevision, setAdvanceRevision] = useState<number>();
-  const geometryRef = useRef(geometry); geometryRef.current = geometry;
-  function saveLayout(which: GraphView, layout: GraphLayout) {
-    const next = withGraphLayout(geometryRef.current, workspace.id, which, layout);
-    geometryRef.current = next;
-    onGeometry(next);
-  }
   const [tab, setTab] = useState<TriageTab>("todo");
   const [filter, setFilter] = useState<TriageFilter>(emptyTriageFilter);
   // The box selection, in the clockwise order captured when it was drawn.
@@ -514,7 +508,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
               selected={current && connections.neighbors.has(current.id) ? current.id : undefined}
               showTags={showTags} contextTag={contextTag} preview={networkMode === "preview" ? candidate : undefined}
               geometry={graphLayout(geometry, showTags ? "connections-tags" : "connections")}
-              onGeometry={(layout) => saveLayout(showTags ? "connections-tags" : "connections", layout)}
+              onGeometry={(layout) => onGeometry(showTags ? "connections-tags" : "connections", layout)}
               onSelect={(id) => show(id, false)}
               onTag={setContextTag} onBoxSelect={boxSelect} onPinsChanged={setPinnedIds} boxSelection={selectionSet}
               highlightIds={highlightIds} fadeRest={fadeRest} covered={covered} onReady={setGraphReady} onClearSearch={() => changeFilter({ ...emptyTriageFilter, hiddenTypeIds: hasImportType ? [importTypeId] : [] })} onImport={onImport} />
@@ -545,7 +539,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             onReady={setGraphReady}
             onBoxSelect={boxSelect}
             geometry={geometry}
-            onGeometry={(layout) => saveLayout("tags", layout)}
+            onGeometry={(layout) => onGeometry("tags", layout)}
             onImport={onImport}
             onClearSearch={() => changeFilter({ ...emptyTriageFilter, hiddenTypeIds: hasImportType ? [importTypeId] : [] })}
             onPinsChanged={setPinnedIds}
