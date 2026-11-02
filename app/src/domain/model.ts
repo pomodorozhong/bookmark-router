@@ -331,7 +331,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
       fail("invalid status");
   const types = new Set(w.tagTypes.map((t) => t.id));
   const checkAppearance = (a: Partial<Appearance>) => {
-    if (!a || typeof a !== "object") fail("appearance must be an object");
+    if (!a || typeof a !== "object" || Array.isArray(a)) fail("appearance must be an object");
     if (
       a.size !== undefined &&
       (!Number.isFinite(a.size) || a.size < 20 || a.size > 160)
@@ -347,13 +347,15 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
       !["up", "up-right", "right", "down-right", "down", "down-left", "left", "up-left"].includes(a.points)
     )
       fail("unknown tag direction");
-    if (a.color !== undefined && !/^#[\da-f]{6}$/i.test(a.color))
+    if (a.color !== undefined && (typeof a.color !== "string" || !/^#[\da-f]{6}$/i.test(a.color)))
       fail("appearance color must be six-digit hex");
     if (a.icon != null && typeof a.icon !== "string") fail("appearance icon must be text");
   };
   for (const t of w.tagTypes) {
     if (typeof t.name !== "string" || !t.name) fail("tag type needs a name");
     checkAppearance(t.appearance);
+    if (t.appearance.color === undefined || t.appearance.size === undefined || t.appearance.shape === undefined)
+      fail("tag type appearance needs a color, size, and shape");
   }
   for (const record of [...w.bookmarks, ...w.tags]) {
     if (!statuses.has(record.statusId)) fail("unknown assigned status");

@@ -42,6 +42,10 @@ test("restores reject non-text rendering fields atomically", async () => {
       (w) => { w.tags[0].description = {} as string; },
       (w) => { w.tags[0].appearance.icon = 42 as unknown as string; },
       (w) => { w.tagTypes[0].name = {} as string; },
+      (w) => { Reflect.deleteProperty(w.tagTypes[0].appearance, "shape"); },
+      (w) => { Reflect.deleteProperty(w.tagTypes[0].appearance, "color"); },
+      (w) => { Reflect.deleteProperty(w.tagTypes[0].appearance, "size"); },
+      (w) => { w.tagTypes[0].appearance.color = ["#0f766e"] as unknown as string; },
       (w) => { w.statuses[0].label = {} as string; },
       (w) => { w.views.push({ id: "bad", name: {} as string, sort: "title", hiddenTagIds: [], filter: { op: "all", rules: [] } }); },
       (w) => { w.bookmarks[0].asset = { kind: "image", source: "local", blobId: "local", filename: {} as string }; },
@@ -57,6 +61,8 @@ test("restores reject non-text rendering fields atomically", async () => {
       assert.equal(await store.nextUndo(w.id), undefined);
     }
     const legacy = structuredClone(backup);
+    legacy.workspace.tagTypes[0].appearance = { color: "#0f766e", size: 64, shape: "circle" };
+    legacy.workspace.tags[0].appearance = {};
     legacy.workspace.tags[0].description = null as unknown as string;
     legacy.workspace.tags[0].appearance.icon = null as unknown as string;
     const restored = await store.restore(legacy);
