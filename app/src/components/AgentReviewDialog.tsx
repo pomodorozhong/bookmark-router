@@ -135,7 +135,7 @@ type ReviewProps = {
 };
 export function AgentReviewDialog(props: ReviewProps) {
   const { proposal } = props;
-  return proposal?.kind === "import" ? <ImportReview {...props} proposal={proposal} /> : <ChangeReview {...props} proposal={proposal} />;
+  return proposal?.kind === "import" ? <ImportReview key={proposal.id} {...props} proposal={proposal} /> : <ChangeReview {...props} proposal={proposal} />;
 }
 
 function ChangeReview({ proposal, proposals, workspace, availability, busy, error, loadMedia, onApply, onApplyAnyway, onSetAside, onBatchTag, onHighlight, onSelect, onClose }: ReviewProps & { proposal?: AgentProposal }) {
@@ -240,17 +240,19 @@ function RowThumb({ url }: { url?: string }) {
   return <img className="import-review-thumb" src={url} alt="" loading="lazy" onError={() => setFailed(true)} />;
 }
 function ImportReview({ proposal, proposals, busy, error, loadMedia, onApplyImport, onSetAside, onBatchTag, onSelect, onClose }: ReviewProps & { proposal: ImportProposal }) {
-  const [tagFilter, setTagFilter] = useState<string>();
+  // Tag names and bookmark URLs are unique within an import and survive restaging.
+  const [filterName, setFilterName] = useState<string>();
   const [query, setQuery] = useState("");
-  useEffect(() => { setTagFilter(undefined); setQuery(""); }, [proposal.id]);
   const { collection, bookmarkIds } = proposal.staged;
   const bookmarks = useMemo(() => bookmarkIds.map((id) => collection.bookmarks.find((b) => b.id === id)!), [collection, bookmarkIds]);
   const tagsOf = useMemo(() => new Map(bookmarks.map((b) => [b.id, collection.memberships.filter((m) => m.bookmarkId === b.id).map((m) => m.tagId)])), [collection, bookmarks]);
   const tags = useMemo(() => collection.tags.map((t) => ({ ...t, count: collection.memberships.filter((m) => m.tagId === t.id).length }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)), [collection]);
   const tagName = (id: string) => collection.tags.find((t) => t.id === id)?.name ?? id;
+  const tagFilter = tags.find((tag) => tag.name === filterName);
+  useEffect(() => { if (!tagFilter) setFilterName(undefined); }, [tagFilter]);
   const text = query.trim().toLowerCase();
-  const visible = bookmarks.filter((b) => (!tagFilter || tagsOf.get(b.id)!.includes(tagFilter)) && (!text || `${b.title} ${b.url ?? ""} ${b.description}`.toLowerCase().includes(text)));
+  const visible = bookmarks.filter((b) => (!tagFilter || tagsOf.get(b.id)!.includes(tagFilter.id)) && (!text || `${b.title} ${b.url ?? ""} ${b.description}`.toLowerCase().includes(text)));
   const thumbnails = bookmarks.filter((b) => b.asset).length;
   const reviewable = proposal.state !== "applied";
   return (
@@ -275,19 +277,19 @@ function ImportReview({ proposal, proposals, busy, error, loadMedia, onApplyImpo
       </section>
       {tags.length > 0 && <>
         <div className="import-review-heading"><h3>Tags</h3><span className="subtle">Select a tag to see its bookmarks</span></div>
-        <ul className="import-review-tags">{tags.map((t) => <li key={t.id}>
-          <button type="button" aria-pressed={tagFilter === t.id} onClick={() => setTagFilter(tagFilter === t.id ? undefined : t.id)}>{t.name} <span>{t.count}</span></button>
+        <ul className="import-review-tags">{tags.map((t) => <li key={t.name}>
+          <button type="button" aria-pressed={filterName === t.name} onClick={() => setFilterName(filterName === t.name ? undefined : t.name)}>{t.name} <span>{t.count}</span></button>
         </li>)}</ul>
       </>}
-      <div className="import-review-heading"><h3>Bookmarks</h3><span className="subtle">{tagFilter ? `${visible.length} in ${tagName(tagFilter)}` : text ? `${visible.length} of ${bookmarks.length} match` : bookmarks.length}</span></div>
+      <div className="import-review-heading"><h3>Bookmarks</h3><span className="subtle">{tagFilter ? `${visible.length} in ${tagFilter.name}` : text ? `${visible.length} of ${bookmarks.length} match` : bookmarks.length}</span></div>
       <div className="import-review-tools">
         <input type="search" aria-label="Search proposed bookmarks" placeholder="Search titles, links and descriptions" value={query} onChange={(event) => setQuery(event.target.value)} />
-        {(tagFilter || text) && <button type="button" className="text-button" onClick={() => { setTagFilter(undefined); setQuery(""); }}>Show all {bookmarks.length}</button>}
+        {(tagFilter || text) && <button type="button" className="text-button" onClick={() => { setFilterName(undefined); setQuery(""); }}>Show all {bookmarks.length}</button>}
       </div>
       <ul className="import-review-list">
         {visible.map((b) => {
           const names = tagsOf.get(b.id)!.map(tagName).join(" · ") || "No tags";
-          return <li key={b.id}><details>
+          return <li key={b.url}><details>
             <summary><RowThumb url={b.asset?.url} /><span className="import-review-row"><strong>{b.title}</strong><span className="subtle">{names}</span></span></summary>
             <div className="import-review-detail">
               <dl className="agent-review-fields">
