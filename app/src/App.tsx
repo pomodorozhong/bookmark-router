@@ -116,6 +116,7 @@ export default function App() {
     [undoBatch, setUndoBatch] = useState<string>(),
     [toast, setToast] = useState<ToastMessage>(),
     [deleting, setDeleting] = useState<Workspace>(),
+    [deleteError, setDeleteError] = useState(""),
     [tagTypesOpen, setTagTypesOpen] = useState(false),
     [promptKind, setPromptKind] = useState<"collection" | "tag">(),
     [promptValue, setPromptValue] = useState(""),
@@ -418,12 +419,16 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  function confirmDelete(target: Workspace) {
+    setDeleteError("");
+    setDeleting(target);
+  }
   async function deleteCollection(target: Workspace) {
     if (submitting.current) return;
     submitting.current = true;
     setBusy(true);
     try {
-      await store.remove(target.id);
+      await store.remove(target.id, target.revision);
       let rest = await store.list();
       if (!rest.length) {
         await store.create(emptyWorkspace());
@@ -438,7 +443,11 @@ export default function App() {
       setDeleting(undefined);
       notify(`Deleted: ${target.name}`);
     } catch (e) {
-      setError(String(e));
+      setDeleteError(e instanceof Error ? e.message : String(e));
+      if (e instanceof ConflictError) {
+        const latest = await store.get(target.id);
+        if (latest) setDeleting(latest);
+      }
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -708,7 +717,7 @@ export default function App() {
   }
   const restoreBackup = () => openImport("json");
   const collectionMenu = (
-    <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w).catch((e) => setError(String(e)))} onDelete={setDeleting}
+    <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w).catch((e) => setError(String(e)))} onDelete={confirmDelete}
       onNew={() => { setPromptKind("collection"); setPromptValue(""); }} />
   );
   const moreMenu = (
@@ -719,7 +728,7 @@ export default function App() {
       onHistory={() => setHistory(true)}
       onDownload={() => void backup()}
       onRestore={restoreBackup}
-      onDelete={() => setDeleting(workspace)}
+      onDelete={() => confirmDelete(workspace)}
       thumbnailsOnline={thumbnails.enabled}
       thumbnailStatus={thumbnails.status}
       onThumbnails={() => thumbnails.enabled ? setFindOnline(false) : setConfirmThumbnails(true)}
@@ -1277,6 +1286,7 @@ export default function App() {
       {deleting && (
         <Dialog labelledBy="delete-title" className="delete-modal" onClose={() => { if (!busy) setDeleting(undefined); }}>
           <DialogHeader id="delete-title" label="Collection" title={<>Delete “{deleting.name}”?</>} disabled={busy} onClose={() => setDeleting(undefined)} />
+          {deleteError && <p className="alert" role="alert">{deleteError}</p>}
           <p>This removes it from this device and can't be undone:</p>
           <ul>
             <li>{deleting.bookmarks.length} bookmarks and {deleting.tags.length} tags</li>

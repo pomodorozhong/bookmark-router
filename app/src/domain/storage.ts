@@ -205,10 +205,16 @@ export class WorkspaceStore {
     }
   }
   /** Deletes a collection with its graph positions and media, in one transaction. */
-  async remove(id: string) {
+  async remove(id: string, expectedRevision: number) {
     const tx = (await this.database).transaction(["workspaces", "geometry", "media"], "readwrite");
+    const workspaces = tx.objectStore("workspaces");
+    const stored = await workspaces.get(id);
+    if (stored && stored.revision !== expectedRevision) {
+      await tx.done;
+      throw new ConflictError("This collection changed. Review it again before deleting.");
+    }
     const media = tx.objectStore("media");
-    await tx.objectStore("workspaces").delete(id);
+    await workspaces.delete(id);
     await tx.objectStore("geometry").delete(id);
     for (const m of await media.getAll()) if (m.workspaceId === id) await media.delete(m.id);
     await tx.done;
