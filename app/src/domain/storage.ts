@@ -2,7 +2,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import { commitImport, undoImport } from "./import-commands";
 import { collectionImportLabel, revalidateCollectionImport, type StagedCollectionImport } from "./collection-import";
 import type { ImportCommitCommand } from "./imports";
-import { makeBackup, prepareRestore } from "./backup";
+import { makeBackup, prepareRestore, type MediaRecord } from "./backup";
 import type { Backup } from "./model";
 import { ConflictError, applyCommand, type Command } from "./commands";
 import { commandLabel, restoreUndoSnapshot, type UndoEntry } from "./undo";
@@ -174,12 +174,16 @@ export class WorkspaceStore {
     );
     const w = await tx.objectStore("workspaces").get(id);
     if (!w) throw new Error("Collection not found.");
-    const geometry = await tx.objectStore("geometry").get(id),
-      media = (await tx.objectStore("media").getAll()).filter(
-        (m) => m.workspaceId === id,
-      );
+    // Portable import history needs its original images. Local Undo history stays on this device.
+    const mediaIds = new Set<string>();
+    for (const bookmark of [...w.bookmarks, ...w.batches.flatMap((batch) => batch.beforeMerged)]) {
+      if (bookmark.asset?.source === "local" && bookmark.asset.blobId) mediaIds.add(bookmark.asset.blobId);
+      if (bookmark.thumbnail && "blobId" in bookmark.thumbnail) mediaIds.add(bookmark.thumbnail.blobId);
+    }
+    const geometry = await tx.objectStore("geometry").get(id);
+    const media = await Promise.all([...mediaIds].map((mediaId) => tx.objectStore("media").get(mediaId)));
     await tx.done;
-    return makeBackup(collectionContent(w), media, geometry);
+    return makeBackup(collectionContent(w), media.filter((m): m is MediaRecord => m?.workspaceId === id), geometry);
   }
   async restore(backup: Backup) {
     const restored = prepareRestore(backup),
