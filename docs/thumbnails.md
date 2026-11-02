@@ -11,7 +11,7 @@ The resolver therefore runs **once per bookmark**. It fetches a 256 px WebP (abo
 - `thumbnail: { blobId, source, sourceUrl, capturedAt }` after a capture, where `source` names the step that won (for example `fxtwitter`) and `sourceUrl` is the image URL it fetched.
 - `thumbnail: { failedAt }` when every online step failed, so the bookmark isn't retried on every load.
 
-Display order: a local `asset` the user attached, then the stored `thumbnail`, then a remote `asset` loaded live as today, then the letter tile. Capturing a thumbnail is not a user edit: it doesn't change the bookmark's revision or add an Undo entry. Backups export the thumbnail's Blob with the rest of the `media` store; restore must remap `thumbnail.blobId` the same way it remaps a local asset's.
+Display order: a local `asset` the user attached, then the stored `thumbnail`, then a remote `asset` loaded live as today, then the letter tile. Capturing a thumbnail is not a user edit: it doesn't change the bookmark's revision or add an Undo entry. Backups export only the media referenced by current bookmarks and saved import snapshots. Restore remaps their local IDs, including `thumbnail.blobId`, to the new collection.
 
 In the panel, queue, tag view and Related lists, an image taller than 4:3 (a full-page screenshot, say) is fitted whole on a pale backdrop instead of cropped; wider images fill their frame. Every cover there, image or letter tile, has a thin teal outline; the letter tile is pale grey with a faint letter inside it, so any real thumbnail outweighs it. The graph keeps its own light-teal round tile.
 
@@ -79,7 +79,7 @@ All of these sent `Access-Control-Allow-Origin: *` when probed, except Google an
 - **Expired is permanent.** A 403 saying `URL signature expired` (Facebook, Instagram) or a LinkedIn 400 will never load again. Go to Microlink for a fresh URL rather than retrying.
 - **Throttle backfills.** At most 4 service requests start per second, a 15-minute pause after a GitHub 429, and a Microlink queue that stops at 25 a day. Bookmarks waiting for a limit are not recorded as permanently failed. Turning the setting off aborts the active bulk lookup; opening another collection moves the queue there. Reload resumes from the bookmarks without a thumbnail record.
 - **G6 forces `crossOrigin = "Anonymous"`** on image nodes given a string `src`, so a host without CORS fails in the graph. Keep handing G6 a canvas, as `GraphCanvas.tsx` does now.
-- **Eviction deletes everything at once.** Browsers evict a whole origin's storage, and Safari does so after 7 days of browser use without visiting the site. Call `navigator.storage.persist()` after the user's first import. Firefox shows a prompt; Chrome and Safari decide silently. Thumbnails are already in backups, because backups export the `media` store.
+- **Eviction deletes everything at once.** Browsers evict a whole origin's storage, and Safari does so after 7 days of browser use without visiting the site. Call `navigator.storage.persist()` after the user's first import. Firefox shows a prompt; Chrome and Safari decide silently. Downloading a backup keeps a copy of the collection’s referenced thumbnails outside browser storage.
 
 ## Privacy setting and the detail-view button
 

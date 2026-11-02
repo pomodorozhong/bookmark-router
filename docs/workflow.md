@@ -33,7 +33,7 @@ Local data to keep in mind:
 
 ## Verifying on the real collection
 
-- The in-app browser pane is too throttled to lay out the graph. Headless Chrome driven over the DevTools protocol (Node's built-in WebSocket, `--remote-debugging-port`, a throwaway `--user-data-dir`) works.
+- For in-app browser checks, serve the review worktree on a separate loopback port and create a disposable collection. Two tabs on that origin share storage, which lets you test a stale confirmation or edit. A 390 px viewport tests node selection in both graph views. Use a physical phone for a real two-finger pinch. For repeatable layout and timing checks on the full copied collection, use headless Chrome with a throwaway `--user-data-dir`.
 - To load data: run `npm run convert -- ../bookmarks-working.json node_modules/.tmp-verify/bk.json` in `app/` (Vite serves files under `node_modules/`), then in the page fetch it, set it on the import screen's file input with a `DataTransfer`, choose Workspace JSON → Read source → Confirm restore. Delete the copy afterwards.
 - Create `node_modules/.tmp-verify` before converting; the script does not create it.
 - Let the graph finish placing at desktop width before emulating a narrow one. Resizing while it shows "Placing your collection…" left it stuck in headless runs (on `main` too; not seen in a real browser). Use the **Whole collection** button to fit it to the new width.

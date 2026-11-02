@@ -27,12 +27,16 @@ The collection screen is triage: a queue on the left, the force-directed graph i
 - **Issues and tags:** clicking a tag selects its bookmarks and opens its issue view: type, status, link, rendered description, and bookmarks with membership reasons. **Edit** opens the tag editor; its collapsed **Appearance** section previews overrides. **Tag types…** creates and edits types with inherited appearance. Tag styles (price, rounded, shipping, hang) point in eight directions; titles stay below tags.
 - **Hidden groups:** groups of a hidden type linked to the current bookmark peek with faded fills and dashed outlines/links, alongside their matching bookmarks. Their saved positions stay fixed.
 - **Pin/Unpin:** beside Copy and Edit for bookmarks and tags. Pins survive tab changes and reloads. Switching tabs re-lays out shown nodes and hides empty groups; **Layout → Reset positions** clears pins.
-- **Header:** the collection menu (logo and name) switches, creates, or deletes collections; **⋯** holds Add bookmark (Import), Add tag, Tag types, Import history, Download backup, Restore backup, and Delete this collection. Deletion offers a backup and requires confirmation. There is no sidebar; Import has a Back link.
+- The **collection menu** (logo and name) switches, creates, or deletes collections. Under **⋯**, choose **Add bookmark…** to enter a URL and optional title, or choose **Import many or from a file** in that dialog to open the import wizard. The menu also offers Add tag, Tag types, Import history, Download backup, Restore backup, and Delete this collection. Deletion offers a backup and requires confirmation.
 - **Graph toolbar:** Queue (`Q`) switches the queue between thumbnails and the full list (a drawer up to 1280 px, a column above). At 820 px and below, the queue is a tab under the graph instead. The bottom toolbar floats over the graph with Layout, Center (current bookmark), Whole collection, and zoom controls. No bookmark is current until one is picked.
 
 Every decision and group change is a revision-checked command with a labeled entry in the per-collection **Undo** (up to 50 actions, kept across reloads). Undo is in the header and saved-change toasts. Selection, active filters, and graph positions are not undoable; saved-filter changes are. Node positions, pins, and the viewport are stored separately from content.
 
-Imports, import history, and backup/restore are unchanged from Stage B. Backups bundle local media and restore into new collections. `npm run convert` turns the prototype tracker `bookmarks-working.json` into a restorable backup. `npm run upgrade-backup -- old.json` turns a backup from before the rename (Bubble & Tag, format `bubble-tag` version 1) into one this app restores, written next to it as `old-bookmark-tag.json`.
+**Import history** lets you undo a merge and then undo the import that originally added the bookmark. It keeps bookmarks you edited between imports and lists them for review.
+
+**Download backup** includes the local attachments and thumbnails used by current bookmarks and by import history. A restore creates a new collection where you can still undo an import. The header’s 50-action Undo history and images used only by that history stay on this device.
+
+`npm run convert` turns the prototype tracker `bookmarks-working.json` into a restorable backup. `npm run upgrade-backup -- old.json` turns a backup from before the rename (Bubble & Tag, format `bubble-tag` version 1) into one this app restores, written next to it as `old-bookmark-tag.json`.
 
 G6 is pinned to 5.1.1.
 
@@ -40,7 +44,7 @@ G6 is pinned to 5.1.1.
 
 HTML imports assign a unique decision number to every link, even when several links share a physical source line. The parser retains each original HTML line separately for diagnostics. Existing source-line numbers remain the decision numbers where possible.
 
-Restore validates rendering fields before creating a collection. Invalid descriptions, icons, names, status labels, timestamps, and media references are rejected atomically; version-2 backups and empty optional legacy fields remain supported.
+Restore checks descriptions, icons, names, status labels, timestamps, and media references before creating a collection. Each tag type needs a color, size, and shape. Individual tags can inherit all three or override any of them. Version-2 backups can omit optional fields such as the tag icon.
 
 Reading an import file waits for its contents before enabling Read source. Selecting another file or typing new source text supersedes the earlier read, including any delayed error.
 
@@ -48,9 +52,9 @@ Add bookmark recognizes the existing built-in To triage status by its stable ide
 
 ## Current limitations
 
-Agent integration is implemented; all MCP setup, tool contracts, review behavior, and verification are in the standalone [WebMCP document](../docs/webmcp.md). Archive/unarchive and individual record deletion are not implemented. Add bookmark opens Import. Media-upload and bulk-status dialogs are frozen; backup/restore still supports existing local media. The compact UI does not expose the domain engine's distance, same-group, linked-tag-status, or nested filter rules.
+Agent integration is implemented; all MCP setup, tool contracts, review behavior, and verification are in the standalone [WebMCP document](../docs/webmcp.md). Archive/unarchive and individual record deletion are not implemented. Media-upload and bulk-status dialogs are frozen; backup/restore still supports existing local media. The compact UI does not expose the domain engine's distance, same-group, linked-tag-status, or nested filter rules.
 
-The filter bar can wrap below about 1150 px with the queue open, and the phone header is crowded. Some remote covers fail to load; non-focused graph titles can overlap nodes, and zooming above 60% may stutter. See [HANDOFF.md](../HANDOFF.md) and the GitHub issues for verification gaps and remaining graph issues.
+The filter bar can wrap below about 1150 px with the queue open, and the phone header is crowded. Some remote covers fail to load, and zooming above 60% may stutter. See [HANDOFF.md](../HANDOFF.md) and the GitHub issues for verification gaps and remaining graph issues.
 
 ## Prototype recovery
 
