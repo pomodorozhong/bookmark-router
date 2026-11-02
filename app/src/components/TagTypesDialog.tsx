@@ -33,7 +33,7 @@ export function TagTypesDialog({ workspace, save, onClose }: {
     setBusy(true);
     setError("");
     try {
-      if (editing) await save({ type: "tag-type.patch", id: editing.id, patch: { name, appearance: { ...appearance, icon: appearance.icon } } }, `Edit type: ${name}`);
+      if (editing) await save({ type: "tag-type.patch", id: editing.id, expectedType: editing, patch: { name, appearance: { ...appearance, icon: appearance.icon } } }, `Edit type: ${name}`);
       else await save({ type: "tag-type.create", name, appearance }, `New type: ${name}`);
       edit(undefined);
     } catch (e) {

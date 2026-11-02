@@ -49,6 +49,8 @@ export type Command =
   | {
       type: "tag-type.patch";
       id: string;
+      /** The type as it appeared when the user opened the edit form. */
+      expectedType?: TagType;
       patch: {
         name?: string;
         appearance?: Partial<TagType["appearance"]>;
@@ -161,6 +163,10 @@ export function applyCommand(
   } else if (command.type === "tag-type.patch") {
     const type = w.tagTypes.find((item) => item.id === command.id);
     if (!type) throw new ConflictError("Tag type no longer exists.");
+    const expected = command.expectedType;
+    if (expected && (expected.name !== type.name ||
+      (["color", "size", "shape", "points", "icon"] as const).some((field) => expected.appearance[field] !== type.appearance[field])))
+      throw new ConflictError("This tag type changed. Your draft is still here. Select Edit again to load the latest values.");
     if (
       !command.patch ||
       Object.keys(command.patch).some((key) => !["name", "appearance"].includes(key))
