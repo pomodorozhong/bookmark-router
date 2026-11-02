@@ -4,8 +4,8 @@ import { resetSearchAndState, type ViewSettings } from "../domain/saved-views";
 import { GraphCanvas, type GraphCanvasHandle } from "./GraphCanvas";
 import { ConnectionsCanvas } from "./ConnectionsCanvas";
 import { ConnectionsControls } from "./ConnectionsControls";
-import { connectionGraph, rankConnections, splitOffCount, type ConnectionGraph } from "../domain/connections";
-import { graphLayout, withGraphLayout, type GraphView } from "../domain/geometry";
+import { connectionGraph, connectionTopologyKey, rankConnections, splitOffCount, type ConnectionGraph } from "../domain/connections";
+import { graphLayout, type GraphView } from "../domain/geometry";
 import { CopyDialog, type CopyDialogScope, type CopyGroup, type CopyScope } from "./CopyDialog";
 import { StateHeading } from "./StateHeading";
 import { RecordEditor } from "./RecordEditor";
@@ -68,7 +68,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   headerEnd?: ReactNode;
   workspace: Workspace;
   geometry?: Geometry;
-  onGeometry: (geometry: Geometry) => void;
+  onGeometry: (view: GraphView, layout: GraphLayout) => void;
   save: (command: Command | Command[], label?: string) => Promise<void>;
   loadMedia: LoadMedia;
   /** The app's message toast, shown over the graph. */
@@ -90,12 +90,6 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const hoverPreview = useRef(false);
   const [contextTag, setContextTag] = useState<string>();
   const [advanceRevision, setAdvanceRevision] = useState<number>();
-  const geometryRef = useRef(geometry); geometryRef.current = geometry;
-  function saveLayout(which: GraphView, layout: GraphLayout) {
-    const next = withGraphLayout(geometryRef.current, workspace.id, which, layout);
-    geometryRef.current = next;
-    onGeometry(next);
-  }
   const [tab, setTab] = useState<TriageTab>("todo");
   const [filter, setFilter] = useState<TriageFilter>(emptyTriageFilter);
   // The box selection, in the clockwise order captured when it was drawn.
@@ -176,7 +170,8 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   const connections = useMemo<ConnectionGraph>(() => view === "connections"
     ? connectionGraph(workspace, { tab, filter, selection: selectionSet })
     : { bookmarks: [], neighbors: new Map(), edges: [], members: new Map(), components: [] }, [workspace, tab, filter, selectionSet, view]);
-  const candidates = useMemo(() => view === "connections" ? rankConnections(connections) : [], [connections, view]);
+  const topology = connectionTopologyKey(connections);
+  const candidates = useMemo(() => view === "connections" ? rankConnections(connections) : [], [topology, view]);
   const ranking = useMemo(() => tab === "todo" ? candidates : [], [candidates, tab]);
   const splitImpacts = useMemo(() => new Map(candidates.map((c) => [c.id, splitOffCount(c)])), [candidates]);
   const queue = useMemo(() => {
@@ -192,7 +187,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
   // Nothing is current until a bookmark is picked, so the whole graph shows unfaded.
   const current = workspace.bookmarks.find((b) => b.id === currentId);
   const candidate = ranking.find((c) => c.id === current?.id);
-  useEffect(() => { setNetworkMode("normal"); }, [current?.id, connections, view]);
+  useEffect(() => { setNetworkMode("normal"); }, [current?.id, topology, view]);
   useEffect(() => { if (contextTag && !connections.members.has(contextTag)) setContextTag(undefined); }, [connections, contextTag]);
   // Wait for a successful save and the committed collection before choosing a new recommendation.
   useEffect(() => {
@@ -368,22 +363,26 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector("dialog[open]")) return;
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open], [role="menu"], [role="dialog"]')) return;
       const target = e.target as HTMLElement;
       if (target.closest("input, textarea, select, [contenteditable]")) return;
       const key = e.key.toLowerCase();
-      if (e.key === "/") { e.preventDefault(); groupInput.current?.focus(); }
+      if (e.key === "Escape" && panelTag && tagPanel) setTagPanel(tagPanel.editing ? { ...tagPanel, editing: false } : undefined);
+      // Queue navigation also closes the inline editor, discarding its draft.
+      else if (panelTag && tagPanel?.editing) return;
       else if (key === "f") { e.preventDefault(); filterInput.current?.focus(); }
       else if (e.key === "ArrowDown" || key === "j") { e.preventDefault(); move(1); }
       else if (e.key === "ArrowUp" || key === "k") { e.preventDefault(); move(-1); }
       else if (key === "q") toggleQueue();
       else if (key === "c") openCopy();
-      else if (key === "o" && current?.url && isWebUrl(current.url)) window.open(current.url, "_blank", "noopener,noreferrer");
       else if (e.key === "Escape" && networkMode !== "normal") setNetworkMode("normal");
       else if (e.key === "Escape" && contextTag) setContextTag(undefined);
-      else if (e.key === "Escape" && tagPanel) setTagPanel(tagPanel.editing ? { ...tagPanel, editing: false } : undefined);
       else if (e.key === "Escape" && selection) setSelection(undefined);
       else if (e.key === "Escape" && current) show(undefined, false);
+      // A tag card can retain a bookmark to go back to. Only its visible card owns these shortcuts.
+      else if (!current || panelTag) return;
+      else if (e.key === "/") groupInput.current?.focus();
+      else if (key === "o" && current.url && isWebUrl(current.url)) window.open(current.url, "_blank", "noopener,noreferrer");
       else if (key === "d") decide("done");
       else if (key === "x") decide("dropped");
       else if (key === "s") deselect();
@@ -509,7 +508,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
               selected={current && connections.neighbors.has(current.id) ? current.id : undefined}
               showTags={showTags} contextTag={contextTag} preview={networkMode === "preview" ? candidate : undefined}
               geometry={graphLayout(geometry, showTags ? "connections-tags" : "connections")}
-              onGeometry={(layout) => saveLayout(showTags ? "connections-tags" : "connections", layout)}
+              onGeometry={(layout) => onGeometry(showTags ? "connections-tags" : "connections", layout)}
               onSelect={(id) => show(id, false)}
               onTag={setContextTag} onBoxSelect={boxSelect} onPinsChanged={setPinnedIds} boxSelection={selectionSet}
               highlightIds={highlightIds} fadeRest={fadeRest} covered={covered} onReady={setGraphReady} onClearSearch={() => changeFilter({ ...emptyTriageFilter, hiddenTypeIds: hasImportType ? [importTypeId] : [] })} onImport={onImport} />
@@ -540,7 +539,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
             onReady={setGraphReady}
             onBoxSelect={boxSelect}
             geometry={geometry}
-            onGeometry={(layout) => saveLayout("tags", layout)}
+            onGeometry={(layout) => onGeometry("tags", layout)}
             onImport={onImport}
             onClearSearch={() => changeFilter({ ...emptyTriageFilter, hiddenTypeIds: hasImportType ? [importTypeId] : [] })}
             onPinsChanged={setPinnedIds}
@@ -556,7 +555,7 @@ export function TriageScreen({ workspace, geometry, onGeometry, save, loadMedia,
                     onClose={() => setTagPanel({ ...tagPanel!, editing: false })} />
                 </div>
               : <TagView tag={panelTag} workspace={workspace} order={selectionTagId === panelTag.id ? selection : undefined} loadMedia={loadMedia} onOpen={(id) => show(id)}
-                    onCopy={() => openCopy("selection")} onCopyGroup={openCopyGroup} onEdit={() => setTagPanel({ ...tagPanel!, editing: true })}
+                    onCopy={(bookmarks) => openCopyGroup(panelTag.name, bookmarks)} onCopyGroup={openCopyGroup} onEdit={() => setTagPanel({ ...tagPanel!, editing: true })}
                     start={<>{tagPanel!.back && current && (
                       <button className="text-button tag-back" onClick={() => setTagPanel(undefined)}><Icon name="chevron-left" size={14} /> Back<span className="tag-back-rest"> to the bookmark</span></button>
                     )}</>}

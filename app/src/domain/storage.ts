@@ -1,16 +1,19 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import { commitImport, undoImport } from "./import-commands";
 import { collectionImportLabel, revalidateCollectionImport, type StagedCollectionImport } from "./collection-import";
+import { withGraphLayout, type GraphView } from "./geometry";
 import type { ImportCommitCommand } from "./imports";
-import { makeBackup, prepareRestore } from "./backup";
+import { makeBackup, prepareRestore, type MediaRecord } from "./backup";
 import type { Backup } from "./model";
 import { ConflictError, applyCommand, type Command } from "./commands";
 import { commandLabel, restoreUndoSnapshot, type UndoEntry } from "./undo";
+import { sameImageSource } from "./image-source";
 import {
   validateWorkspace,
   type Asset,
   type Bookmark,
   type Geometry,
+  type GraphLayout,
   type Thumbnail,
   type Workspace,
 } from "./model";
@@ -173,12 +176,16 @@ export class WorkspaceStore {
     );
     const w = await tx.objectStore("workspaces").get(id);
     if (!w) throw new Error("Collection not found.");
-    const geometry = await tx.objectStore("geometry").get(id),
-      media = (await tx.objectStore("media").getAll()).filter(
-        (m) => m.workspaceId === id,
-      );
+    // Portable import history needs its original images. Local Undo history stays on this device.
+    const mediaIds = new Set<string>();
+    for (const bookmark of [...w.bookmarks, ...w.batches.flatMap((batch) => batch.beforeMerged)]) {
+      if (bookmark.asset?.source === "local" && bookmark.asset.blobId) mediaIds.add(bookmark.asset.blobId);
+      if (bookmark.thumbnail && "blobId" in bookmark.thumbnail) mediaIds.add(bookmark.thumbnail.blobId);
+    }
+    const geometry = await tx.objectStore("geometry").get(id);
+    const media = await Promise.all([...mediaIds].map((mediaId) => tx.objectStore("media").get(mediaId)));
     await tx.done;
-    return makeBackup(collectionContent(w), media, geometry);
+    return makeBackup(collectionContent(w), media.filter((m): m is MediaRecord => m?.workspaceId === id), geometry);
   }
   async restore(backup: Backup) {
     const restored = prepareRestore(backup),
@@ -204,10 +211,16 @@ export class WorkspaceStore {
     }
   }
   /** Deletes a collection with its graph positions and media, in one transaction. */
-  async remove(id: string) {
+  async remove(id: string, expectedRevision: number) {
     const tx = (await this.database).transaction(["workspaces", "geometry", "media"], "readwrite");
+    const workspaces = tx.objectStore("workspaces");
+    const stored = await workspaces.get(id);
+    if (stored && stored.revision !== expectedRevision) {
+      await tx.done;
+      throw new ConflictError("This collection changed. Review it again before deleting.");
+    }
     const media = tx.objectStore("media");
-    await tx.objectStore("workspaces").delete(id);
+    await workspaces.delete(id);
     await tx.objectStore("geometry").delete(id);
     for (const m of await media.getAll()) if (m.workspaceId === id) await media.delete(m.id);
     await tx.done;
@@ -268,7 +281,7 @@ export class WorkspaceStore {
       const stored = await tx.objectStore("workspaces").get(id);
       const bookmark = stored?.bookmarks.find((b) => b.id === bookmarkId);
       if (!stored || !bookmark) throw new ConflictError("The bookmark no longer exists.");
-      if (expectedSource && (bookmark.url !== expectedSource.url || JSON.stringify(bookmark.asset) !== JSON.stringify(expectedSource.asset)))
+      if (expectedSource && !sameImageSource(bookmark, expectedSource))
         throw new ConflictError("The bookmark's link or image changed during the lookup. Try again.");
       const previous = bookmark.thumbnail;
       // A failed retry must not erase an image that already works offline.
@@ -276,15 +289,20 @@ export class WorkspaceStore {
         await tx.done;
         return collectionContent(stored);
       }
+      // Captures are a cache, not content edits. Refresh every snapshot of this
+      // source so Undo cannot bring back a reference to a discarded capture.
+      const records = [stored, ...(stored._undoHistory ?? []).map((entry) => entry.before)]
+        .flatMap((workspace) => [...workspace.bookmarks, ...workspace.batches.flatMap((batch) => batch.beforeMerged)]);
+      for (const record of records)
+        if (record.id === bookmark.id && sameImageSource(record, bookmark)) record.thumbnail = structuredClone(thumbnail);
       if (previous && "blobId" in previous) {
-        const shared = [...stored.bookmarks, ...stored.batches.flatMap((batch) => batch.beforeMerged)].some((other) =>
+        const shared = records.some((other) =>
           (other.asset?.source === "local" && other.asset.blobId === previous.blobId)
-          || (other !== bookmark && other.thumbnail && "blobId" in other.thumbnail && other.thumbnail.blobId === previous.blobId));
+          || (other.thumbnail && "blobId" in other.thumbnail && other.thumbnail.blobId === previous.blobId));
         if (!shared) await tx.objectStore("media").delete(previous.blobId);
       }
       if ("blobId" in thumbnail && image)
         await tx.objectStore("media").put({ id: thumbnail.blobId, workspaceId: id, filename: "thumbnail.webp", mime: image.mime, blob: image.blob });
-      bookmark.thumbnail = thumbnail;
       validateWorkspace(collectionContent(stored));
       await tx.objectStore("workspaces").put(stored);
       await tx.done;
@@ -297,6 +315,15 @@ export class WorkspaceStore {
   }
   async saveGeometry(geometry: Geometry) {
     return (await this.database).put("geometry", geometry);
+  }
+  /** Merge only this canvas's arrangement into the latest geometry, including saves from other tabs. */
+  async saveGraphLayout(workspaceId: string, view: GraphView, layout: GraphLayout): Promise<Geometry> {
+    const tx = (await this.database).transaction("geometry", "readwrite");
+    const current = await tx.store.get(workspaceId);
+    const merged = withGraphLayout(current, workspaceId, view, layout);
+    await tx.store.put(merged);
+    await tx.done;
+    return merged;
   }
   async getGeometry(id: string) {
     return (await this.database).get("geometry", id);

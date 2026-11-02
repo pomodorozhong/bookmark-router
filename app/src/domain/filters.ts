@@ -1,4 +1,5 @@
 import { isWebUrl, type Bookmark, type Filter, type Workspace } from "./model";
+import { hasImage } from "./image-source";
 
 export interface DistanceMatch {
   distance: number;
@@ -98,9 +99,8 @@ function matchesLeaf(
   if (filter.op === "tag-status")
     return tags.some((tag) => filter.ids.includes(tag.statusId));
   if (filter.op === "asset")
-    return filter.present
-      ? Boolean(bookmark.asset && (!filter.kind || bookmark.asset.kind === filter.kind))
-      : !bookmark.asset || Boolean(filter.kind && bookmark.asset.kind !== filter.kind);
+    return filter.present === (filter.kind === "image" ? hasImage(bookmark)
+      : filter.kind ? bookmark.asset?.kind === filter.kind : Boolean(bookmark.asset) || hasImage(bookmark));
   if (filter.op === "date") {
     const timestamp = Date.parse(bookmark[filter.field]);
     return (
@@ -126,7 +126,7 @@ function matchesLeaf(
         ? !bookmark.description.trim()
         : filter.field === "url"
           ? !bookmark.url
-          : !bookmark.asset;
+          : !bookmark.asset && !hasImage(bookmark);
   }
   if (filter.op === "no-tags") return tags.length === 0;
   if (filter.op === "warning") return hasWarning(bookmark);

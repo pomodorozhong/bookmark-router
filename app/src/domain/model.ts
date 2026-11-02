@@ -324,14 +324,14 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
   if (!statuses.size) fail("at least one status is required");
   for (const s of w.statuses)
     if (
-      !s.label ||
+      typeof s.label !== "string" || !s.label ||
       !["active", "completed", "discarded"].includes(s.outcome) ||
       typeof s.color !== "string"
     )
       fail("invalid status");
   const types = new Set(w.tagTypes.map((t) => t.id));
   const checkAppearance = (a: Partial<Appearance>) => {
-    if (!a || typeof a !== "object") fail("appearance must be an object");
+    if (!a || typeof a !== "object" || Array.isArray(a)) fail("appearance must be an object");
     if (
       a.size !== undefined &&
       (!Number.isFinite(a.size) || a.size < 20 || a.size > 160)
@@ -347,18 +347,23 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
       !["up", "up-right", "right", "down-right", "down", "down-left", "left", "up-left"].includes(a.points)
     )
       fail("unknown tag direction");
-    if (a.color !== undefined && !/^#[\da-f]{6}$/i.test(a.color))
+    if (a.color !== undefined && (typeof a.color !== "string" || !/^#[\da-f]{6}$/i.test(a.color)))
       fail("appearance color must be six-digit hex");
+    if (a.icon != null && typeof a.icon !== "string") fail("appearance icon must be text");
   };
   for (const t of w.tagTypes) {
-    if (!t.name) fail("tag type needs a name");
+    if (typeof t.name !== "string" || !t.name) fail("tag type needs a name");
     checkAppearance(t.appearance);
+    if (t.appearance.color === undefined || t.appearance.size === undefined || t.appearance.shape === undefined)
+      fail("tag type appearance needs a color, size, and shape");
   }
   for (const record of [...w.bookmarks, ...w.tags]) {
     if (!statuses.has(record.statusId)) fail("unknown assigned status");
     if (
       !Number.isInteger(record.revision) ||
       record.revision < 0 ||
+      typeof record.createdAt !== "string" ||
+      typeof record.updatedAt !== "string" ||
       !Number.isFinite(Date.parse(record.createdAt)) ||
       !Number.isFinite(Date.parse(record.updatedAt))
     )
@@ -399,11 +404,13 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
       if (!["image", "video", "audio"].includes(b.asset.kind))
         fail("unknown media kind");
       if (b.asset.source === "remote") {
-        if (!b.asset.url) fail("remote media needs a URL");
+        if (typeof b.asset.url !== "string" || !b.asset.url) fail("remote media needs a URL");
         urlKey(b.asset.url);
       } else if (
         b.asset.source !== "local" ||
+        typeof b.asset.blobId !== "string" ||
         !b.asset.blobId ||
+        typeof b.asset.filename !== "string" ||
         !b.asset.filename
       )
         fail("invalid local media");
@@ -425,6 +432,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
       (t.typeId && !types.has(t.typeId))
     )
       fail("invalid tag");
+    if (t.description != null && typeof t.description !== "string") fail("tag description must be text");
     checkAppearance(t.appearance);
   }
   const pairs = new Set<string>();
@@ -512,7 +520,7 @@ export function validateWorkspace(value: unknown): asserts value is Workspace {
   }
   for (const view of w.views) {
     if (
-      !view.name ||
+      typeof view.name !== "string" || !view.name ||
       !["title", "createdAt", "status"].includes(view.sort) ||
       !Array.isArray(view.hiddenTagIds) ||
       view.hiddenTagIds.some((id) => !tagIds.has(id))

@@ -15,7 +15,9 @@ Display order: a local `asset` the user attached, then the stored `thumbnail`, t
 
 In the panel, queue, tag view and Related lists, an image taller than 4:3 (a full-page screenshot, say) is fitted whole on a pale backdrop instead of cropped; wider images fill their frame. Every cover there, image or letter tile, has a thin teal outline; the letter tile is pale grey with a faint letter inside it, so any real thumbnail outweighs it. The graph keeps its own light-teal round tile.
 
-**A stored thumbnail is never refreshed automatically**, even when the source changes (a new X avatar, say). It changes only when the user retries that bookmark. Every remote service becomes a one-time capture channel rather than a display dependency, and a later outage affects only bookmarks not yet captured.
+**A stored thumbnail is never refreshed just because an outside image changes**, such as a new X avatar. Retry captures it again. Editing the bookmark's page URL or media source clears the obsolete capture or failed-lookup marker, so the replacement displays immediately and the opt-in queue can capture the new source. Undo restores the earlier source's image; it keeps newer captures when the source is unchanged. Captures also refresh matching sources inside retained Undo and import snapshots, so an unrelated content Undo cannot restore a deleted image reference. Import snapshots and local Undo retain image bytes they can still restore, and portable backups retain images needed by import Undo.
+
+Has image and the agent's existing missing-field report count successful stored thumbnails as images. Failed lookup markers do not count. The agent response format is unchanged.
 
 Size is not a concern. Even at 10 KB each, 5,000 thumbnails take 50 MB, against browser quotas of up to 60% of disk.
 
@@ -42,16 +44,19 @@ By bookmark: 84 have a working cover, 32 have a cover that fails, and 32 have no
 The resolver tries these layers in order, and the first image it stores wins. Each step fetches through wsrv.nl so the result has CORS and is resized.
 
 1. **Already stored.** A bookmark with a `thumbnail`, or a local asset, is skipped.
-2. **Site rules**, which need no page lookup:
+2. **Supplied image** through wsrv.nl, when the bookmark has a remote image. This keeps an explicit manual or agent-approved replacement ahead of site fallbacks. Covers that are clearly broken, such as two schemes joined together, get repaired first.
+3. **Site rules**, which need no page lookup:
    - YouTube: `i.ytimg.com/vi/<id>/hqdefault.jpg`, never `maxresdefault`, which exists only for some videos.
    - X (both `twitter.com` and `x.com`): `api.fxtwitter.com/2/status/<id>`. The resolver uses the first photo in `media.all[]`, else a video's `thumbnail_url`, else `author.avatar_url`, which is always the current one. This recovers the 13 dead X covers.
    - GitHub: repo, pull request and issue pages use `opengraph.githubassets.com/1/<owner>/<repo>[/pull/<n>]`, and profiles use `avatars.githubusercontent.com/<user>`. Not `github.com/<user>.png`, whose redirect sends no CORS. The collection has no GitHub bookmarks today; this rule is cheap to keep.
-3. **Imported cover** through wsrv.nl. Covers that are clearly broken, such as two schemes joined together, get repaired first.
 4. **Microlink** og:image (`api.microlink.io/?url=`). It returns the site's own image URL, which then goes through wsrv.nl like a cover. The quota is 25 lookups a day per visitor IP, and cache hits are free, so a stored queue keeps going across days. This step should recover the expired social-CDN covers and most bookmarks without a cover.
 5. **Agent proposal.** The existing WebMCP image proposal (see [WebMCP](webmcp.md#fill-missing-images)) stays a remote URL until the human applies it. After that, the resolver captures it like an imported cover. This is how the user's own fetcher, which uses a residential IP, covers the long tail.
 6. **Page screenshot** from `rdl.ink/render/<encoded page URL>`. This is Raindrop's own endpoint and isn't documented. It returns a 1200×800 WebP, synchronously, in about 5 s when uncached.
 7. **Favicon** from Google (`www.google.com/s2/favicons?domain=<d>&sz=64`) through wsrv.nl. Google sends no CORS, but wsrv.nl adds it. An unknown domain gives a 404, so a missing icon is detectable. This is the right fallback for sites that block metadata fetches (Medium, Stack Overflow, npm) or have no og:image (Hacker News). DuckDuckGo (`icons.duckduckgo.com/ip3/<d>.ico`) behaves the same way and is the backup.
+
 8. **Letter tile.** If every step fails, the app generates a tile from the title or domain and records `thumbnail: { failedAt }`. Only a manual retry runs the resolver again.
+
+Threads (`threads.net` and `threads.com`, including their subdomains) stops after the supplied image and Microlink. Its screenshot can return HTTP 200 with only the loading logo; a favicon is also just the site logo. When neither real image can be fetched, lookup reports Not found instead of storing either substitute. The confirmation lists only the services that will be used. A failed retry preserves an already stored image, as it does for other sites.
 
 ## Services
 
@@ -125,9 +130,11 @@ Verified October 14, 2026:
 - Bulk network responses were simulated locally, without sending additional collection links outside the browser. Cancel sent nothing, the setting defaulted off, requests started roughly 250 ms apart, existing thumbnails stayed untouched, turning off stopped new requests and saves, and a zero-quota queue waited without storing failures and resumed when quota became available.
 - The compiled static build was served with `npm run preview -- --port 5202` and checked in another throwaway Chrome profile with two synthetic bookmarks. All external requests were intercepted locally. X and generic-page lookup, the Microlink counter, bundled thumbnail bytes, restore ID remapping, unchanged covers, and local-image reload passed; no online lookup requests ran before confirmation or after reload. Retry opening kept the same scroll position at 1440, 390, and 320 px, and Tab reached **Send and find**. Only compiled assets were loaded, with no development source modules or application backend.
 
+Verified November 1, 2026: Raindrop's screenshot of the public `https://www.threads.com/@threads` profile still returned only the loading logo. Regression tests cover failed image resizing, usable supplied and preview images, both Threads domains, the service disclosure, and exhausted quota; Threads lookup now reports failure when its real images are unavailable.
+
 **You try:**
 
 1. Find the thumbnail for **Retention and paid conversion over downloads**. Confirm the warning; the avatar should appear in the panel, queue, and graph without using Microlink.
-2. Find the thumbnail for **Five App Store submission tips**. Inspect the fallback steps and counter; current live services may supply the Threads screenshot instead of a preview of the post.
+2. Find the thumbnail for **Five App Store submission tips**. Inspect the fallback steps and counter; if the supplied image and Microlink preview cannot be fetched, the lookup reports failure instead of saving a Threads loading screen. A previously stored thumbnail is kept on failure.
 3. Reload, download a backup, and restore it into a new collection. Both thumbnails should remain, and the imported cover URLs in **Edit** should be unchanged.
 4. Enable **Find thumbnails online** from **More actions**, confirm, watch missing thumbnails fill in, then turn it off. Stored thumbnails should not be retried.

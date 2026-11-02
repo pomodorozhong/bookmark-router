@@ -1,3 +1,4 @@
+import { sameImageSource } from "./image-source";
 import {
   validateWorkspace,
   storedUrlKey,
@@ -48,6 +49,8 @@ export type Command =
   | {
       type: "tag-type.patch";
       id: string;
+      /** The type as it appeared when the user opened the edit form. */
+      expectedType?: TagType;
       patch: {
         name?: string;
         appearance?: Partial<TagType["appearance"]>;
@@ -117,7 +120,9 @@ export function applyCommand(
     const id = command.id ?? crypto.randomUUID();
     if (!id.trim() || [...w.bookmarks, ...w.tags].some((r) => r.id === id))
       throw new Error("Choose a new bookmark ID.");
-    const statusId = command.statusId ?? w.statuses.find((s) => s.label.toLowerCase() === "pending")?.id;
+    const statusId = command.statusId
+      ?? w.statuses.find((s) => s.id === "pending" && s.outcome === "active")?.id
+      ?? w.statuses.find((s) => s.label.toLowerCase() === "pending" && s.outcome === "active")?.id;
     if (!w.statuses.some((s) => s.id === statusId))
       throw new Error("Choose an existing status; this collection has no Pending default.");
     const tagIds = command.tagIds ?? [];
@@ -151,9 +156,17 @@ export function applyCommand(
       revision: record.revision + 1,
       updatedAt: now,
     });
+    if (command.type === "bookmark.patch") {
+      const before = source.bookmarks.find((b) => b.id === command.id)!;
+      if (!sameImageSource(before, record as Bookmark)) delete (record as Bookmark).thumbnail;
+    }
   } else if (command.type === "tag-type.patch") {
     const type = w.tagTypes.find((item) => item.id === command.id);
     if (!type) throw new ConflictError("Tag type no longer exists.");
+    const expected = command.expectedType;
+    if (expected && (expected.name !== type.name ||
+      (["color", "size", "shape", "points", "icon"] as const).some((field) => expected.appearance[field] !== type.appearance[field])))
+      throw new ConflictError("This tag type changed. Your draft is still here. Select Edit again to load the latest values.");
     if (
       !command.patch ||
       Object.keys(command.patch).some((key) => !["name", "appearance"].includes(key))
@@ -353,6 +366,7 @@ export function applyCommand(
       )
         throw new Error("Uploaded media needs a local file reference.");
       bookmark.asset = assignment.asset;
+      if (!sameImageSource(source.bookmarks.find((b) => b.id === bookmark.id)!, bookmark)) delete bookmark.thumbnail;
       bookmark.revision++;
       bookmark.updatedAt = now;
     }

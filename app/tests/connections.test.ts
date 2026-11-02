@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import "fake-indexeddb/auto";
 import { emptyWorkspace, type Workspace } from "../src/domain/model";
-import { connectionGraph, connectionLinks, impactText, rankConnections, splitOffCount, traceConnections } from "../src/domain/connections";
+import { connectionGraph, connectionLinks, connectionTopologyKey, impactText, rankConnections, splitOffCount, traceConnections } from "../src/domain/connections";
 import { emptyTriageFilter } from "../src/domain/triage";
 import { WorkspaceStore } from "../src/domain/storage";
 
@@ -16,6 +16,21 @@ function fixture(ids: string[], groups: string[][]): Workspace {
   return w;
 }
 const graphOf = (w: Workspace) => connectionGraph(w, { tab: "todo", filter: emptyTriageFilter });
+
+test("presentation changes keep the analysis key while scope, membership and ranking dates change it", () => {
+  const w = fixture(["a", "b", "c"], [["a", "b"], ["b", "c"]]);
+  const original = connectionTopologyKey(graphOf(w));
+  w.bookmarks[0].title = "New title"; w.bookmarks[0].description = "New notes"; w.bookmarks[0].revision++;
+  w.bookmarks[0].thumbnail = { failedAt: "2026-10-31T00:00:00Z" }; w.tags[0].name = "Renamed";
+  w.tags[0].appearance.color = "#123456";
+  assert.equal(connectionTopologyKey(graphOf(w)), original);
+  w.bookmarks[0].createdAt = "2025-10-01T00:00:00Z";
+  assert.notEqual(connectionTopologyKey(graphOf(w)), original);
+  w.bookmarks[0].createdAt = meta.createdAt; w.memberships.pop();
+  assert.notEqual(connectionTopologyKey(graphOf(w)), original);
+  const changed = connectionTopologyKey(graphOf(w)); w.bookmarks[0].statusId = "done";
+  assert.notEqual(connectionTopologyKey(graphOf(w)), changed);
+});
 
 test("a separating bridge outranks a higher-degree clique; counts only surviving pairs", () => {
   const clique = Array.from({ length: 20 }, (_, i) => `dense-${i}`);

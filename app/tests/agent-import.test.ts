@@ -61,6 +61,8 @@ test("invalid imports are rejected with the import's own message and stage nothi
     [repeated, /Bookmark 2 repeats the URL of bookmark 1/],
     [{ ...payload(), tags: [{ ref: "games", name: "A" }, { ref: "games", name: "B" }] }, /reference “games” is used more than once/],
     [{ ...payload(), bookmarks: [{ url: "https://a.test", tagRefs: ["music"] }] }, /unknown tag reference “music”/],
+    [{ ...payload(), bookmarks: [{ url: "https://a.test", tagRefs: ["batch-tag"] }] }, /unknown tag reference “batch-tag”/],
+    [{ ...payload(), tags: [{ ref: "batch-tag", name: "Games" }], bookmarks: [{ url: "https://a.test", tagRefs: ["batch-tag-"] }] }, /unknown tag reference “batch-tag-”/],
     [{ ...payload(), target: { kind: "existing_collection", name: "X" } }, /new_collection/],
     [{ ...payload(), extra: true }, /unsupported fields/],
     [{ ...payload(), bookmarks: [{ url: "https://a.test", asset: { kind: "image", source: "remote", url: "ftp://a.test/x.jpg" } }] }, /HTTP or HTTPS/],

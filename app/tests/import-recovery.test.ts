@@ -75,6 +75,28 @@ test("merge restores exact prior values and memberships on undo", () => {
     [...undone.memberships].sort((a, b) => a.id.localeCompare(b.id)),
     [...w.memberships].sort((a, b) => a.id.localeCompare(b.id)),
   );
+  assert.deepEqual(undoConflicts(undone, undone.batches[0]), []);
+  assert.equal(undoImport(undone, undone.revision, undone.batches[0].id).bookmarks.length, 0);
+});
+test("undoing a merge keeps intervening edits protected and their status undo available", () => {
+  const w = emptyWorkspace(), added = commitImport(w, command(w));
+  const id = added.bookmarks[0].id;
+  const edited = applyCommand(added, added.revision, {
+    type: "status.bulk", source: "selection", targetIds: [id], statusId: "dropped",
+    reviewedRecordRevisions: { [id]: added.bookmarks[0].revision },
+  });
+  const merge = command(edited);
+  merge.decisions.forEach((decision) => { decision.action = "merge"; });
+  const merged = commitImport(edited, merge);
+  const restored = undoImport(merged, merged.revision, merged.batches[1].id);
+  assert.deepEqual(undoConflicts(restored, restored.batches[0]).map((b) => b.id), [id]);
+  const kept = undoImport(restored, restored.revision, restored.batches[0].id, [id]);
+  assert.deepEqual(kept.bookmarks.map((b) => [b.id, b.statusId]), [[id, "dropped"]]);
+  const change = kept.settings.statusHistory![0];
+  const statusUndone = applyCommand(kept, kept.revision, {
+    type: "status.undo", changeId: change.id, reviewedRecordRevisions: change.afterRevisions,
+  });
+  assert.equal(statusUndone.bookmarks[0].statusId, added.bookmarks[0].statusId);
 });
 test("unknown values and invalid rows reject atomically, stale or duplicate submission conflicts", async () => {
   const store = new WorkspaceStore(crypto.randomUUID()),

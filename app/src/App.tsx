@@ -19,6 +19,7 @@ import {
   type Geometry,
 } from "./domain/model";
 import { WorkspaceStore } from "./domain/storage";
+import { withGraphLayout } from "./domain/geometry";
 import { ConflictError, type Command } from "./domain/commands";
 import { undoConflicts } from "./domain/import-commands";
 import { RecordEditor } from "./components/RecordEditor";
@@ -116,6 +117,7 @@ export default function App() {
     [undoBatch, setUndoBatch] = useState<string>(),
     [toast, setToast] = useState<ToastMessage>(),
     [deleting, setDeleting] = useState<Workspace>(),
+    [deleteError, setDeleteError] = useState(""),
     [tagTypesOpen, setTagTypesOpen] = useState(false),
     [promptKind, setPromptKind] = useState<"collection" | "tag">(),
     [promptValue, setPromptValue] = useState(""),
@@ -129,6 +131,8 @@ export default function App() {
   const [localAgentStatus, setLocalAgentStatus] = useState<LocalAgentStatus>(() => localAgentPreference() ? "searching" : "off");
   const [agentError, setAgentError] = useState("");
   const agentApplying = useRef(false), switchingCollection = useRef(false);
+  const navigationVersion = useRef(0);
+  const geometrySaveSequence = useRef(0);
   const copyContext = useRef<CopyContext | undefined>(undefined);
   const toastId = useRef(0);
   const notify = (text: string, undo?: () => void) => setToast({ id: ++toastId.current, text, undo });
@@ -193,7 +197,7 @@ export default function App() {
           workspaceRef.current = w;
           if (edited) agentSession.refresh(w);
           setWorkspace(w);
-          void store.nextUndo(w.id).then(setNextUndo);
+          void refreshUndo(w.id);
           if (edited) notify("This collection changed in another tab. Review pending changes again.");
         }
       }).catch((e) => setError("Unable to refresh local storage: " + String(e)));
@@ -219,7 +223,7 @@ export default function App() {
       if (latest.revision < workspaceRef.current.revision) return workspaceRef.current;
       if (latest.revision > workspaceRef.current.revision) {
         setWorkspace(latest);
-        void store.nextUndo(id).then(setNextUndo);
+        void refreshUndo(id);
       }
       return latest;
     } };
@@ -259,6 +263,7 @@ export default function App() {
   async function openWorkspace(w: Workspace) {
     if (agentApplying.current || switchingCollection.current) return;
     switchingCollection.current = true;
+    navigationVersion.current++;
     try {
       const latest = await store.get(w.id);
       if (!latest) throw new ConflictError("This collection is no longer available.");
@@ -277,25 +282,36 @@ export default function App() {
       setScreen("workspace");
     } finally { switchingCollection.current = false; }
   }
-  async function publish(w: Workspace) {
-    agentSession.refresh(w);
-    workspaceRef.current = w;
-    setWorkspace(w);
-    const entry = await store.nextUndo(w.id);
+  async function refreshUndo(id: string) {
+    const version = navigationVersion.current;
+    const entry = await store.nextUndo(id);
+    if (version === navigationVersion.current && !switchingCollection.current && id === workspaceRef.current.id) setNextUndo(entry);
+  }
+  async function publish(w: Workspace, version = navigationVersion.current) {
+    const active = () => version === navigationVersion.current && !switchingCollection.current && w.id === workspaceRef.current.id;
+    if (active() && w.revision >= workspaceRef.current.revision) {
+      agentSession.refresh(w);
+      workspaceRef.current = w;
+      setWorkspace(w);
+    }
+    const [entry, all] = await Promise.all([store.nextUndo(w.id), store.list()]);
+    setCollections(all);
+    if (!active() || w.revision !== workspaceRef.current.revision) return undefined;
     setNextUndo(entry);
-    setCollections(await store.list());
     return entry;
   }
   async function save(command: Command | Command[], label?: string) {
     if (agentApplying.current || switchingCollection.current) throw new AgentInputError("Wait for the collection to finish saving.", "review_busy");
+    const version = navigationVersion.current;
     try {
       const current = await store.command(workspace.id, workspace.revision, command, label);
-      const entry = await publish(current);
+      const entry = await publish(current, version);
       // Every saved change can be undone from its toast.
       if (entry?.revision === current.revision) notify(entry.label, () => void undoRef.current());
     } catch (e) {
       const latest = await store.get(workspace.id);
-      if (latest) await publish(latest);
+      if (latest) await publish(latest, version);
+      if (version !== navigationVersion.current) return;
       throw e;
     }
   }
@@ -366,7 +382,7 @@ export default function App() {
         agentSession.refresh(latest);
         workspaceRef.current = latest;
         setWorkspace(latest);
-        void store.nextUndo(id).then(setNextUndo);
+        void refreshUndo(id);
       }
     } catch (e) { setAgentError(e instanceof Error ? e.message : String(e)); }
     setAgentReviewOpen(true);
@@ -376,14 +392,16 @@ export default function App() {
     submitting.current = true;
     setBusy(true);
     setError("");
+    const version = navigationVersion.current;
     try {
       const next = await store.undoLast(workspace.id, workspace.revision, nextUndo.id);
-      await publish(next);
+      await publish(next, version);
+      if (version !== navigationVersion.current) return;
       notify(`Undid: ${nextUndo.label}`);
     } catch (e) {
-      setError(String(e));
       const latest = await store.get(workspace.id);
-      if (latest) await publish(latest);
+      if (latest) await publish(latest, version);
+      if (version === navigationVersion.current) setError(String(e));
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -403,12 +421,16 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+  function confirmDelete(target: Workspace) {
+    setDeleteError("");
+    setDeleting(target);
+  }
   async function deleteCollection(target: Workspace) {
     if (submitting.current) return;
     submitting.current = true;
     setBusy(true);
     try {
-      await store.remove(target.id);
+      await store.remove(target.id, target.revision);
       let rest = await store.list();
       if (!rest.length) {
         await store.create(emptyWorkspace());
@@ -423,7 +445,11 @@ export default function App() {
       setDeleting(undefined);
       notify(`Deleted: ${target.name}`);
     } catch (e) {
-      setError(String(e));
+      setDeleteError(e instanceof Error ? e.message : String(e));
+      if (e instanceof ConflictError) {
+        const latest = await store.get(target.id);
+        if (latest) setDeleting(latest);
+      }
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -469,11 +495,15 @@ export default function App() {
     submitting.current = true;
     setBusy(true);
     setError("");
+    let version = navigationVersion.current;
     try {
       if (parsed?.restore) {
         const next = await store.restore(parsed.restore);
         setCollections(await store.list());
-        await openWorkspace(next);
+        if (version !== navigationVersion.current) return;
+        const opening = openWorkspace(next);
+        version = navigationVersion.current;
+        await opening;
         notify("Backup restored into a new collection.");
       } else if (preview) {
         const next = await store.import(workspace.id, {
@@ -493,8 +523,11 @@ export default function App() {
           typeMapping,
           source: filename || "Pasted " + parsed?.format,
         });
-        await publish(next);
-        await openWorkspace(next);
+        await publish(next, version);
+        if (version !== navigationVersion.current) return;
+        const opening = openWorkspace(next);
+        version = navigationVersion.current;
+        await opening;
         notify(
           `${selectedRows.length} source rows applied: ${next.bookmarks.length - workspace.bookmarks.length} new bookmarks and ${selectedRows.filter((c) => choices[c.row] === "merge").length} merges.`,
           () => void undoRef.current(),
@@ -505,11 +538,12 @@ export default function App() {
       setReviewTarget(undefined);
       if (!workspace.bookmarks.length) void navigator.storage?.persist?.().catch(() => {});
     } catch (e) {
+      if (version !== navigationVersion.current) return;
       setError(String(e));
       if (e instanceof ConflictError) {
         const latest = await store.get(workspace.id);
-        if (latest) {
-          await publish(latest);
+        if (latest && version === navigationVersion.current) {
+          await publish(latest, version);
           setReviewTarget(latest);
           setStep(2);
           setChoices({});
@@ -525,6 +559,7 @@ export default function App() {
     if (!undoBatch || submitting.current) return;
     submitting.current = true;
     setBusy(true);
+    const version = navigationVersion.current;
     try {
       const batch = workspace.batches.find((b) => b.id === undoBatch)!;
       const changed = undoConflicts(workspace, batch);
@@ -534,13 +569,14 @@ export default function App() {
         batch.id,
         changed.map((b) => b.id),
       );
-      await publish(next);
+      await publish(next, version);
+      if (version !== navigationVersion.current) return;
       setUndoBatch(undefined);
       notify(changed.length ? `Import undone · ${changed.length} edited ${changed.length === 1 ? "bookmark" : "bookmarks"} kept` : "Import undone");
     } catch (e) {
-      setError(String(e));
       const latest = await store.get(workspace.id);
-      if (latest) await publish(latest);
+      if (latest) await publish(latest, version);
+      if (version === navigationVersion.current) setError(String(e));
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -633,15 +669,19 @@ export default function App() {
   }
   async function fileChanged(file?: File) {
     if (!file) return;
-    request.current++;
-    setBusy(false);
+    const id = ++request.current;
+    setBusy(true);
     try {
-      setText(await file.text());
+      const contents = await file.text();
+      if (id !== request.current) return;
+      setText(contents);
       setFilename(file.name);
       setFormat("auto");
       setError("");
     } catch {
-      setError("Unable to read this file.");
+      if (id === request.current) setError("Unable to read this file.");
+    } finally {
+      if (id === request.current) setBusy(false);
     }
   }
   if (!loaded)
@@ -679,7 +719,7 @@ export default function App() {
   }
   const restoreBackup = () => openImport("json");
   const collectionMenu = (
-    <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w).catch((e) => setError(String(e)))} onDelete={setDeleting}
+    <CollectionMenu workspace={workspace} collections={collections} onOpen={(w) => void openWorkspace(w).catch((e) => setError(String(e)))} onDelete={confirmDelete}
       onNew={() => { setPromptKind("collection"); setPromptValue(""); }} />
   );
   const moreMenu = (
@@ -690,7 +730,7 @@ export default function App() {
       onHistory={() => setHistory(true)}
       onDownload={() => void backup()}
       onRestore={restoreBackup}
-      onDelete={() => setDeleting(workspace)}
+      onDelete={() => confirmDelete(workspace)}
       thumbnailsOnline={thumbnails.enabled}
       thumbnailStatus={thumbnails.status}
       onThumbnails={() => thumbnails.enabled ? setFindOnline(false) : setConfirmThumbnails(true)}
@@ -1166,9 +1206,14 @@ export default function App() {
             workspace={workspace}
             onCopyContext={(context) => { copyContext.current = context; }}
             geometry={geometry}
-            onGeometry={(g) => {
-              setGeometry(g);
-              void store.saveGeometry(g).catch((e) => setError("Unable to save graph positions: " + String(e)));
+            onGeometry={(view, layout) => {
+              const id = workspace.id, version = navigationVersion.current;
+              const active = () => !switchingCollection.current && version === navigationVersion.current && id === workspaceRef.current.id;
+              const sequence = active() ? ++geometrySaveSequence.current : undefined;
+              if (sequence !== undefined) setGeometry((g) => withGraphLayout(g, id, view, layout));
+              void store.saveGraphLayout(id, view, layout).then((merged) => {
+                if (active() && sequence === geometrySaveSequence.current) setGeometry(merged);
+              }).catch((e) => { if (active()) setError("Unable to save graph positions: " + String(e)); });
             }}
             save={save}
             loadMedia={loadReviewMedia}
@@ -1246,6 +1291,7 @@ export default function App() {
       {deleting && (
         <Dialog labelledBy="delete-title" className="delete-modal" onClose={() => { if (!busy) setDeleting(undefined); }}>
           <DialogHeader id="delete-title" label="Collection" title={<>Delete “{deleting.name}”?</>} disabled={busy} onClose={() => setDeleting(undefined)} />
+          {deleteError && <p className="alert" role="alert">{deleteError}</p>}
           <p>This removes it from this device and can't be undone:</p>
           <ul>
             <li>{deleting.bookmarks.length} bookmarks and {deleting.tags.length} tags</li>

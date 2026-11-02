@@ -59,6 +59,42 @@ test("a 404 image placeholder is rejected, then an expired cover falls through t
   assert.equal(b.asset.url, "https://cdn.example.com/expired.jpg");
 });
 
+test("Threads reports a failed preview instead of storing its loading screen or site logo", async () => {
+  for (const host of ["threads.net", "www.threads.net", "threads.com", "www.threads.com."]) {
+    const b = bookmark(`https://${host}/@author/post/Example`);
+    b.asset = { source: "remote", kind: "image", url: "https://cdn.example.com/expired.jpg" };
+    const calls: string[] = [];
+    const result = await findThumbnail(b, deps((url) => {
+      calls.push(url);
+      if (url.includes("api.microlink")) return json({ status: "success", data: { image: { url: "https://cdn.example.com/preview.jpg" } } });
+      const source = new URL(url).searchParams.get("url")!;
+      if (source.includes("cdn.example.com")) return json({ message: "The requested URL returned error: 403" }, 400);
+      return image(); // A successful screenshot response can still contain only the loading logo.
+    }));
+    assert.equal(result.kind, "failed", host);
+    assert.equal(calls.length, 3);
+    assert.ok(!thumbnailServices(b).some((s) => ["Raindrop", "Google", "DuckDuckGo"].includes(s.service)));
+  }
+});
+
+test("Threads still captures a supplied image or a working preview and respects the daily limit", async () => {
+  const b = bookmark("https://www.threads.com/@author/post/Example");
+  const lookup = deps((url) => url.includes("api.microlink")
+    ? json({ status: "success", data: { image: { url: "https://cdn.example.com/preview.jpg" } } }) : image());
+  const preview = await findThumbnail(b, lookup);
+  assert.equal(preview.kind === "found" && preview.thumbnail.source, "microlink");
+  b.asset = { source: "remote", kind: "image", url: "https://cdn.example.com/manual.jpg" };
+  const cover = await findThumbnail(b, { ...lookup, microlinkUsed: () => assert.fail("the supplied image wins") });
+  assert.equal(cover.kind === "found" && cover.thumbnail.source, "cover");
+  b.asset = undefined;
+  let calls = 0;
+  const exhausted = { ...lookup, microlinkLeft: () => 0, fetch: (async () => { calls++; return image(); }) as typeof fetch };
+  assert.equal((await findThumbnail(b, exhausted)).kind, "failed");
+  assert.equal((await findThumbnail(b, { ...exhausted, whenMicrolinkUsedUp: "wait" })).kind, "waiting");
+  assert.equal(calls, 0);
+  assert.ok(thumbnailServices(bookmark("https://threads.com.example.org/post")).some((s) => s.service === "Raindrop"));
+});
+
 test("bulk lookup waits at the daily limit; individual lookup can continue to screenshot", async () => {
   const calls: string[] = [];
   const d = deps((url) => { calls.push(url); return image(); }, { microlinkLeft: () => 0, whenMicrolinkUsedUp: "wait" });
@@ -189,7 +225,7 @@ test("an import merge and its Undo keep the current thumbnail without a stale ba
   const preview = previewImport(parsed, guessMapping(parsed.headers), current, { delimiter: "|", commonTags: "", initialStatus: "Pending" });
   current = await store.import(w.id, { type: "import.commit", expectedRevision: current.revision, preview,
     decisions: preview.candidates.map((candidate) => ({ row: candidate.row, action: "merge" })), statusMapping: {}, typeMapping: {}, source: "Fixture" });
-  assert.equal(current.batches.at(-1)!.beforeMerged[0].thumbnail, undefined);
+  assert.deepEqual(current.batches.at(-1)!.beforeMerged[0].thumbnail, captured("first"));
   current = await store.setThumbnail(w.id, b.id, captured("second"), { mime: "image/webp", blob: new Blob(["second"]) });
   assert.equal(await store.media("first"), undefined);
   await store.backup(w.id);

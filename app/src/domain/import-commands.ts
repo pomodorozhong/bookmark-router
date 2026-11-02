@@ -1,4 +1,5 @@
 import { ConflictError } from "./commands";
+import { restoredThumbnail, sameImageSource } from "./image-source";
 import {
   defaultAppearance,
   storedUrlKey,
@@ -104,9 +105,7 @@ export function commitImport(
         source.bookmarks.some((b) => b.id === bookmark.id) &&
         !batch.beforeMerged.some((b) => b.id === bookmark.id)
       ) {
-        // Undoing the import keeps the current thumbnail, so the snapshot doesn't need it.
-        const { thumbnail: _thumbnail, ...before } = bookmark;
-        batch.beforeMerged.push(structuredClone(before));
+        batch.beforeMerged.push(structuredClone(bookmark));
         batch.beforeMemberships!.push(
           ...w.memberships.filter((m) => m.bookmarkId === bookmark.id),
         );
@@ -135,6 +134,7 @@ export function commitImport(
       };
       w.bookmarks.push(bookmark);
     }
+    const previousSource = { url: bookmark.url, asset: bookmark.asset };
     if (c.mediaUrl)
       bookmark.asset = {
         source: "remote",
@@ -145,6 +145,7 @@ export function commitImport(
             ? "audio"
             : "image"),
       };
+    if (!sameImageSource(previousSource, bookmark)) delete bookmark.thumbnail;
     for (const name of c.tags) {
       let tag = w.tags.find((t) => t.name === name && t.typeId === typeId);
       if (!tag) {
@@ -211,15 +212,19 @@ export function undoImport(
   for (const id of revert) {
     const before = batch.beforeMerged.find((b) => b.id === id),
       index = w.bookmarks.findIndex((b) => b.id === id);
-    if (before && index >= 0)
+    if (before && index >= 0) {
+      const revision = w.bookmarks[index].revision + 1;
       w.bookmarks[index] = {
         ...before,
-        // Thumbnails aren't edits, so undoing the import keeps the current one.
-        thumbnail: w.bookmarks[index].thumbnail,
-        revision: w.bookmarks[index].revision + 1,
+        thumbnail: restoredThumbnail(before, w.bookmarks[index]),
+        revision,
         updatedAt: new Date().toISOString(),
       };
-    else if (index >= 0) {
+      // A history entry that matched the pre-merge content still matches it after Undo.
+      for (const history of [...w.batches, ...(w.settings.statusHistory ?? [])]) {
+        if (history.afterRevisions[id] === before.revision) history.afterRevisions[id] = revision;
+      }
+    } else if (index >= 0) {
       w.bookmarks.splice(index, 1);
       removed.add(id);
     }

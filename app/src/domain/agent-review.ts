@@ -226,7 +226,9 @@ function stageImport(input: ImportProposalInput, batchTagName?: string): { stage
   if (batchTagName) {
     const declared = tags.find((t) => t.name.trim().toLowerCase() === batchTagName.toLowerCase());
     let ref = declared?.ref ?? "batch-tag";
-    while (!declared && tags.some((t) => t.ref === ref)) ref += "-";
+    // A reviewer-only ref must never resolve an undeclared reference in the agent's input.
+    const usedRefs = new Set([...tags.map((t) => t.ref), ...bookmarks.flatMap((b) => b.tagRefs ?? [])]);
+    while (!declared && usedRefs.has(ref)) ref += "-";
     tags = declared ? tags.map((t) => t === declared ? { ...t, typeId: importTypeId } : t) : [...tags, { ref, name: batchTagName, typeId: importTypeId }];
     bookmarks = bookmarks.map((b) => b.tagRefs?.includes(ref) ? b : { ...b, tagRefs: [...(b.tagRefs ?? []), ref] });
     batchTag = { name: batchTagName, ref: declared ? undefined : ref };

@@ -31,8 +31,11 @@ export function RecordEditor({
   /** Render in the triage detail panel instead of a dialog. */
   inline?: boolean;
 }) {
-  const bookmark = workspace.bookmarks.find((b) => b.id === id),
-    tag = workspace.tags.find((t) => t.id === id),
+  // The form and its expected revision belong to the record opened, even if
+  // another tab removes it. Saving still checks the latest stored revision.
+  const [openedWorkspace] = useState(workspace);
+  const bookmark = openedWorkspace.bookmarks.find((b) => b.id === id),
+    tag = openedWorkspace.tags.find((t) => t.id === id),
     record = (bookmark ?? tag)!;
   const [expectedRecordRevision] = useState(record.revision);
   const [title, setTitle] = useState(bookmark?.title ?? tag?.name ?? ""),

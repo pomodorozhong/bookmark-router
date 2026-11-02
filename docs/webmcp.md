@@ -27,11 +27,15 @@ When the switch is off (the default), the app does not load the polyfill or open
 
 #### Start the relay
 
-Start the relay on the same machine as the browser and MCP client:
+Start the relay on the same machine as the browser and MCP client, using this repository's installed dependencies:
 
 ```bash
-npx @mcp-b/webmcp-local-relay@6.0.2 --widget-origin http://127.0.0.1:5199
+cd app
+npm ci
+npm exec -- webmcp-local-relay --widget-origin http://127.0.0.1:5199
 ```
+
+The lockfile uses Vite 6.4.5 and overrides the relay's pinned transitive dependencies with MCP core/server 2.4.0 and Zod 4.6.7. These address the advisories reported by `npm audit` without changing the relay protocol. Run the installed relay so those overrides apply; a standalone `npx` download uses the upstream dependency pins instead. Keep these overrides until the relay itself adopts patched versions.
 
 Run this way, it lets you check that the page connects. The relay is a stdio MCP server, so for an agent to use the tools, the MCP client must start it with the same arguments; for Claude, see [Claude setup](claude-setup.md#local-relay).
 
