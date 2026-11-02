@@ -2,6 +2,28 @@
 
 ## In progress
 
+### fix/review-followup
+
+- **Task and scope.** The owner selected one draft PR against `main` for all seven earlier repair groups and all nine follow-up fixes. The local layers are available for reviewing individual changes. The duplicate-review feature is a proposal.
+- **Code checkpoint.** The nine cumulative local review branches start at `fix/review-stack` (`a456567`) and end at `7f876bb` on `fix/review-followup`. Each branch is exactly one new commit above the preceding layer. Review each with `git show <commit>`.
+  1. `fix/confirm-collection-revision` · `68f3a1e` · Recheck the reviewed collection revision before deleting.
+  2. `fix/portable-backup-media` · `df63fc3` · Round-trip large attachments and omit unused local media from exports.
+  3. `fix/import-history-revisions` · `7e07744` · Keep the earlier import undoable after reverting a later merge.
+  4. `fix/visible-card-shortcuts` · `2d05fc0` · Keep bookmark shortcuts on the visible card and preserve inline tag drafts.
+  5. `fix/agent-import-tag-review` · `8290984` · Preserve import review selections when toggling the batch tag and reject undeclared references.
+  6. `fix/relay-tab-identity` · `0dac6d2` · Give cloned tabs distinct relay identities across reconnects.
+  7. `fix/tag-type-draft-conflicts` · `9ffad93` · Preserve drafts and newer edits when two tabs change the same tag type.
+  8. `fix/concurrent-graph-layouts` · `ac801b9` · Save each graph arrangement without replacing another tab's pins.
+  9. `fix/tag-type-backup-validation` · `7f876bb` · Reject incomplete tag-type defaults before restore creates a collection.
+- **Verification.** All nine layers passed the production build and full suite. Fresh `npm ci`, build and all 204 tests passed in a clean detached worktree at the final tip. Isolated browser checks covered conflicting deletion, retained tag-type drafts, tag-card and menu shortcuts at desktop and phone widths, agent import review, and distinct relay peers. The copied 148-bookmark collection retained the 116/five-cluster backlog, SCRNSHTS's 19 + 11 split and 209 pairs, Done to 115/six, Undo and pins. Geometry regressions used two IndexedDB connections. Physical touch input was not exercised. The temporary profile and fixture were removed.
+- **Feature proposal.** Compare duplicate candidates side by side, offer Keep both, or carry missing tags to a chosen copy and mark the other Dropped with a single Undo. The 148-bookmark fixture contains two candidate pairs. Proposal only.
+- **Next action.** Publish the combined draft when P-19 is approved. The ignored `.agents/propose-stack/review-followup/draft-combined.md` holds its exact body. The same directory contains the hands-on review steps in `review.md` and the local branch map in `pr-map.md`.
+
+#### Approval requests
+
+- **P-18 — Review the follow-up fixes.** Review the nine fixes above together with P-15's seven earlier groups in the combined PR.
+- **P-19 — Publish one combined draft PR.** “Protect bookmark edits and backups, and fix graph and agent interactions” from `fix/review-followup` into `main`. The application checkpoint is `7f876bb`. The added handoff commit records the combined submission. The body closes #22, #23 and #102 through #108. The owner chose the combined scope in place of the earlier single-fix draft. Publication is pending.
+
 ### fix/review-stack
 
 - **Task:** the owner's review/fix/review goal, grouped into seven independent repair branches from `main` `aec6811`: [#102 Editor/navigation](https://github.com/pomodorozhong/bookmark-router/issues/102), [#103 Images](https://github.com/pomodorozhong/bookmark-router/issues/103) plus [#23 Threads captures](https://github.com/pomodorozhong/bookmark-router/issues/23), [#104 Graph interactions](https://github.com/pomodorozhong/bookmark-router/issues/104) plus [#22 Covered labels](https://github.com/pomodorozhong/bookmark-router/issues/22), [#105 Copy/filter scope](https://github.com/pomodorozhong/bookmark-router/issues/105), [#106 Import/restore](https://github.com/pomodorozhong/bookmark-router/issues/106), [#107 Relay connections](https://github.com/pomodorozhong/bookmark-router/issues/107), and [#108 Dependency security](https://github.com/pomodorozhong/bookmark-router/issues/108). All branches exist locally; the combined worktree is `.worktrees/review-stack`. No PRs or pushes.
@@ -20,9 +42,10 @@
 
 ## Ranked work
 
-1. [#102–#108 Code-review repairs](https://github.com/pomodorozhong/bookmark-router/issues/102), including [#23 Threads captures](https://github.com/pomodorozhong/bookmark-router/issues/23) and [#22 Covered graph labels](https://github.com/pomodorozhong/bookmark-router/issues/22): built on `fix/review-stack` and independent branches; checks passed; review is P-15.
-2. [#27 Claude desktop browser cannot reach the local relay from Pages](https://github.com/pomodorozhong/bookmark-router/issues/27): re-test when the desktop app's local-network policy changes; any optional menu hint needs its own visual review.
+1. Review the nine follow-up fixes on `fix/review-followup` (P-18).
+2. [#102–#108 Code-review repairs](https://github.com/pomodorozhong/bookmark-router/issues/102), including [#23 Threads captures](https://github.com/pomodorozhong/bookmark-router/issues/23) and [#22 Covered graph labels](https://github.com/pomodorozhong/bookmark-router/issues/22): built on `fix/review-stack` and independent branches; checks passed; review is P-15.
+3. [#27 Claude desktop browser cannot reach the local relay from Pages](https://github.com/pomodorozhong/bookmark-router/issues/27): re-test when the desktop app's local-network policy changes; any optional menu hint needs its own visual review.
 
 ## Pending
 
-- **P-06 — Remaining merged-work cleanup.** The owner approved removing `bookmark-router-highlight-batch` and local/remote `feat/highlight-batch` and `feat/tag-highlight`; all were already absent when rechecked on November 1. The other previously listed merged feature branches are also absent. Still unapproved: remove `bookmark-router-untangle` and its local `feat/untangle-connections` branch (its implementation shipped in #97/#98; the worktree retains a dirty handoff), and decide what to retain from `docs/untangle-plan` (local/remote branch; the original checkout has uncommitted `HANDOFF.md` and `docs/untangle-plan.md`). Inspect those edits before any deletion. Nothing is blocked by this cleanup.
+- **P-06 resolved.** On November 2 the owner chose to keep both older Untangle worktrees and their uncommitted edits. The previously approved highlight-branch cleanup was already complete.
