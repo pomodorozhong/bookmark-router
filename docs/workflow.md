@@ -13,6 +13,8 @@ Each change has a GitHub issue and a PR that closes it. One PR may close several
 
 Keep changes small. There are no checkpoint tags, deferred-verification registers, or release gates. [Product](product.md) summarizes current behavior; history lives in closed issues, merged PRs, and [the archive](archive/README.md).
 
+Narrow-width verification covers the compact layout in desktop browser windows and app panes. The owner deferred actual-phone use on November 4, 2026. Check pointer interactions and layout at narrow widths; schedule physical-phone checks and phone-specific enhancements when actual-phone use is requested.
+
 ## How the user likes to work
 
 - Mockup first for anything visual, published as a clickable Artifact; wait for approval. A mockup must work cleanly (no dead controls or layout bugs) and show the user's own use cases, not abstract options, or it can't be judged.
@@ -33,7 +35,7 @@ Local data to keep in mind:
 
 ## Verifying on the real collection
 
-- For in-app browser checks, serve the review worktree on a separate loopback port and create a disposable collection. Two tabs on that origin share storage, which lets you test a stale confirmation or edit. A 390 px viewport tests node selection in both graph views. Use a physical phone for a real two-finger pinch. For repeatable layout and timing checks on the full copied collection, use headless Chrome with a throwaway `--user-data-dir`.
+- For in-app browser checks, serve the review worktree on a separate loopback port and create a disposable collection. Two tabs on that origin share storage, which lets you test a stale confirmation or edit. A 390 px desktop viewport tests compact layout and pointer selection in both graph views. For repeatable layout and timing checks on the full copied collection, use headless Chrome with a throwaway `--user-data-dir`.
 - To load data: run `npm run convert -- ../bookmarks-working.json node_modules/.tmp-verify/bk.json` in `app/` (Vite serves files under `node_modules/`), then in the page fetch it, set it on the import screen's file input with a `DataTransfer`, choose Workspace JSON → Read source → Confirm restore. Delete the copy afterwards.
 - Create `node_modules/.tmp-verify` before converting; the script does not create it.
 - Let the graph finish placing at desktop width before emulating a narrow one. Resizing while it shows "Placing your collection…" left it stuck in headless runs (on `main` too; not seen in a real browser). Use the **Whole collection** button to fit it to the new width.

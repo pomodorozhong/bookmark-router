@@ -12,6 +12,8 @@ What Bookmark & Tag is for, what it deliberately leaves out, and how it behaves 
 
 ## Scope boundaries
 
+The compact layout supports narrow viewports, including desktop browser windows and app panes. On November 4, 2026, the owner deferred actual-phone use, physical-phone verification, and phone-specific enhancements. Continue checking layout and pointer interactions at narrow desktop widths.
+
 | Feature | Decision |
 |---|---|
 | Graph, import wizard, backup/restore, current Undo | Keep; fix bugs as found. |
