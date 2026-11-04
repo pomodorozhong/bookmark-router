@@ -24,6 +24,10 @@ Narrow-width verification covers the compact layout in desktop browser windows a
 - Small changes, each closing one issue or a few closely related ones, ending with 2–4 short "You try" tasks whose result is recorded on the issue; verify on the user's real collection before reporting; conventional commits split by concern.
 - The user runs the dev server themselves at `http://127.0.0.1:5199` (`.claude/launch.json` can start it too); their collections live in that origin's browser storage.
 
+## Historical branch recovery
+
+The retired Untangle branches and their local documentation edits are preserved on the original machine in `.git/archives/untangle-2026-11-04/`. The archive contains a Git bundle, working patches and exact file copies, the built preview, its previous launch configuration, checksums, and restoration instructions in `RESTORE.md`. Restoration was verified before the branches and sibling feature checkout were removed. This archive is local and is excluded from remote publication. Current behavior and design decisions are covered by [Untangle](untangle.md) and [Map canvas redesign](map-canvas-redesign.md).
+
 ## Test data
 
 Use the user's `bookmarks-working.json` (148 bookmarks, git-ignored), converted by `npm run convert` in `app/` and loaded through **Restore backup**. The backup contains 15 Existing issue, 6 Proposal issue, and 29 Topic tags, with 240 memberships from decided and suggested placements. Pending/done/dropped statuses, membership reasons, duplicate groups, link-check warnings, and original Raindrop fields are retained. [The app guide](../app/README.md) explains upgrading backups from before the rename.
