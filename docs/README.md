@@ -14,4 +14,4 @@ Updated October 30, 2026. Rounds 0–4 are approved and round 1.5 is skipped.
 
 ## Agent workflow
 
-[AGENTS.md](../AGENTS.md) describes how agents work here: GitHub issues hold the work, [`HANDOFF.md`](../HANDOFF.md) ranks them and records where each branch stands, and this folder holds lasting knowledge.
+[AGENTS.md](../AGENTS.md) describes how agents work here: GitHub issues hold the work and this folder holds lasting knowledge.
