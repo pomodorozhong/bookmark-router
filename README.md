@@ -4,7 +4,7 @@ A local-first workspace for triaging bookmarks into project ideas, organized wit
 
 - [Documentation](docs/README.md)
 - [Product scope and current behavior](docs/product.md)
-- [Work in progress and open items](HANDOFF.md)
+- [Work in progress and open items](https://github.com/pomodorozhong/bookmark-router/issues)
 - [App setup and usage](app/README.md)
 
 ```sh

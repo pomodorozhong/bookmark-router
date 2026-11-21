@@ -1,6 +1,6 @@
 # Product
 
-What Bookmark & Tag is for, what it deliberately leaves out, and how it behaves today. Work in progress and known gaps are in [HANDOFF.md](../HANDOFF.md) and GitHub issues; v1's build history is in [the v1 rounds](archive/v1-rounds.md).
+What Bookmark & Tag is for, what it deliberately leaves out, and how it behaves today. Work in progress and known gaps are in GitHub issues; v1's build history is in [the v1 rounds](archive/v1-rounds.md).
 
 ## What the app is for
 
